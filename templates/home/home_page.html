@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load static wagtailcore_tags wagtailimages_tags %}
+
+{% block title %}{{ SITE_TITLE }}{% endblock %}
+{% block title_suffix %}{% endblock %}
+
+{% block content %}
+  <article class="grid hero">
+    <div style="display:flex;align-items:center;justify-content:center">
+      {% if page.hero_image %}
+        {% image page.hero_image max-500x600 alt="Black Python Devs logo" style="max-width: 14rem; max-height:18rem; filter: drop-shadow(0 4px 40px var(--bpd-gold-wash));" %}
+      {% else %}
+        <img style="max-width: 14rem; max-height:18rem; filter: drop-shadow(0 4px 40px var(--bpd-gold-wash));"
+             src="{% static 'images/bpd_stacked.png' %}" alt="Black Python Devs logo" />
+      {% endif %}
+    </div>
+    <div style="display:flex;align-items:center">
+      <h1 class="hero-text">{{ page.hero_heading }}</h1>
+    </div>
+  </article>
+
+  {% include_block page.body %}
+
+  {% if page.show_latest_posts and latest_posts %}
+    <section class="principles">
+      <h2>{{ page.latest_posts_heading }}</h2>
+      <div class="grid hero-section">
+        {% for post in latest_posts %}
+          <article>
+            <header><h3><a href="{% pageurl post %}">{{ post.title }}</a></h3></header>
+            {% if post.description %}<p>{{ post.description }}</p>{% endif %}
+            <small>{{ post.date|date:"d M Y" }}</small>
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  {% if page.show_sponsors %}{% include "includes/sponsors.html" %}{% endif %}
+{% endblock %}

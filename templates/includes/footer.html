@@ -1,0 +1,45 @@
+{% load wagtailsettings_tags %}
+{% get_settings use_default_site=True as site_settings %}
+{% with social=site_settings.core.SocialSettings %}
+<footer role="contentinfo">
+  <div class="wrapper">
+    <div class="footer-grid">
+      <div class="footer-col">
+        <h3>About us</h3>
+        <p>{{ site_settings.core.FooterSettings.about_text }}</p>
+      </div>
+
+      <div class="footer-col">
+        <h3>Quick link</h3>
+        <ul>
+          <li><a href="/about/">About Us</a></li>
+          <li><a href="/events/">Events</a></li>
+          <li><a href="/support/">Support</a></li>
+          <li><a href="/code-of-conduct/">Code of Conduct</a></li>
+          <li><a href="/student-ambassador-program/">BPD Students Ambassador Program</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h3>Contact Us</h3>
+        <address>
+          <p>Email: <a href="mailto:{{ social.contact_email }}">{{ social.contact_email }}</a></p>
+        </address>
+        <nav aria-label="Social media">
+          <ul class="social-links">
+            {% if social.discord_url %}<li><a href="{{ social.discord_url }}" target="_blank" rel="me noopener" title="Discord"><i class="iconoir-discord" aria-hidden="true"></i></a></li>{% endif %}
+            {% if social.linkedin_url %}<li><a href="{{ social.linkedin_url }}" target="_blank" rel="me noopener" title="LinkedIn"><i class="iconoir-linkedin" aria-hidden="true"></i></a></li>{% endif %}
+            {% if social.x_url %}<li><a href="{{ social.x_url }}" target="_blank" rel="me noopener" title="Twitter/X"><i class="iconoir-x" aria-hidden="true"></i></a></li>{% endif %}
+            {% if social.instagram_url %}<li><a href="{{ social.instagram_url }}" target="_blank" rel="me noopener" title="Instagram"><i class="iconoir-instagram" aria-hidden="true"></i></a></li>{% endif %}
+            {% if social.github_url %}<li><a href="{{ social.github_url }}" target="_blank" rel="me noopener" title="GitHub"><i class="iconoir-github" aria-hidden="true"></i></a></li>{% endif %}
+          </ul>
+        </nav>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <small>&copy; {{ current_year }} Black Python Devs</small>
+    </div>
+  </div>
+</footer>
+{% endwith %}

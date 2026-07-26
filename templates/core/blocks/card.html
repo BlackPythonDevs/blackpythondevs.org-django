@@ -1,0 +1,5 @@
+<article>
+  <header><h3>{{ value.heading }}</h3></header>
+  {{ value.text|safe }}
+  {% if value.link_url %}<p><a href="{{ value.link_url }}">{{ value.link_text|default:"Learn More" }}</a></p>{% endif %}
+</article>

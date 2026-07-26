@@ -1,0 +1,88 @@
+{
+  "Executors": [
+    {
+      "name": "Jay Miller",
+      "title": "Executor (Global)",
+      "image": "https://github.com/kjaymiller.png",
+      "alt": "photo of Jay Miller"
+    },
+    {
+      "name": "Nick Muoh",
+      "title": "Executor (US/Canada)",
+      "image": "/assets/images/nick-muoh.webp",
+      "alt": "photo of Nick Muoh"
+    },
+    {
+      "name": "Denny Perez",
+      "title": "Executor (LATAM)",
+      "image": "/assets/images/denny-perez.webp",
+      "alt": "photo of Denny Perez"
+    },
+    {
+      "name": "Emmanuel Ugwu",
+      "title": "Executor (Africa)",
+      "image": "/assets/images/nuel.webp",
+      "alt": "photo of Emmanuel Ugwu"
+    },
+    {
+      "name": "Damilola Oladele",
+      "title": "Executor (Africa - Western)",
+      "alt": "photo of Damilola Oladele",
+      "image": "/assets/images/Damilola_Oladele.webp"
+    },
+    {
+      "name": "Kudzayi Bamhare",
+      "alt": "photo of Kudzayi Bamhare",
+      "title": "Executor (Africa Southern)",
+      "image": "/assets/images/kudzayi-bamhare.webp"
+    },
+    {
+      "name": "Brayan Kai",
+      "title": "Executor (Africa - Eastern)",
+      "image": "/assets/images/brayan-kai.webp",
+      "alt": "photo of Brayan Kai"
+    }
+  ],
+  "Leaders": [
+    {
+      "name": "Damilola Oladele",
+      "title": "Documentation Lead"
+    },
+    {
+      "name": "Doreen Nangira",
+      "title": "Code of Conduct Team Lead"
+    },
+    {
+      "name": "Sandra Ashipala",
+      "title": "Welcoming Team"
+    }
+  ],
+  "Advisors": ["Benedict Koji Amofah", "Ronald Maravanyika", "Kojo Idrissa", "Carol Willing", "Jeff Triplett", "Dr. Kari L. Jordan"],
+  "Council": [
+    "Dawn Wages",
+    "Sarah Abderemane",
+    "Abigail Mesyenrame Dogbe",
+    "Velda Kiara",
+    "Kojo Idrissa",
+    "Aisha Bello",
+    "Brayan Kai",
+    "Chris Achinga",
+    "Denny Perez",
+    "Edmond Makolle",
+    "Ezra Yendau",
+    "Felipe Quieroz",
+    "Kudzayi Bamhare",
+    "Marlene Mhangami",
+    "Monica Oyugi",
+    "Ngazetungue Muheue",
+    "Steve Yonkeu",
+    "BAOVOLA Marie Anna",
+    "Nevin Godfrey",
+    "Lazouich Ford",
+    "Abigail Afi Gbadago",
+    "Israel Abiona",
+    "Ariane Djeupang",
+    "Gertrude Abagale",
+    "Valentina Ariza G\u00f3mez"
+  ]
+}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% comment %}
+Root layout for every django-allauth template.
+
+Overriding this one file gives site chrome to all allauth flows — login, signup,
+sign-in codes, email verification and management, social connections — without
+touching `{% block content %}`, which allauth's own templates fill. Overriding
+`account/base_entrance.html` instead would collide with that block and drop the
+stock templates out of the site design.
+{% endcomment %}
+
+{% block body_class %}auth-page{% endblock %}
+
+{% block title %}{% block head_title %}Account{% endblock %}{% endblock %}

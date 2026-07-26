@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load socialaccount %}
+
+{% block title %}Member area{% endblock %}
+
+{% block content %}
+  <section>
+    <h1>Welcome{% if user.display_name %}, {{ user.display_name }}{% endif %}</h1>
+    <p class="lead">You're signed in as <strong>{{ user.email }}</strong>.</p>
+  </section>
+
+  <section class="auth-panel">
+    <h2>Discord access</h2>
+
+    {% if discord_account %}
+      <p>
+        Connected as
+        <strong>{{ discord_account.extra_data.username|default:discord_account.uid }}</strong>.
+      </p>
+      {% if discord_role_enabled %}
+        <p>You've been given the member role, so you can post in the community server.</p>
+      {% else %}
+        <p>Head to the server to join the conversation:</p>
+      {% endif %}
+      <p>
+        <a role="button" class="btn-discord" href="{{ discord_invite_url }}" target="_blank" rel="noopener">
+          <i class="iconoir-discord" aria-hidden="true"></i>
+          <span>Open Discord</span>
+        </a>
+      </p>
+      <p class="auth-links">
+        <a href="{% url 'socialaccount_connections' %}">Disconnect this account</a>
+      </p>
+    {% elif discord_login_available %}
+      <p>
+        Connect your Discord account to get the member role in our server
+        {% if discord_role_enabled %}, which is what lets you post there{% endif %}.
+      </p>
+      <form method="post" action="{% provider_login_url 'discord' process='connect' next='/members/' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn-discord-submit">Connect Discord</button>
+      </form>
+    {% else %}
+      <p>Discord sign-in isn't available right now. Check back soon.</p>
+    {% endif %}
+  </section>
+
+  <section class="auth-panel">
+    <h2>Your account</h2>
+    <ul>
+      <li><a href="{% url 'account_email' %}">Manage email addresses</a></li>
+      <li><a href="{% url 'socialaccount_connections' %}">Connected accounts</a></li>
+      <li><a href="{% url 'account_logout' %}">Sign out</a></li>
+    </ul>
+    {% if user.is_staff %}<p><a href="/cms/">Open the CMS</a></p>{% endif %}
+  </section>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags wagtailimages_tags %}
+
+{% block social_meta %}
+  <meta property="og:site_name" content="{{ SITE_TITLE }}" />
+  <meta property="og:title" content="{{ page.title }}" />
+  <meta property="og:type" content="article" />
+  <meta property="article:published_time" content="{{ page.date|date:'c' }}" />
+  {% with card=page.social_image|default:page.featured_image %}
+    {% if card %}
+      {% image card fill-1200x630 as og_img %}
+      <meta property="og:image" content="{{ og_img.full_url }}" />
+      <meta name="twitter:card" content="summary_large_image" />
+    {% endif %}
+  {% endwith %}
+{% endblock %}
+
+{% block content %}
+  <section class="container">
+    <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+      <header class="post-header" style="margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--bpd-border);">
+        <h1 class="post-title p-name" itemprop="name headline">{{ page.title }}</h1>
+        <p class="post-meta" style="color: var(--bpd-muted); font-size: .9rem;">
+          {% for author in page.authors.all %}
+            <span class="p-author h-card" itemprop="author">{{ author.name }}</span>{% if not forloop.last %}, {% endif %}
+          {% endfor %}
+          {% if page.authors.all %}&middot; {% endif %}
+          <time datetime="{{ page.date|date:'Y-m-d' }}" itemprop="datePublished">{{ page.date|date:"d M Y" }}</time>
+        </p>
+      </header>
+
+      {% if page.featured_image %}
+        {% image page.featured_image width-1200 class="featured-image" style="border-radius:10px; margin-bottom:2rem;" alt=page.title %}
+      {% endif %}
+
+      <div class="post-content e-content" itemprop="articleBody" style="font-size: 1.05rem; line-height: 1.82;">
+        {% include_block page.body %}
+      </div>
+
+      {% if page.tags.all %}
+        <p style="margin-top:2rem;">
+          {% for tag in page.tags.all %}
+            <a role="button" href="{% pageurl page.get_parent %}?tag={{ tag.slug }}">#{{ tag.name }}</a>
+          {% endfor %}
+        </p>
+      {% endif %}
+    </article>
+  </section>
+
+  <section>
+    {% for author in page.authors.all %}
+      {% if author.bio %}
+        <article style="border-left: 3px solid var(--bpd-gold); margin-top: 2rem;">
+          <h3 style="margin-bottom: .5rem;">About {{ author.name }}</h3>
+          <p style="color: var(--bpd-muted);">{{ author.bio }}</p>
+        </article>
+      {% endif %}
+    {% endfor %}
+  </section>
+{% endblock %}

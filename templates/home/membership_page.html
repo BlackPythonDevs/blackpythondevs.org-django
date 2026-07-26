@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags %}
+
+{% block content %}
+  <section class="membership-intro">
+    <h1>{{ page.title }}</h1>
+    {% if page.introduction %}<p class="lead">{{ page.introduction }}</p>{% endif %}
+  </section>
+
+  {% if user.is_authenticated %}
+    <section class="auth-panel">
+      <h2>You're already a member</h2>
+      <p>You're signed in as <strong>{{ user.email }}</strong>.</p>
+      <p><a role="button" href="{% url 'members' %}">Go to your member area</a></p>
+    </section>
+  {% else %}
+    <section class="auth-panel" id="join">
+      <h2>{{ page.form_heading }}</h2>
+      {% if page.form_help_text %}<p class="auth-intro">{{ page.form_help_text }}</p>{% endif %}
+
+      <form method="post" action="{% url 'account_signup' %}">
+        {% csrf_token %}
+        {{ signup_form.as_p }}
+        <input type="hidden" name="next" value="{% url 'members' %}" />
+        <button type="submit">Join Black Python Devs</button>
+      </form>
+
+      <p class="auth-links">Already a member? <a href="{% url 'account_login' %}">Sign in</a>.</p>
+    </section>
+  {% endif %}
+
+  {% if page.body %}
+    <section>
+      {% if page.benefits_heading %}<h2>{{ page.benefits_heading }}</h2>{% endif %}
+      {% include_block page.body %}
+    </section>
+  {% endif %}
+
+  <section>
+    <h2>{{ page.discord_heading }}</h2>
+    {% if page.discord_body %}{{ page.discord_body|richtext }}{% endif %}
+    {% if user.is_authenticated %}
+      <p><a role="button" class="btn-discord" href="{% url 'members' %}">
+        <i class="iconoir-discord" aria-hidden="true"></i>
+        <span>Connect your Discord account</span>
+      </a></p>
+    {% else %}
+      <p>Once you've joined, you can connect your Discord account from your member area
+        to get posting access in the community server.</p>
+    {% endif %}
+  </section>
+{% endblock %}

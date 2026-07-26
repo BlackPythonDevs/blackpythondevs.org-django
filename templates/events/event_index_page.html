@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags %}
+
+{% block content %}
+  <article>
+    <section>
+      <h1>{{ page.title }}</h1>
+      {% if page.introduction %}<p>{{ page.introduction }}</p>{% endif %}
+      {% include_block page.body %}
+    </section>
+
+    {% if bpd_events %}
+      <section>
+        <h2>BPD Organized Events</h2>
+        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 320px))">
+          {% for event in bpd_events %}
+            <div class="card" style="padding: 1.25rem 1.5rem">
+              <a href="{% pageurl event %}">{{ event.title }}</a>
+              {% if event.start_date %}<br /><small style="color:var(--bpd-muted);">{{ event.start_date|date:"d M Y" }}</small>{% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    {% if sponsored_by_year %}
+      <section>
+        <h2>Events Sponsored by year</h2>
+        <p><em>Note: Some events listed here are community sponsorships in which no money was transferred between
+          parties. These reflect partnerships where Black Python Devs contributed visibility, volunteer time, or
+          other non-monetary support.</em></p>
+        {% for year, regions in sponsored_by_year %}
+          <details {% if year == current_year %}open{% endif %}>
+            <summary>{{ year }}</summary>
+            <section class="grid">
+              {% for region, entries in regions %}
+                <article>
+                  <h3>{{ region }}</h3>
+                  {% for entry in entries %}
+                    <p>
+                      {% if entry.url %}<a href="{{ entry.url }}">{{ entry.name }}</a>{% else %}{{ entry.name }}{% endif %}
+                      {% if not entry.paid %}<span class="badge badge-community" title="Non-monetary community sponsorship">community</span>{% endif %}
+                    </p>
+                  {% endfor %}
+                </article>
+              {% endfor %}
+            </section>
+          </details>
+          <hr />
+        {% endfor %}
+      </section>
+    {% endif %}
+
+    {% if page.meetups_body %}
+      <section>
+        <h2>{{ page.meetups_heading }}</h2>
+        <p>{{ page.meetups_body }}</p>
+      </section>
+    {% endif %}
+
+    {% if page.grants_note %}
+      <section><p>{{ page.grants_note|urlize }}</p></section>
+    {% endif %}
+  </article>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% comment %}
+CommitChange embedded donation form. The script injects an iframe that ships
+without a title, so we add one for screen readers once it appears.
+{% endcomment %}
+<a class="commitchange-donate"
+   data-amounts="{% firstof page.donation_amounts '15,25,50,100,250,500' %}"
+   data-embedded=""></a>
+<script>
+  (function () {
+    if (document.getElementById("commitchange-script")) return;
+    var script = document.createElement("script");
+    var first = document.getElementsByTagName("script")[0];
+    script.setAttribute("data-npo-id", "{% firstof page.commitchange_npo_id '6464' %}");
+    script.id = "commitchange-script";
+    script.src = "https://us.commitchange.com/js/donate-button.v2.js";
+    first.parentNode.insertBefore(script, first);
+
+    setTimeout(function () {
+      var iframe = document.querySelector(".commitchange-iframe-embedded");
+      if (iframe && !iframe.hasAttribute("title")) {
+        iframe.setAttribute("title", "Donation form for Black Python Devs");
+        iframe.setAttribute("aria-label", "Donation form for Black Python Devs");
+      }
+    }, 1000);
+  })();
+</script>

@@ -1,0 +1,24 @@
+{% load static wagtailimages_tags %}
+{% if sponsors %}
+<section>
+  <h3>Corporate Sponsors</h3>
+  <div class="grid">
+    {% for sponsor in sponsors %}
+      <article class="sponsor">
+        <a href="{{ sponsor.url }}" target="_blank" rel="noopener">
+          {% if sponsor.logo %}
+            {% image sponsor.logo height-64 alt=sponsor.name|add:" logo" style="height: 2rem" %}
+          {% elif sponsor.logo_static_path %}
+            <img src="{% static sponsor.logo_static_path %}" alt="{{ sponsor.name }} logo" style="height: 2rem" />
+          {% else %}
+            <span>{{ sponsor.name }}</span>
+          {% endif %}
+        </a>
+      </article>
+    {% endfor %}
+    <article>
+      <p><a href="/corporate-sponsorships/">Learn more about corporate sponsorships</a></p>
+    </article>
+  </div>
+</section>
+{% endif %}

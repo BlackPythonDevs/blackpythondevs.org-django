@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags wagtailimages_tags %}
+
+{% block content %}
+  <article>
+    {% if page.banner %}
+      {% image page.banner width-1600 alt=page.title style="border-radius:10px; margin-bottom:2rem;" %}
+    {% endif %}
+
+    <header>
+      <h1>{{ page.title }}</h1>
+      <p style="color: var(--bpd-muted);">
+        {% if page.start_date %}
+          <strong>
+            {{ page.start_date|date:"d M Y" }}{% if page.end_date and page.end_date != page.start_date %} – {{ page.end_date|date:"d M Y" }}{% endif %}
+          </strong>
+        {% endif %}
+        {% if page.location %}<br /><strong>{{ page.location }}</strong>{% endif %}
+      </p>
+    </header>
+
+    {% if page.description %}<p class="lead">{{ page.description }}</p>{% endif %}
+
+    {% include_block page.body %}
+
+    {% if page.tito_event %}
+      <section>
+        <h2>Tickets</h2>
+        <tito-widget event="{{ page.tito_event }}"></tito-widget>
+      </section>
+    {% endif %}
+
+    {% if page.commitchange_campaign_id %}
+      <section>
+        <h2>Support this event</h2>
+        {% include "includes/donate_widget.html" %}
+      </section>
+    {% endif %}
+
+    {% regroup page.sponsors.all by get_tier_display as sponsor_tiers %}
+    {% if sponsor_tiers %}
+      <section>
+        <h2>Event Sponsors</h2>
+        {% for tier in sponsor_tiers %}
+          <h3>{{ tier.grouper }}</h3>
+          <div class="grid">
+            {% for sponsor in tier.list %}
+              <article class="sponsor">
+                <a href="{{ sponsor.url }}" target="_blank" rel="noopener">
+                  {% if sponsor.logo %}
+                    {% image sponsor.logo max-300x120 alt=sponsor.name|add:" logo" %}
+                  {% else %}{{ sponsor.name }}{% endif %}
+                </a>
+              </article>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </section>
+    {% endif %}
+
+    {% if page.prospectus_url %}
+      <p><a href="{{ page.prospectus_url }}" target="_blank" rel="noopener">Read the sponsorship prospectus</a></p>
+    {% endif %}
+  </article>
+{% endblock %}
+
+{% block extra_js %}
+  {% if page.tito_event %}
+    <script src="https://js.tito.io/v2" async></script>
+  {% endif %}
+{% endblock %}

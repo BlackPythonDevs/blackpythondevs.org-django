@@ -1,0 +1,44 @@
+{% load static wagtailsettings_tags %}
+{% get_settings use_default_site=True as site_settings %}
+<header class="site-header" role="banner">
+  <h1 class="site-title">
+    <a class="logo-text" href="/">
+      <img src="{% static 'images/black_python_devs_logo-horizontal-white.png' %}" alt="Black Python Devs" />
+    </a>
+  </h1>
+
+  <nav class="site-navigation" aria-label="Main navigation">
+    <div class="site-navigation-wrap">
+      <ul class="menu" role="menu">
+        {% for item in site_settings.core.NavigationSettings.menu_items.all %}
+          <li class="menu-item {% if request.path == item.url %}nav-current{% endif %}" role="menuitem">
+            <a class="{% if request.path == item.url %}nav-current{% endif %}" href="{{ item.url }}">
+              {% if item.icon %}<i class="{{ item.icon }}" aria-hidden="true"></i>&nbsp;{% endif %}{{ item.text }}
+            </a>
+          </li>
+        {% endfor %}
+
+        <li class="menu-item" role="menuitem">
+          {% if request.user.is_authenticated %}
+            <a href="{% url 'members' %}"><i class="iconoir-user" aria-hidden="true"></i>&nbsp;My account</a>
+          {% else %}
+            <a href="/become-a-member/"><i class="iconoir-user-plus" aria-hidden="true"></i>&nbsp;Become a Member</a>
+          {% endif %}
+        </li>
+      </ul>
+
+      <button id="menu-close" class="menu-toggle">
+        <span class="screen-reader-text">Close Menu</span>
+        <span class="icon-close" aria-hidden="true"></span>
+      </button>
+    </div>
+  </nav>
+
+  <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark/light mode" title="Toggle dark/light mode">
+    <i class="iconoir-sun-light" aria-hidden="true"></i>
+  </button>
+  <button id="menu-open" class="menu-toggle">
+    <span class="screen-reader-text">Open Menu</span>
+    <span class="icon-menu" aria-hidden="true"></span>
+  </button>
+</header>

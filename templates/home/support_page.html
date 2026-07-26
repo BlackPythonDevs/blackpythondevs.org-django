@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% load static wagtailcore_tags wagtailimages_tags %}
+
+{% block content %}
+  <section>
+    <h1>{{ page.title }}</h1>
+    {% include_block page.body %}
+  </section>
+
+  {% if page.show_donate_widget %}
+    <section id="support">
+      <article>
+        <div class="grid">
+          <div>{% include "includes/donate_widget.html" %}</div>
+          <div>
+            <img class="donation-photo" src="{% static 'images/gnome_powered_bpd_stacked.png' %}"
+                 alt="Black Python Devs logo with GNOME Foundation sponsorship" />
+          </div>
+        </div>
+        <small>Black Python Devs is a Non-Profit, fiscally hosted under the GNOME Foundation. GNOME does take a
+          percentage for operating costs for our account and administration but at least 90% of proceeds goes
+          directly to the Black Python Devs General Purpose Fund.</small>
+      </article>
+    </section>
+  {% endif %}
+
+  {% if page.show_partnerships and partners %}
+    <section>
+      <h2 id="partnerships">Partnerships</h2>
+      <p>Black Python Devs has partnered with the following organizations to offer discounts and benefits to our community.</p>
+      <div class="grid">
+        {% for partner in partners %}
+          <article class="card">
+            <header>
+              <a href="{{ partner.url }}">
+                {% if partner.logo %}
+                  {% image partner.logo max-300x120 alt=partner.name|add:" logo" style="max-height: 80px; object-fit: contain" %}
+                {% elif partner.logo_static_path %}
+                  <img src="{% static partner.logo_static_path %}" alt="{{ partner.name }} logo" style="max-height: 80px; object-fit: contain" />
+                {% endif %}
+              </a>
+            </header>
+            <h3><a href="{{ partner.url }}">{{ partner.name }}</a></h3>
+            {{ partner.description|richtext }}
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  {% if page.show_foundational_supporters and supporters_by_year %}
+    <section>
+      <h2>Foundational Supporters</h2>
+      <p>Black Python Devs operates primarily on support from individuals. It is those supporters that serve as the foundation for what we do.</p>
+      <p>We would like to recognize our supporters who donate at least $200 each year.</p>
+      {% for year, names in supporters_by_year %}
+        <details {% if year == current_year %}open{% endif %}>
+          <summary>{{ year }}</summary>
+          <ul>{% for name in names %}<li>{{ name }}</li>{% endfor %}</ul>
+        </details>
+      {% endfor %}
+      <p>* <sub>Those who marked their desire to remain anonymous have not been included.</sub></p>
+    </section>
+  {% endif %}
+
+  {% if page.show_sponsors %}{% include "includes/sponsors.html" %}{% endif %}
+
+  {% if page.pitch_deck_url %}
+    <section>
+      <h2>Learn More about Supporting</h2>
+      <div style="position: relative; width: 100%; height: 0; padding-top: 56.25%; overflow: hidden; border-radius: 8px;">
+        <iframe loading="lazy" title="Black Python Devs support information"
+                style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; border: none;"
+                src="{{ page.pitch_deck_url }}" allowfullscreen allow="fullscreen"></iframe>
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

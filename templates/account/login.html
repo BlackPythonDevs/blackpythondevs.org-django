@@ -1,0 +1,30 @@
+{% extends "account/base_entrance.html" %}
+
+{% block head_title %}Sign in{% endblock %}
+
+{% comment %}
+No social provider buttons here on purpose: email codes are the only way in.
+Discord is a connection members make after joining, not a sign-in method.
+{% endcomment %}
+
+{% block content %}
+  <section class="auth-panel">
+    <h1>Sign in</h1>
+    <p class="auth-intro">
+      Enter your email and we'll send you a sign-in code. There's no password to remember.
+    </p>
+
+    <form method="post" action="{% url 'account_request_login_code' %}">
+      {% csrf_token %}
+      {{ form.as_p }}
+      {% if redirect_field_value %}
+        <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+      {% endif %}
+      <button type="submit">Email me a sign-in code</button>
+    </form>
+
+    <p class="auth-links">
+      Not a member yet? <a href="/become-a-member/">Become a member</a>.
+    </p>
+  </section>
+{% endblock %}

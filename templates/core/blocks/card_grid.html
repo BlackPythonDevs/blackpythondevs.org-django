@@ -1,0 +1,13 @@
+<section class="principles">
+  {% if value.heading %}<h2>{{ value.heading }}</h2>{% endif %}
+  <div class="grid hero-section">
+    {% for card in value.cards %}
+      <article>
+        <header><h3>{{ card.heading }}</h3></header>
+        {{ card.text|safe }}
+        {% if card.link_url %}<p><a href="{{ card.link_url }}">{{ card.link_text|default:"Learn More" }}</a></p>{% endif %}
+      </article>
+    {% endfor %}
+  </div>
+  {% if value.link_url %}<p><a href="{{ value.link_url }}">{{ value.link_text|default:"Learn More" }}</a></p>{% endif %}
+</section>

@@ -1,0 +1,67 @@
+name: blackpythondevs
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bpd}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bpd}
+      POSTGRES_DB: ${POSTGRES_DB:-bpd}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bpd} -d ${POSTGRES_DB:-bpd}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    command: valkey-server --save 60 1 --loglevel warning
+    volumes:
+      - valkey_data:/data
+    ports:
+      - "${VALKEY_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      target: dev
+    command: python manage.py runserver 0.0.0.0:8000
+    environment:
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-bpd.settings.dev}
+      DATABASE_URL: postgres://${POSTGRES_USER:-bpd}:${POSTGRES_PASSWORD:-bpd}@db:5432/${POSTGRES_DB:-bpd}
+      VALKEY_URL: redis://valkey:6379/0
+      SECRET_KEY: ${SECRET_KEY:-django-insecure-dev-only-not-for-production}
+      DEBUG: ${DEBUG:-True}
+      WAGTAILADMIN_BASE_URL: ${WAGTAILADMIN_BASE_URL:-http://localhost:8000}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:-}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
+      DISCORD_MEMBER_ROLE_ID: ${DISCORD_MEMBER_ROLE_ID:-}
+      DISCORD_INVITE_URL: ${DISCORD_INVITE_URL:-https://discord.gg/XUc3tFqCT3}
+    volumes:
+      # Bind-mount the source for live reload; keep media on a named volume so
+      # uploads survive rebuilds (production sends these to object storage).
+      - .:/app
+      - media_data:/app/media
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  valkey_data:
+  media_data:

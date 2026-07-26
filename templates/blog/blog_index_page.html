@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags wagtailimages_tags %}
+
+{% block content %}
+  <section>
+    <h1>{{ page.title }}</h1>
+    {% if page.introduction %}<p class="lead">{{ page.introduction }}</p>{% endif %}
+    {% if active_tag %}<p>Filtered by tag: <strong>{{ active_tag }}</strong> — <a href="{% pageurl page %}">clear</a></p>{% endif %}
+
+    {% for post in posts %}
+      <article class="card grid" style="align-items: center; gap: 2rem;">
+        {% if post.featured_image %}
+          <div>{% image post.featured_image fill-640x420 class="featured-image" style="width:100%; border-radius: 10px; object-fit:cover;" alt=post.title %}</div>
+        {% endif %}
+        <div>
+          <h2 style="margin-bottom: .4rem;"><a href="{% pageurl post %}">{{ post.title }}</a></h2>
+          {% if post.description %}<p style="color: var(--bpd-muted); margin-bottom: .6rem;">{{ post.description }}</p>{% endif %}
+          <small>
+            {% for author in post.authors.all %}{{ author.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+            {% if post.authors.all %}<span style="color:var(--bpd-faint);">&middot;</span>{% endif %}
+            <strong>{{ post.date|date:"d M Y" }}</strong>
+          </small>
+        </div>
+      </article>
+    {% empty %}
+      <p>No posts yet.</p>
+    {% endfor %}
+  </section>
+
+  {% if posts.paginator.num_pages > 1 %}
+    <section>
+      <div role="group" style="display:flex; align-items:center; justify-content:center; gap:.5rem; flex-wrap:wrap; margin-top: 2rem;">
+        <span style="color:var(--bpd-muted); font-weight:500; margin-right:.5rem;">Pages:</span>
+        {% for num in posts.paginator.page_range %}
+          <a role="button" {% if num == posts.number %}aria-current="page" disabled{% endif %}
+             href="?page={{ num }}{% if active_tag %}&tag={{ active_tag }}{% endif %}">{{ num }}</a>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

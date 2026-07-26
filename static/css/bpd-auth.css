@@ -1,0 +1,227 @@
+/* ==========================================================
+   Black Python Devs — account & membership screens
+
+   Kept separate from bpd.css so the ported design system stays
+   byte-for-byte comparable with the static site. Uses the same
+   tokens from pico.colors.min.css, so it themes automatically.
+   ========================================================== */
+
+.auth-panel {
+  max-width: 34rem;
+  margin: 2.5rem auto;
+  padding: 2rem;
+  background: var(--bpd-raised);
+  border: 1px solid var(--bpd-border);
+  border-radius: 12px;
+}
+
+.auth-page main .auth-panel {
+  margin-top: 3.5rem;
+}
+
+.auth-panel h1,
+.auth-panel h2 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
+.auth-intro {
+  color: var(--bpd-muted);
+  margin-bottom: 1.75rem;
+}
+
+.auth-panel form p {
+  margin-bottom: 1.1rem;
+}
+
+.auth-panel label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-weight: 500;
+  color: var(--bpd-white);
+}
+
+.auth-panel input[type="email"],
+.auth-panel input[type="text"],
+.auth-panel input[type="password"] {
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  background: var(--bpd-void);
+  color: var(--bpd-text);
+  border: 1px solid var(--bpd-border);
+  border-radius: 8px;
+  font: inherit;
+}
+
+.auth-panel input:focus-visible {
+  outline: none;
+  border-color: var(--bpd-cyan);
+  box-shadow: 0 0 0 3px var(--bpd-cyan-wash);
+}
+
+.auth-panel button[type="submit"] {
+  width: 100%;
+  padding: 0.75rem 1.2rem;
+  background: var(--bpd-cyan);
+  color: var(--bpd-void);
+  border: none;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: box-shadow 0.3s ease;
+}
+
+.auth-panel button[type="submit"]:hover {
+  box-shadow: 0 4px 16px var(--bpd-cyan-glow);
+}
+
+/* allauth renders field errors as a list above the input. */
+.auth-panel .errorlist {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0.6rem 0.8rem;
+  border-left: 3px solid var(--bpd-gold);
+  background: var(--bpd-void);
+  border-radius: 6px;
+  color: var(--bpd-text);
+  font-size: 0.9rem;
+}
+
+.auth-panel .helptext {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--bpd-muted);
+  font-size: 0.85rem;
+}
+
+.auth-links {
+  margin-top: 1.5rem;
+  margin-bottom: 0;
+  color: var(--bpd-muted);
+  font-size: 0.9rem;
+}
+
+/* ── Social providers ─────────────────────────────────────── */
+
+.auth-providers {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.auth-providers a[role="button"],
+a[role="button"].btn-discord {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.7rem 1.2rem;
+  background: var(--bpd-void);
+  color: var(--bpd-text);
+  border: 1px solid var(--bpd-border);
+  border-radius: 8px;
+  font-weight: 500;
+  transition:
+    border-color 0.3s ease,
+    color 0.3s ease;
+}
+
+.auth-providers a[role="button"]:hover,
+a[role="button"].btn-discord:hover {
+  border-color: var(--bpd-cyan);
+  color: var(--bpd-white);
+}
+
+a[role="button"].btn-discord {
+  display: inline-flex;
+  background: #5865f2; /* Discord blurple — a brand colour, not a theme token */
+  border-color: #5865f2;
+  color: #ffffff;
+}
+
+a[role="button"].btn-discord:hover {
+  background: #4752c4;
+  border-color: #4752c4;
+  color: #ffffff;
+}
+
+/* Connecting Discord is a state change, so it posts rather than links. */
+.btn-discord-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.7rem 1.2rem;
+  background: #5865f2; /* Discord blurple — a brand colour, not a theme token */
+  border: 1px solid #5865f2;
+  border-radius: 8px;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.btn-discord-submit:hover {
+  background: #4752c4;
+  border-color: #4752c4;
+}
+
+.auth-divider {
+  position: relative;
+  text-align: center;
+  color: var(--bpd-muted);
+  font-size: 0.85rem;
+  margin: 0 0 1.5rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: calc(50% - 1.5rem);
+  height: 1px;
+  background: var(--bpd-border);
+}
+
+.auth-divider::before {
+  left: 0;
+}
+.auth-divider::after {
+  right: 0;
+}
+
+/* ── Badges ───────────────────────────────────────────────── */
+
+.badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.badge-community {
+  background: var(--bpd-gold-wash);
+  border: 1px solid var(--bpd-gold);
+  color: var(--bpd-gold);
+}
+
+/* ── Membership page ──────────────────────────────────────── */
+
+.membership-intro {
+  text-align: center;
+  max-width: 44rem;
+  margin: 0 auto;
+}
+
+.membership-intro .lead {
+  color: var(--bpd-muted);
+  font-size: 1.1rem;
+}
