@@ -27,7 +27,7 @@ from core.models import (
     Sponsor,
 )
 from core.supporters import import_supporters
-from events.models import EventIndexPage, EventPage
+from events.models import EventIndexPage, EventPage, LeadershipSummitPage
 from home.models import AboutPage, HomePage, MembershipPage, StandardPage, SupportPage
 from sponsorships.models import SponsorshipRequest
 
@@ -87,6 +87,25 @@ PRINCIPLES = [
         "We provide a global community where developers can build strong bonds in the tech space.",
     ),
 ]
+
+
+# The next Leadership Summit. Unlike the entries in `fixtures/sponsored_events.json`
+# — which seed title-only stubs for editors to fill in — this is a fully specified
+# summit, because the page is live and being linked to. There is no body copy: a
+# LeadershipSummitPage generates its own prose from these fields, which is the
+# whole point of the page type. Editors own it from here; the seed only runs when
+# the page is absent.
+SUMMIT_2027 = {
+    "title": "Black Python Devs Leadership Summit 2027 at PyTexas",
+    "slug": "black-python-devs-leadership-summit-2027-at-pytexas",
+    "start_date": datetime.date(2027, 4, 16),
+    "location": "Austin Central Library",
+    "city": "Austin, TX",
+    "host_event_name": "PyTexas",
+    "host_event_url": "https://www.pytexas.org/",
+    "host_event_start": datetime.date(2027, 4, 16),
+    "host_event_end": datetime.date(2027, 4, 18),
+}
 
 
 def load_fixture(name):
@@ -248,6 +267,7 @@ class Command(BaseCommand):
             self.get_or_create_child(home, StandardPage, title=title, slug=slug)
 
         self.seed_sponsored_events(events_index)
+        self.seed_summit_2027(events_index)
         return home
 
     def get_or_create_child(self, parent, model, *, title, slug, defaults=None):
@@ -287,9 +307,7 @@ class Command(BaseCommand):
                             country=countries.get(name, ""),
                             name=name,
                             status=(
-                                SponsorshipRequest.COMPLETED
-                                if int(year) < this_year
-                                else SponsorshipRequest.APPROVED
+                                SponsorshipRequest.COMPLETED if int(year) < this_year else SponsorshipRequest.APPROVED
                             ),
                             paid=True,
                         )
@@ -302,6 +320,19 @@ class Command(BaseCommand):
             page = EventPage(title=title, description="")
             events_index.add_child(instance=page)
             page.save_revision().publish()
+
+    def seed_summit_2027(self, events_index):
+        """Seed the 2027 PyTexas summit as a LeadershipSummitPage.
+
+        Matched on slug rather than title so an editor renaming the page (or
+        re-running this after an edit) doesn't produce a duplicate.
+        """
+        if EventPage.objects.filter(slug=SUMMIT_2027["slug"]).exists():
+            return
+        page = LeadershipSummitPage(**SUMMIT_2027)
+        events_index.add_child(instance=page)
+        page.save_revision().publish()
+        self.stdout.write(f"Created LeadershipSummitPage: {SUMMIT_2027['title']}")
 
     # ── Settings ──────────────────────────────────────────────────────────
 
@@ -411,6 +442,6 @@ class Command(BaseCommand):
             '<li><strong>Twitter/X:</strong> <a href="https://x.com/blackpythondevs">Follow us</a></li>'
             '<li><strong>Instagram:</strong> <a href="https://www.instagram.com/blackpythondevs/">Follow us</a></li>'
             '<li><strong>LinkedIn:</strong> <a href="https://www.linkedin.com/company/black-python-devs">Page</a></li>'
-            '<li><strong>Email:</strong> '
+            "<li><strong>Email:</strong> "
             '<a href="mailto:contact@blackpythondevs.com">contact@blackpythondevs.com</a></li></ul>'
         )

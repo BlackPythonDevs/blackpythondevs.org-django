@@ -149,9 +149,6 @@ class Command(BaseCommand):
             page.title = title
             page.slug = slug
             page.body = [("html", self.render_body(event.content))]
-            page.tito_event = event.get("tito_event") or ""
-            page.commitchange_campaign_id = str(event.get("commitchange_campaign_id") or "")
-            page.commitchange_designation = event.get("commitchange_designation") or ""
             prospectus = (event.get("prospectus") or "").rstrip("[]")
             page.prospectus_url = prospectus if prospectus.startswith("http") else ""
 

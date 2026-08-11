@@ -1,0 +1,23 @@
+{% load wagtailimages_tags %}
+<section>
+  {% if value.heading %}<h2>{{ value.heading }}</h2>{% endif %}
+  {{ value.intro|safe }}
+  <div class="grid">
+    {% for speaker in value.speakers %}
+      <article>
+        {% if speaker.photo %}
+          {% image speaker.photo fill-400x500 class="speaker-photo" alt=speaker.name %}
+        {% elif speaker.photo_url %}
+          <img class="speaker-photo" src="{{ speaker.photo_url }}" alt="{{ speaker.name }}" />
+        {% endif %}
+        <h3>
+          {% if speaker.url %}
+            <a href="{{ speaker.url }}" rel="noopener">{{ speaker.name }}</a>
+          {% else %}{{ speaker.name }}{% endif %}
+        </h3>
+        {% if speaker.talk_title %}<p><strong>{{ speaker.talk_title }}</strong></p>{% endif %}
+        {{ speaker.bio|safe }}
+      </article>
+    {% endfor %}
+  </div>
+</section>

@@ -1,8 +1,11 @@
-"""Sponsored events: only completed ones publish; unpaid ones get a badge."""
+"""Events: sponsored-event publishing rules, and the generated summit page type."""
+
+import datetime
 
 import pytest
+from django.core.management import call_command
 
-from events.models import EventIndexPage
+from events.models import EventIndexPage, LeadershipSummitPage
 from sponsorships.models import SponsorshipRequest
 
 pytestmark = pytest.mark.django_db
@@ -69,3 +72,406 @@ class TestModel:
         assert "Funded Conf" in html  # the event itself is shown
         assert "1234.56" not in html  # but its internal amount is not
         assert "secret internal note" not in html
+
+
+SUMMIT_SLUG = "black-python-devs-leadership-summit-2027-at-pytexas"
+
+
+class TestSummit2027:
+    """The 2027 PyTexas summit is seeded as a LeadershipSummitPage, not a stub."""
+
+    @pytest.fixture
+    def summit(self, events_index):
+        return LeadershipSummitPage.objects.get(slug=SUMMIT_SLUG)
+
+    def test_page_carries_its_details(self, summit):
+        assert summit.date == datetime.date(2027, 4, 16)
+        assert summit.location == "Austin Central Library"
+        assert summit.city == "Austin, TX"
+        assert summit.host_event_name == "PyTexas"
+        assert summit.is_upcoming
+
+    def test_page_generates_the_standard_sections(self, client, summit):
+        html = client.get(summit.url).content.decode()
+        assert "single day workshop" in html
+        assert "Coming Soon" in html
+        assert "Who is Invited?" in html
+        assert "Speaking and Sponsorship" in html
+
+    def test_page_states_when_and_where(self, client, summit):
+        html = client.get(summit.url).content.decode()
+        assert "16 April 2027" in html
+        assert "Austin, TX" in html
+        assert "PyTexas" in html
+        # The host conference's own longer run, generated from its dates.
+        assert "April 16 – 18, 2027" in html
+
+    def test_summit_is_listed_on_the_events_page(self, client, events_index):
+        html = client.get(events_index.url).content.decode()
+        assert "Leadership Summit 2027 at PyTexas" in html
+
+    def test_reseeding_does_not_duplicate_the_page(self, events_index):
+        call_command("bootstrap_site", verbosity=0)
+        assert LeadershipSummitPage.objects.filter(slug=SUMMIT_SLUG).count() == 1
+
+
+class TestSummitTemplate:
+    """A blank summit still produces a complete page — that's the point."""
+
+    @pytest.fixture
+    def summit(self, events_index):
+        page = LeadershipSummitPage(
+            title="Leadership Summit 2028",
+            slug="leadership-summit-2028",
+            start_date=datetime.date(2028, 5, 1),
+        )
+        events_index.add_child(instance=page)
+        page.save_revision().publish()
+        return page
+
+    def test_standard_wording_is_used_when_fields_are_blank(self, client, summit):
+        html = client.get(summit.url).content.decode()
+        assert "single day workshop" in html
+        assert "Anyone in leadership or wanting to get into leadership" in html
+        assert "Black Python Devs Code of Conduct" in html
+
+    def test_editors_can_override_the_tagline(self, client, summit):
+        summit.description = "A different pitch for this year."
+        summit.save_revision().publish()
+
+        html = client.get(summit.url).content.decode()
+        assert "A different pitch for this year." in html
+        assert "single day workshop" not in html
+
+    def test_the_invitation_wording_is_not_editable(self, client, summit):
+        """Every summit invites the same people, in the same words."""
+        assert summit.invitation == LeadershipSummitPage.WHO_IS_INVITED
+        # No per-summit field to diverge from it.
+        assert not hasattr(summit, "who_is_invited")
+
+        # Even with a custom tagline, the invitation is unchanged.
+        summit.description = "A different pitch for this year."
+        summit.save_revision().publish()
+        html = client.get(summit.url).content.decode()
+        assert LeadershipSummitPage.WHO_IS_INVITED in html
+
+    def test_calls_are_announced_as_pending_until_their_links_exist(self, client, summit):
+        html = client.get(summit.url).content.decode()
+        assert "Registration, speakers, and the schedule will be announced" in html
+        assert "The call for speakers will be released closer to the event." in html
+        assert "Sponsor information will be released closer to the event." in html
+
+    def test_links_replace_the_pending_wording_once_set(self, client, summit):
+        summit.registration_url = "https://example.com/register"
+        summit.cfp_url = "https://example.com/cfp"
+        summit.prospectus_url = "https://example.com/prospectus"
+        summit.save_revision().publish()
+
+        html = client.get(summit.url).content.decode()
+        assert "https://example.com/register" in html
+        assert "Submit a talk" in html
+        assert "Read the sponsorship prospectus" in html
+        assert "will be released closer to the event" not in html
+
+    def test_extra_body_blocks_render_after_the_generated_sections(self, client, summit):
+        summit.body = [("heading", "Travel grants")]
+        summit.save_revision().publish()
+
+        html = client.get(summit.url).content.decode()
+        assert html.index("Speaking and Sponsorship") < html.index("Travel grants")
+
+    def test_host_conference_sections_are_skipped_when_standalone(self, client, summit):
+        html = client.get(summit.url).content.decode()
+        assert "We're partnering with" not in html
+
+
+class TestHostEventDates:
+    """The host conference's run is written out from its two dates."""
+
+    def make(self, start, end):
+        return LeadershipSummitPage(host_event_start=start, host_event_end=end).host_event_dates
+
+    def test_blank_without_a_start_date(self):
+        assert self.make(None, None) == ""
+
+    def test_single_day(self):
+        assert self.make(datetime.date(2027, 4, 16), None) == "April 16, 2027"
+
+    def test_same_month(self):
+        assert self.make(datetime.date(2027, 4, 16), datetime.date(2027, 4, 18)) == "April 16 – 18, 2027"
+
+    def test_spanning_months(self):
+        assert self.make(datetime.date(2027, 4, 30), datetime.date(2027, 5, 2)) == "April 30 – May 2, 2027"
+
+    def test_spanning_years(self):
+        assert (
+            self.make(datetime.date(2027, 12, 30), datetime.date(2028, 1, 2)) == "December 30, 2027 – January 2, 2028"
+        )
+
+
+class TestSummitInWagtailAdmin:
+    """The point of the page type is creating one in the CMS, so check it opens.
+
+    `sponsors` is an InlinePanel whose ParentalKey targets EventPage, the parent
+    in a multi-table inheritance pair — worth asserting the child's form builds.
+    """
+
+    @pytest.fixture
+    def editor(self, db):
+        from django.contrib.auth import get_user_model
+
+        return get_user_model().objects.create_superuser(username="cms", email="cms@example.com", password="pw")
+
+    def test_create_form_renders(self, client, editor, events_index):
+        client.force_login(editor)
+        response = client.get(f"/cms/pages/add/events/leadershipsummitpage/{events_index.pk}/")
+        assert response.status_code == 200
+        html = response.content.decode()
+        assert "Host conference" in html
+        assert "Event sponsors" in html
+        # One day, one date field — no end date to fill in.
+        assert 'name="end_date"' not in html
+
+    def test_summit_is_offered_under_the_events_index(self, client, editor, events_index):
+        client.force_login(editor)
+        html = client.get(f"/cms/pages/{events_index.pk}/add_subpage/").content.decode()
+        assert "Leadership summit" in html
+
+
+class TestSummitIsOneDay:
+    """Summits run for a single day, so there is one date to fill in."""
+
+    @pytest.fixture
+    def summit(self, events_index):
+        page = LeadershipSummitPage(
+            title="Leadership Summit 2029",
+            slug="leadership-summit-2029",
+            start_date=datetime.date(2029, 6, 3),
+        )
+        events_index.add_child(instance=page)
+        page.save_revision().publish()
+        return page
+
+    def test_end_date_mirrors_the_single_date(self, summit):
+        summit.refresh_from_db()
+        assert summit.date == datetime.date(2029, 6, 3)
+        # Mirrored so the inherited /events/ listing has a coherent record.
+        assert summit.end_date == summit.start_date
+
+    def test_a_stale_end_date_is_corrected_on_save(self, summit):
+        summit.end_date = datetime.date(2029, 6, 30)
+        summit.save()
+        summit.refresh_from_db()
+        assert summit.end_date == datetime.date(2029, 6, 3)
+
+    def test_page_shows_one_date_not_a_range(self, client, summit):
+        html = client.get(summit.url).content.decode()
+        assert "3 June 2029" in html
+        assert "3 June 2029 –" not in html
+
+
+class TestConvertSummitsCommand:
+    """Retyping an existing EventPage into a LeadershipSummitPage in place."""
+
+    @pytest.fixture
+    def legacy(self, events_index):
+        from events.models import EventPage
+
+        page = EventPage(
+            title="Black Python Devs Leadership Summit 2024",
+            slug="leadership-summit-2024",
+            start_date=datetime.date(2024, 8, 2),
+            end_date=datetime.date(2024, 8, 4),
+            body=[("heading", "Watch Online")],
+        )
+        events_index.add_child(instance=page)
+        page.save_revision().publish()
+        return page
+
+    def test_dry_run_changes_nothing(self, legacy):
+        call_command("convert_summits", verbosity=0)
+        assert not LeadershipSummitPage.objects.filter(pk=legacy.pk).exists()
+
+    def test_apply_retypes_the_page_in_place(self, legacy):
+        call_command("convert_summits", "--apply", verbosity=0)
+
+        summit = LeadershipSummitPage.objects.get(pk=legacy.pk)
+        # Same page: same id, slug, url, and body.
+        assert summit.pk == legacy.pk
+        assert summit.slug == legacy.slug
+        assert summit.url == legacy.url
+        assert summit.body[0].value == "Watch Online"
+        # The stale end date is collapsed onto the single summit date.
+        assert summit.end_date == summit.start_date == datetime.date(2024, 8, 2)
+
+    def test_converted_page_uses_the_summit_template(self, client, legacy):
+        call_command("convert_summits", "--apply", verbosity=0)
+        html = client.get(legacy.url).content.decode()
+        assert "Who is Invited?" in html
+        assert "Watch Online" in html  # the existing body survives
+
+    def test_conversion_is_idempotent(self, legacy):
+        call_command("convert_summits", "--apply", verbosity=0)
+        call_command("convert_summits", "--apply", verbosity=0)
+        assert LeadershipSummitPage.objects.filter(pk=legacy.pk).count() == 1
+
+    def test_named_slugs_limit_what_is_converted(self, events_index, legacy):
+        from events.models import EventPage
+
+        other = EventPage(title="Some Other Summit", slug="other-summit")
+        events_index.add_child(instance=other)
+        other.save_revision().publish()
+
+        call_command("convert_summits", "leadership-summit-2024", "--apply", verbosity=0)
+        assert LeadershipSummitPage.objects.filter(pk=legacy.pk).exists()
+        assert not LeadershipSummitPage.objects.filter(pk=other.pk).exists()
+
+
+class TestSpeakerAndScheduleBlocks:
+    """Speakers and schedules are structured blocks, not hand-written HTML."""
+
+    @pytest.fixture
+    def summit(self, events_index):
+        page = LeadershipSummitPage(
+            title="Leadership Summit 2030",
+            slug="leadership-summit-2030",
+            start_date=datetime.date(2030, 9, 9),
+            body=[
+                (
+                    "speakers",
+                    {
+                        "heading": "Keynote Speakers",
+                        "intro": "<p>Two of them.</p>",
+                        "speakers": [
+                            {
+                                "name": "Ada Speaker",
+                                "url": "https://example.com/ada",
+                                "talk_title": "On Leadership",
+                                "photo": None,
+                                "photo_url": "/static/images/ada.webp",
+                                "bio": "<p>Ada builds things.</p>",
+                            },
+                            {
+                                "name": "Grace Speaker",
+                                "url": "",
+                                "talk_title": "",
+                                "photo": None,
+                                "photo_url": "",
+                                "bio": "",
+                            },
+                        ],
+                    },
+                ),
+                (
+                    "schedule",
+                    {
+                        "heading": "Schedule",
+                        "intro": "",
+                        "items": [
+                            {"time": "09:00", "title": "Welcome", "presenter": ""},
+                            {"time": "09:15", "title": "Keynote", "presenter": "Ada Speaker"},
+                        ],
+                    },
+                ),
+            ],
+        )
+        events_index.add_child(instance=page)
+        page.save_revision().publish()
+        return page
+
+    def test_speakers_render_with_names_links_and_talks(self, client, summit):
+        html = client.get(summit.url).content.decode()
+        assert "Keynote Speakers" in html
+        assert "Two of them." in html
+        assert 'href="https://example.com/ada"' in html
+        assert "On Leadership" in html
+        assert "Ada builds things." in html
+
+    def test_static_photo_url_is_used_when_no_image_is_uploaded(self, client, summit):
+        html = client.get(summit.url).content.decode()
+        assert '<img class="speaker-photo" src="/static/images/ada.webp"' in html
+
+    def test_a_speaker_with_only_a_name_still_renders(self, client, summit):
+        html = client.get(summit.url).content.decode()
+        assert "Grace Speaker" in html
+
+    def test_schedule_renders_times_titles_and_presenters(self, client, summit):
+        html = client.get(summit.url).content.decode()
+        assert "09:00" in html
+        assert "Welcome" in html
+        assert "Keynote" in html
+        assert "Ada Speaker" in html
+        assert 'class="schedule"' in html
+
+    def test_blocks_are_available_on_any_body_stream(self):
+        from core.blocks import BodyStreamBlock
+
+        names = BodyStreamBlock().child_blocks.keys()
+        assert "speakers" in names
+        assert "schedule" in names
+
+
+class TestYouTubeEmbedUrl:
+    """Editors paste whatever YouTube hands them; all of it has to embed."""
+
+    def check(self, url):
+        from events.models import youtube_embed_url
+
+        return youtube_embed_url(url)
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://www.youtube.com/watch?v=p95Cuczqig8",
+            "https://youtube.com/watch?v=p95Cuczqig8",
+            "https://www.youtube.com/watch?v=p95Cuczqig8&t=42s",
+            "https://youtu.be/p95Cuczqig8",
+            "https://youtu.be/p95Cuczqig8?t=42",
+            "https://www.youtube.com/embed/p95Cuczqig8",
+            "https://www.youtube.com/live/p95Cuczqig8",
+        ],
+    )
+    def test_recognised_links_become_embed_urls(self, url):
+        assert self.check(url) == "https://www.youtube.com/embed/p95Cuczqig8"
+
+    @pytest.mark.parametrize("url", ["", "https://example.com/video", "https://www.youtube.com/", "not a url"])
+    def test_unrecognised_links_are_dropped(self, url):
+        # "" rather than a broken iframe.
+        assert self.check(url) == ""
+
+
+class TestSummitRecordings:
+    @pytest.fixture
+    def summit(self, events_index):
+        page = LeadershipSummitPage(
+            title="Leadership Summit 2031",
+            slug="leadership-summit-2031",
+            start_date=datetime.date(2031, 3, 4),
+        )
+        events_index.add_child(instance=page)
+        page.save_revision().publish()
+        return page
+
+    def test_no_watch_section_before_recordings_exist(self, client, summit):
+        assert summit.recordings == []
+        assert "Watch Online" not in client.get(summit.url).content.decode()
+
+    def test_both_sessions_embed_once_set(self, client, summit):
+        summit.morning_video_url = "https://www.youtube.com/watch?v=AAAAAAAAAAA"
+        summit.afternoon_video_url = "https://youtu.be/BBBBBBBBBBB"
+        summit.save_revision().publish()
+
+        html = client.get(summit.url).content.decode()
+        assert "Watch Online" in html
+        assert "https://www.youtube.com/embed/AAAAAAAAAAA" in html
+        assert "https://www.youtube.com/embed/BBBBBBBBBBB" in html
+        assert "Morning session" in html
+        assert "Afternoon session" in html
+
+    def test_one_session_alone_still_renders(self, client, summit):
+        summit.afternoon_video_url = "https://youtu.be/BBBBBBBBBBB"
+        summit.save_revision().publish()
+
+        html = client.get(summit.url).content.decode()
+        assert "Afternoon session" in html
+        assert "Morning session" not in html

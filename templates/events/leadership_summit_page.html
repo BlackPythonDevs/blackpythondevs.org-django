@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags wagtailimages_tags %}
+
+{% comment %}
+  Every section here is generated from the page's fields — an editor fills in a
+  form and gets the standard summit page. `page.body` is appended at the end for
+  anything a particular year needs that this doesn't cover.
+{% endcomment %}
+
+{% block content %}
+  <article>
+    {% if page.banner %}
+      {% image page.banner width-1600 alt=page.title style="border-radius:10px; margin-bottom:2rem;" %}
+    {% endif %}
+
+    <header>
+      <h1>{{ page.title }}</h1>
+      <p style="color: var(--bpd-muted);">
+        {% if page.date %}<strong>{{ page.date|date:"j F Y" }}</strong>{% endif %}
+        {% if page.location %}<br /><strong>{{ page.location }}</strong>{% endif %}
+        {% if page.city %}{% if not page.location %}<br />{% else %}, {% endif %}{{ page.city }}{% endif %}
+      </p>
+    </header>
+
+    <p class="lead">{{ page.tagline }}</p>
+
+    {% if page.recordings %}
+      <section>
+        <h2>Watch Online</h2>
+        <div class="grid">
+          {% for label, embed_url in page.recordings %}
+            <article>
+              <div class="video-container">
+                <iframe class="video-embed" src="{{ embed_url }}" title="{{ page.title }} — {{ label }}"
+                        loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowfullscreen></iframe>
+              </div>
+              <p>{{ label }}</p>
+            </article>
+          {% endfor %}
+        </div>
+        <p><small>View on YouTube to interact in the comments.</small></p>
+      </section>
+    {% endif %}
+
+    <section>
+      <h2>{% if page.registration_url %}Register{% else %}Coming Soon{% endif %}</h2>
+      <p>
+        {% if page.date %}
+          The next summit is on <strong>{{ page.date|date:"j F Y" }}</strong>{% if page.city %} in <strong>{{ page.city }}</strong>{% endif %}{% if page.host_event_name %} at
+            {% if page.host_event_url %}<a href="{{ page.host_event_url }}" rel="noopener">{{ page.host_event_name }}</a>{% else %}{{ page.host_event_name }}{% endif %}
+          {% endif %}.
+        {% endif %}
+        {% if page.host_event_name and page.host_event_dates %}
+          We're partnering with {{ page.host_event_name }}, which runs <strong>{{ page.host_event_dates }}</strong>{% if page.location %} at the {{ page.location }}{% endif %}.
+        {% endif %}
+      </p>
+
+      {% if page.registration_url %}
+        <p><a role="button" class="btn" href="{{ page.registration_url }}" rel="noopener">Register for the summit</a></p>
+      {% else %}
+        <p>
+          Registration, speakers, and the schedule will be announced on this page.
+          Follow Black Python Devs to hear about them first.
+        </p>
+      {% endif %}
+    </section>
+
+    <section>
+      <h2>Who is Invited?</h2>
+      <p>{{ page.invitation }}</p>
+      <p>
+        Although Black Python Devs produces this event, it is a public event held under
+        {% if page.code_of_conduct_url %}
+          the <a href="{{ page.code_of_conduct_url }}">Black Python Devs Code of Conduct</a>
+        {% else %}
+          the Black Python Devs Code of Conduct
+        {% endif %}
+        {% if page.host_event_name %}
+          and
+          {% if page.host_code_of_conduct_url %}
+            <a href="{{ page.host_code_of_conduct_url }}" rel="noopener">the {{ page.host_event_name }} Code of Conduct</a>.
+          {% else %}
+            the {{ page.host_event_name }} Code of Conduct.
+          {% endif %}
+        {% else %}.
+        {% endif %}
+      </p>
+    </section>
+
+    <section>
+      <h2>Speaking and Sponsorship</h2>
+      {% if page.cfp_url %}
+        <p><a role="button" class="btn" href="{{ page.cfp_url }}" rel="noopener">Submit a talk</a></p>
+      {% else %}
+        <p>The call for speakers will be released closer to the event.</p>
+      {% endif %}
+      {% if not page.prospectus_url %}
+        <p>Sponsor information will be released closer to the event.</p>
+      {% endif %}
+      <p>
+        If you'd like to help fund this and initiatives like it,
+        <a href="/support/">support Black Python Devs</a>.
+      </p>
+    </section>
+
+    {% include_block page.body %}
+
+    {% include "events/includes/event_extras.html" %}
+  </article>
+{% endblock %}
