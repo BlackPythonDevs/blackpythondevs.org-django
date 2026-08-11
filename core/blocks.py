@@ -133,6 +133,16 @@ class ScheduleBlock(blocks.StructBlock):
         label = "Schedule"
         template = "core/blocks/schedule.html"
 
+    def get_context(self, value, parent_context=None):
+        """Flag whether any row names a presenter.
+
+        A schedule of breaks and logistics has none, and an empty third column
+        of em dashes is worse than no column at all — so the template drops it.
+        """
+        context = super().get_context(value, parent_context=parent_context)
+        context["has_presenters"] = any(item.get("presenter") for item in value["items"])
+        return context
+
 
 class BodyStreamBlock(blocks.StreamBlock):
     heading = blocks.CharBlock(form_classname="title", template="core/blocks/heading.html")

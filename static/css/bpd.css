@@ -1421,36 +1421,13 @@ main.page-content div.wrapper p img {
 
 /* ── 18b. Schedule ────────────────────────────────────────── */
 
-/* Time-and-item running order. Two columns on wide screens, stacked on
-   narrow ones so long session titles aren't squeezed into a sliver. */
-.schedule {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 0.4rem 1.25rem;
-  margin: 1rem 0;
-}
-.schedule dt {
+/* Running order table. The time column is the row header: kept on one line
+   and in tabular figures so the times line up down the column. */
+.schedule th[scope="row"] {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-  color: var(--bpd-muted);
   white-space: nowrap;
-}
-.schedule dd {
-  margin: 0;
-}
-.schedule .schedule-presenter {
-  display: block;
   color: var(--bpd-muted);
-  font-size: 0.9em;
-}
-@media (max-width: 600px) {
-  .schedule {
-    grid-template-columns: 1fr;
-    gap: 0 0;
-  }
-  .schedule dd {
-    margin-bottom: 0.75rem;
-  }
 }
 
 /* ── 19. Video ────────────────────────────────────────────── */

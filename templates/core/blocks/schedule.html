@@ -1,13 +1,28 @@
 <section>
   {% if value.heading %}<h2>{{ value.heading }}</h2>{% endif %}
   {{ value.intro|safe }}
-  <dl class="schedule">
-    {% for item in value.items %}
-      <dt>{{ item.time }}</dt>
-      <dd>
-        {{ item.title }}
-        {% if item.presenter %}<span class="schedule-presenter">{{ item.presenter }}</span>{% endif %}
-      </dd>
-    {% endfor %}
-  </dl>
+  {% comment %}
+    Wrapped in <figure> like the other tables on the site: that's what gives it
+    its own horizontal scroll on narrow screens instead of widening the page.
+  {% endcomment %}
+  <figure>
+    <table role="grid" class="schedule">
+      <thead>
+        <tr>
+          <th scope="col">Time</th>
+          <th scope="col">Session</th>
+          {% if has_presenters %}<th scope="col">Presenter</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in value.items %}
+          <tr>
+            <th scope="row">{{ item.time }}</th>
+            <td>{{ item.title }}</td>
+            {% if has_presenters %}<td>{{ item.presenter|default:"—" }}</td>{% endif %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </figure>
 </section>

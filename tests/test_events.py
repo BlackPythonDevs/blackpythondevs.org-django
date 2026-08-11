@@ -400,13 +400,46 @@ class TestSpeakerAndScheduleBlocks:
         html = client.get(summit.url).content.decode()
         assert "Grace Speaker" in html
 
-    def test_schedule_renders_times_titles_and_presenters(self, client, summit):
+    def test_schedule_renders_as_a_table(self, client, summit):
         html = client.get(summit.url).content.decode()
-        assert "09:00" in html
+        assert '<table role="grid" class="schedule">' in html
+        # Wrapped so a wide schedule scrolls itself rather than the page.
+        assert "<figure>" in html
+        for heading in ("Time", "Session", "Presenter"):
+            assert f'<th scope="col">{heading}</th>' in html
+        # The time is the row header, not a plain cell.
+        assert '<th scope="row">09:00</th>' in html
         assert "Welcome" in html
-        assert "Keynote" in html
         assert "Ada Speaker" in html
-        assert 'class="schedule"' in html
+
+    def test_presenter_column_is_dropped_when_nobody_is_named(self, client, events_index):
+        from django.utils import timezone
+
+        page = LeadershipSummitPage(
+            title="Logistics Only",
+            slug="logistics-only",
+            start_date=timezone.localdate() + datetime.timedelta(days=30),
+            body=[
+                (
+                    "schedule",
+                    {
+                        "heading": "Schedule",
+                        "intro": "",
+                        "items": [
+                            {"time": "09:00", "title": "Doors open", "presenter": ""},
+                            {"time": "17:00", "title": "Close", "presenter": ""},
+                        ],
+                    },
+                )
+            ],
+        )
+        events_index.add_child(instance=page)
+        page.save_revision().publish()
+
+        html = client.get(page.url).content.decode()
+        assert '<th scope="col">Time</th>' in html
+        # An empty column of em dashes is worse than no column.
+        assert '<th scope="col">Presenter</th>' not in html
 
     def test_blocks_are_available_on_any_body_stream(self):
         from core.blocks import BodyStreamBlock
