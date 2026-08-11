@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Delete {{ object.name }}?{% endblock %}
+
+{% block content %}
+  <section class="auth-panel">
+    <h1>Delete this sponsorship request?</h1>
+    <p class="auth-intro">
+      <strong>{{ object.name }}</strong> ({{ object.year }}{% if object.region %}, {{ object.region }}{% endif %})
+      — currently {{ object.get_status_display|lower }}. This cannot be undone.
+    </p>
+
+    {# No action: neapolitan doesn't put a delete URL in the context, and the
+       current URL is already the delete endpoint. #}
+    <form method="post">
+      {% csrf_token %}
+      <button type="submit" class="btn">Yes, delete it</button>
+      <a role="button" class="secondary" href="{% url 'sponsorships-detail' object.pk %}">Cancel</a>
+    </form>
+  </section>
+{% endblock %}

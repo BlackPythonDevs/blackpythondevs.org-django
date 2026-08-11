@@ -7,9 +7,11 @@ anyone else is bounced to the login screen.
 """
 
 from django.contrib.auth.mixins import PermissionRequiredMixin
+from django.urls import reverse_lazy
+from django.views.generic import CreateView, TemplateView
 from neapolitan.views import CRUDView
 
-from .forms import SponsorshipRequestForm
+from .forms import PublicSponsorshipRequestForm, SponsorshipRequestForm
 from .models import SponsorshipRequest
 
 
@@ -32,3 +34,25 @@ class SponsorshipRequestView(PermissionRequiredMixin, CRUDView):
         "sponsorships.change_sponsorshiprequest",
         "sponsorships.delete_sponsorshiprequest",
     ]
+
+
+class PublicSponsorshipRequestView(CreateView):
+    """The public "ask us to sponsor your event" form.
+
+    Deliberately open to anonymous visitors: the organisers who need this are
+    event runners from outside the community, and the model has no user FK to
+    tie a submission to an account anyway. Submissions land as `requested` and
+    stay invisible until an Executor marks them completed.
+
+    `template_name` is set explicitly — CreateView's default would resolve to
+    sponsorshiprequest_form.html, which is the staff console's edit form.
+    """
+
+    model = SponsorshipRequest
+    form_class = PublicSponsorshipRequestForm
+    template_name = "sponsorships/request_form.html"
+    success_url = reverse_lazy("sponsorship-request-done")
+
+
+class SponsorshipRequestDoneView(TemplateView):
+    template_name = "sponsorships/request_done.html"

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Request event sponsorship{% endblock %}
+
+{% block content %}
+  <section class="auth-panel">
+    <h1>Request event sponsorship</h1>
+    <p class="auth-intro">
+      Black Python Devs supports community events that create visibility and
+      opportunity for Black Pythonistas. Tell us about your event and our
+      organisers will be in touch.
+    </p>
+
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit" class="btn">Send request</button>
+    </form>
+  </section>
+{% endblock %}

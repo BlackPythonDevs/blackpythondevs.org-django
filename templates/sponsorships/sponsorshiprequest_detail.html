@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% comment %}
+  Written out by hand rather than via {% object_detail %} so the console can show
+  the staff-only fields — status, paid, and the derived year/region — which are
+  deliberately absent from `view.fields` (that list drives the edit form).
+{% endcomment %}
+
+{% block title %}{{ object.name }}{% endblock %}
+
+{% block content %}
+  <section>
+    <p><a href="{% url 'sponsorships-list' %}">&larr; All sponsorship requests</a></p>
+
+    <h1>
+      {{ object.name }}
+      {% if not object.paid %}<span class="badge badge-community">community</span>{% endif %}
+    </h1>
+    <p class="lead">
+      {{ object.get_status_display }}
+      {% if object.is_published %}
+        — showing on the public events page.
+      {% else %}
+        — internal only; not shown publicly.
+      {% endif %}
+    </p>
+
+    <div class="card">
+      <dl>
+        <dt>Event website</dt>
+        <dd>{% if object.url %}<a href="{{ object.url }}" rel="noopener">{{ object.url }}</a>{% else %}—{% endif %}</dd>
+
+        <dt>Prospectus</dt>
+        <dd>{% if object.prospectus_url %}<a href="{{ object.prospectus_url }}" rel="noopener">{{ object.prospectus_url }}</a>{% else %}—{% endif %}</dd>
+
+        <dt>Start date</dt>
+        <dd>{{ object.start_date|date:"d M Y"|default:"—" }}</dd>
+
+        <dt>Country</dt>
+        <dd>{{ object.country.name|default:"—" }}</dd>
+
+        <dt>Year / region</dt>
+        <dd>{{ object.year }} &middot; {{ object.region|default:"—" }} <small>(derived on save)</small></dd>
+
+        <dt>Amount requested</dt>
+        <dd>{{ object.amount_requested|default:"—" }}</dd>
+
+        <dt>Funds transferred</dt>
+        <dd>{{ object.paid|yesno:"Yes,No — community sponsorship" }}</dd>
+
+        <dt>Internal notes</dt>
+        <dd>{{ object.notes|linebreaksbr|default:"—" }}</dd>
+
+        <dt>Recorded</dt>
+        <dd>{{ object.created_at|date:"d M Y H:i" }}, last updated {{ object.updated_at|date:"d M Y H:i" }}</dd>
+      </dl>
+    </div>
+
+    <p>
+      <a role="button" class="btn" href="{% url 'sponsorships-update' object.pk %}">Edit</a>
+      <a role="button" class="secondary" href="{% url 'sponsorships-delete' object.pk %}">Delete</a>
+    </p>
+  </section>
+{% endblock %}

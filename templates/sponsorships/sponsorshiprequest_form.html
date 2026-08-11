@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Edit {{ object.name }}{% else %}New sponsorship request{% endif %}{% endblock %}
+
+{% block content %}
+  <section class="auth-panel">
+    <p><a href="{% url 'sponsorships-list' %}">&larr; All sponsorship requests</a></p>
+
+    <h1>{% if object %}Edit sponsorship request{% else %}New sponsorship request{% endif %}</h1>
+    <p class="auth-intro">
+      Year and region are worked out from the start date and country when you save.
+      Status and payment are set from the Django admin.
+    </p>
+
+    {# No action: posting back to the current URL is right for both create and edit. #}
+    <form method="post" {% if form.is_multipart %}enctype="multipart/form-data"{% endif %}>
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit" class="btn">Save</button>
+      <a role="button" class="secondary"
+         href="{% if object %}{% url 'sponsorships-detail' object.pk %}{% else %}{% url 'sponsorships-list' %}{% endif %}">Cancel</a>
+    </form>
+  </section>
+{% endblock %}

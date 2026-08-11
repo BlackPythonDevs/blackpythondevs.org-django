@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% comment %}
+  Neapolitan resolves "<app>/<model>_list.html" before its own Tailwind-styled
+  default, so these overrides are scoped to sponsorship requests and leave any
+  future CRUDView on its stock templates.
+{% endcomment %}
+
+{% block title %}Sponsorship requests{% endblock %}
+
+{% block content %}
+  <section>
+    <h1>Sponsorship requests</h1>
+    <p class="lead">
+      Internal console. Only completed requests appear on the public events page.
+    </p>
+
+    {% if filterset %}
+      <form method="get" class="card" style="margin-bottom: 2rem;">
+        {{ filterset.form.as_p }}
+        <button type="submit" class="btn">Filter</button>
+        <a role="button" class="secondary" href="{% url 'sponsorships-list' %}">Clear</a>
+      </form>
+    {% endif %}
+
+    {% if create_view_url %}
+      <p><a role="button" class="btn" href="{{ create_view_url }}">Add a sponsorship request</a></p>
+    {% endif %}
+
+    {% if object_list %}
+      <figure>
+        <table role="grid">
+          <thead>
+            <tr>
+              <th scope="col">Event</th>
+              <th scope="col">Year</th>
+              <th scope="col">Region</th>
+              <th scope="col">Country</th>
+              <th scope="col">Requested</th>
+              <th scope="col">Status</th>
+              <th scope="col"><span class="screen-reader-text">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {# Not named `request`: that would shadow the request object used below. #}
+            {% for sponsorship in object_list %}
+              <tr>
+                <th scope="row"><a href="{% url 'sponsorships-detail' sponsorship.pk %}">{{ sponsorship.name }}</a></th>
+                <td>{{ sponsorship.year }}</td>
+                <td>{{ sponsorship.region|default:"—" }}</td>
+                <td>{{ sponsorship.country.name|default:"—" }}</td>
+                <td>{{ sponsorship.amount_requested|default:"—" }}</td>
+                <td>
+                  {{ sponsorship.get_status_display }}
+                  {% if not sponsorship.paid %}<span class="badge badge-community">community</span>{% endif %}
+                </td>
+                <td>
+                  <a href="{% url 'sponsorships-update' sponsorship.pk %}">Edit</a>
+                  &middot;
+                  <a href="{% url 'sponsorships-delete' sponsorship.pk %}">Delete</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </figure>
+    {% else %}
+      <p>No sponsorship requests match this filter.</p>
+    {% endif %}
+  </section>
+
+  {% if is_paginated %}
+    <section>
+      {# Carrying the whole querystring can repeat `page`; Django reads the last
+         value, and ours is appended last, so the active filters survive paging. #}
+      <div class="pagination">
+        {% if page_obj.has_previous %}
+          <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}">Previous</a>
+        {% endif %}
+        <span class="current">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+          <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}">Next</a>
+        {% endif %}
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

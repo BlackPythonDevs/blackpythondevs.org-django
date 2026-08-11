@@ -9,7 +9,11 @@ from wagtail.contrib.sitemaps.views import sitemap
 from wagtail.documents import urls as wagtaildocs_urls
 
 from core import views as core_views
-from sponsorships.views import SponsorshipRequestView
+from sponsorships.views import (
+    PublicSponsorshipRequestView,
+    SponsorshipRequestDoneView,
+    SponsorshipRequestView,
+)
 from users import views as user_views
 
 urlpatterns = [
@@ -19,6 +23,10 @@ urlpatterns = [
     path("accounts/", include("allauth.urls")),
     path("members/", user_views.members, name="members"),
     path("student-ambassadors/", include("ambassadors.urls")),
+    # Public sponsorship intake. Listed before the CRUD routes so these fixed
+    # paths are matched before neapolitan's generated ones.
+    path("sponsorships/request/", PublicSponsorshipRequestView.as_view(), name="sponsorship-request"),
+    path("sponsorships/request/thanks/", SponsorshipRequestDoneView.as_view(), name="sponsorship-request-done"),
     # Front-end CRUD for the Executor group (neapolitan).
     *SponsorshipRequestView.get_urls(),
     path("sitemap.xml", sitemap),
