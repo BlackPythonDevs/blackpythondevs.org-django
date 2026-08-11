@@ -50,11 +50,7 @@
         </ul>
       {% endif %}
 
-      {% block toast %}
-        {% if site_settings.core.ToastSettings.enabled and site_settings.core.ToastSettings.text %}
-          {% include "includes/toast.html" with toast=site_settings.core.ToastSettings %}
-        {% endif %}
-      {% endblock %}
+      {% block toast %}{% endblock %}
 
       {% block content %}{% endblock %}
     </main>

@@ -4,6 +4,12 @@
 {% block title %}{{ SITE_TITLE }}{% endblock %}
 {% block title_suffix %}{% endblock %}
 
+{% block toast %}
+  {% if site_settings.core.ToastSettings.enabled and site_settings.core.ToastSettings.text %}
+    {% include "includes/toast.html" with toast=site_settings.core.ToastSettings %}
+  {% endif %}
+{% endblock %}
+
 {% block content %}
   <article class="grid hero">
     <div style="display:flex;align-items:center;justify-content:center">
