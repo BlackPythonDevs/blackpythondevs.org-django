@@ -269,6 +269,12 @@ class Command(BaseCommand):
         # in the past as completed and paid; editors correct the community
         # (non-monetary) ones by unticking `paid`, and current-year events move
         # to completed once they've happened.
+        #
+        # `countries` maps event name → ISO 3166-1 alpha-2 code (an event is in
+        # the same country every year, so it is keyed by name, not year/region).
+        # Setting `country` re-derives `region` on save(); the fixture's region
+        # grouping is a fallback for any name missing from the map.
+        countries = data.get("countries", {})
         if not SponsorshipRequest.objects.exists():
             this_year = datetime.date.today().year
             for year, regions in data.get("sponsored", {}).items():
@@ -277,6 +283,7 @@ class Command(BaseCommand):
                         SponsorshipRequest.objects.create(
                             year=int(year),
                             region=region,
+                            country=countries.get(name, ""),
                             name=name,
                             status=(
                                 SponsorshipRequest.COMPLETED

@@ -11,17 +11,96 @@
   ],
   "sponsored": {
     "2024": {
-      "Africa": ["PyCon Africa", "PyCon South Africa", "PyCon Zimbabwe", "PyCon Nigeria", "IndabaX - Botswana", "PyCon Uganda", "PyHo - Ghana"],
-      "North America": ["PyTexas", "PyOhio"]
+      "Africa": [
+        "PyCon Africa",
+        "PyCon South Africa",
+        "PyCon Zimbabwe",
+        "PyCon Nigeria",
+        "IndabaX - Botswana",
+        "PyCon Uganda",
+        "PyHo - Ghana"
+      ],
+      "North America": [
+        "PyTexas",
+        "PyOhio"
+      ]
     },
     "2025": {
-      "Africa": ["Django Girls - Koforidua", "Django Girls - Ho", "PyCon Africa", "DjangoCon Africa", "IndabaX - Botswana", "PyCon Namibia", "PyTogo", "Zero to Hero Mentorship Program - Nigeria", "PyCon Nigeria", "PyCon Senegambia"],
-      "North America": ["PyTexas Foundation", "PyOhio", "PyBeach", "PyBay", "PyDay Santo Domingo (SDQ)"],
-      "South America": ["Ubuntu Tech - Colombia", "Django Girls - Colombia"]
+      "Africa": [
+        "Django Girls - Koforidua",
+        "Django Girls - Ho",
+        "PyCon Africa",
+        "DjangoCon Africa",
+        "IndabaX - Botswana",
+        "PyCon Namibia",
+        "PyTogo",
+        "Zero to Hero Mentorship Program - Nigeria",
+        "PyCon Nigeria",
+        "PyCon Senegambia"
+      ],
+      "North America": [
+        "PyTexas Foundation",
+        "PyOhio",
+        "PyBeach",
+        "PyBay",
+        "PyDay Santo Domingo (SDQ)"
+      ],
+      "South America": [
+        "Ubuntu Tech - Colombia",
+        "Django Girls - Colombia"
+      ]
     },
     "2026": {
-      "Africa": ["PyCon Togo", "PyCon Namibia", "Django Girls - Tamale", "PyCon Cameroon", "Build with AI Pwani", "AI Fest Uganda", "Ghana Data Science Summit (IndabaX)", "PyHo"],
-      "North America": ["Kids Next Code", "PyCascades", "PyTexas", "PyNorth Meetups"]
+      "Africa": [
+        "PyCon Togo",
+        "PyCon Namibia",
+        "Django Girls - Tamale",
+        "PyCon Cameroon",
+        "Build with AI Pwani",
+        "AI Fest Uganda",
+        "Ghana Data Science Summit (IndabaX)",
+        "PyHo"
+      ],
+      "North America": [
+        "Kids Next Code",
+        "PyCascades",
+        "PyTexas",
+        "PyNorth Meetups"
+      ]
     }
+  },
+  "countries": {
+    "AI Fest Uganda": "UG",
+    "Build with AI Pwani": "KE",
+    "Django Girls - Colombia": "CO",
+    "Django Girls - Ho": "GH",
+    "Django Girls - Koforidua": "GH",
+    "Django Girls - Tamale": "GH",
+    "DjangoCon Africa": "TZ",
+    "Ghana Data Science Summit (IndabaX)": "GH",
+    "IndabaX - Botswana": "BW",
+    "Kids Next Code": "US",
+    "PyBay": "US",
+    "PyBeach": "US",
+    "PyCascades": "US",
+    "PyCon Africa": "GH",
+    "PyCon Cameroon": "CM",
+    "PyCon Namibia": "NA",
+    "PyCon Nigeria": "NG",
+    "PyCon Senegambia": "SN",
+    "PyCon South Africa": "ZA",
+    "PyCon Togo": "TG",
+    "PyCon Uganda": "UG",
+    "PyCon Zimbabwe": "ZW",
+    "PyDay Santo Domingo (SDQ)": "DO",
+    "PyHo": "GH",
+    "PyHo - Ghana": "GH",
+    "PyNorth Meetups": "CA",
+    "PyOhio": "US",
+    "PyTexas": "US",
+    "PyTexas Foundation": "US",
+    "PyTogo": "TG",
+    "Ubuntu Tech - Colombia": "CO",
+    "Zero to Hero Mentorship Program - Nigeria": "NG"
   }
 }
