@@ -18,6 +18,7 @@ urlpatterns = [
     path("documents/", include(wagtaildocs_urls)),
     path("accounts/", include("allauth.urls")),
     path("members/", user_views.members, name="members"),
+    path("student-ambassadors/", include("ambassadors.urls")),
     # Front-end CRUD for the Executor group (neapolitan).
     *SponsorshipRequestView.get_urls(),
     path("sitemap.xml", sitemap),

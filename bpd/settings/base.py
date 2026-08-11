@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     "blog",
     "events",
     "sponsorships",
+    "ambassadors",
     "users",
     # Wagtail
     "wagtail.contrib.forms",

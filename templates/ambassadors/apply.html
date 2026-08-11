@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Apply to be a student ambassador{% endblock %}
+
+{% block content %}
+  <section class="auth-panel">
+    <h1>Student Ambassador application</h1>
+    <p class="auth-intro">
+      Black Python Devs student ambassadors help grow the Python community on their
+      campus. Tell us a little about you and we'll be in touch.
+    </p>
+
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Submit application</button>
+    </form>
+  </section>
+{% endblock %}

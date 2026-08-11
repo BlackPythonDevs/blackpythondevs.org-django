@@ -1,0 +1,10 @@
+{% load wagtailcore_tags %}
+<div class="ambassador-apply" style="margin: 2rem 0;">
+  {% if value.heading %}<h3>{{ value.heading }}</h3>{% endif %}
+  {{ value.text|richtext }}
+  <p>
+    <a role="button" class="btn" href="{% url 'ambassadors:apply' %}">
+      {{ value.button_text|default:"Apply Now" }}
+    </a>
+  </p>
+</div>

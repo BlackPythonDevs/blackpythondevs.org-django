@@ -55,6 +55,27 @@ class EmbedIframeBlock(blocks.StructBlock):
         template = "core/blocks/embed_iframe.html"
 
 
+class AmbassadorApplyBlock(blocks.StructBlock):
+    """A call-to-action linking to the native student-ambassador application form.
+
+    Replaces the old Google Form: drop this block into a page body and it renders
+    a button pointing at the on-site application (the ambassadors app). The link
+    target is fixed, so editors can't point it at the wrong place.
+    """
+
+    heading = blocks.CharBlock(required=False, default="Apply")
+    text = blocks.RichTextBlock(
+        required=False,
+        help_text="Optional copy shown above the button.",
+    )
+    button_text = blocks.CharBlock(default="Apply Now")
+
+    class Meta:
+        icon = "form"
+        label = "Ambassador application"
+        template = "core/blocks/ambassador_apply.html"
+
+
 class BodyStreamBlock(blocks.StreamBlock):
     heading = blocks.CharBlock(form_classname="title", template="core/blocks/heading.html")
     paragraph = blocks.RichTextBlock()
@@ -64,6 +85,7 @@ class BodyStreamBlock(blocks.StreamBlock):
     iframe = EmbedIframeBlock()
     callout = CalloutBlock()
     card_grid = CardGridBlock()
+    ambassador_apply = AmbassadorApplyBlock()
     html = blocks.RawHTMLBlock(
         help_text="Raw HTML — available to editors with the required permission only.",
     )

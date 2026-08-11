@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Your ambassador application{% endblock %}
+
+{% block content %}
+  <section class="auth-panel">
+    <h1>Your ambassador application</h1>
+
+    <p>
+      Status:
+      <strong>{{ application.get_status_display }}</strong>
+    </p>
+
+    {% if application.status == "applied" %}
+      <p>Thanks for applying! We're reviewing applications and will update you here.</p>
+    {% elif application.status == "waitlisted" %}
+      <p>You're on the waitlist. We'll reach out if a spot opens up.</p>
+    {% elif application.status == "accepted" %}
+      <p>Welcome aboard — you're a Black Python Devs student ambassador!</p>
+    {% elif application.status == "rejected" %}
+      <p>Thanks for your interest. We aren't able to move forward this time.</p>
+    {% endif %}
+
+    <dl>
+      <dt>Name</dt><dd>{{ application.name }}</dd>
+      <dt>School</dt><dd>{{ application.school }}</dd>
+      {% if application.field_of_study %}<dt>Field of study</dt><dd>{{ application.field_of_study }}</dd>{% endif %}
+      {% if application.country %}<dt>Country</dt><dd>{{ application.country.name }}</dd>{% endif %}
+      <dt>Applied</dt><dd>{{ application.created_at|date }}</dd>
+    </dl>
+  </section>
+{% endblock %}

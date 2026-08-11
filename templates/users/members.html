@@ -46,6 +46,22 @@
   </section>
 
   <section class="auth-panel">
+    <h2>Student Ambassador programme</h2>
+    {% if ambassador_application %}
+      <p>
+        Your application status:
+        <strong>{{ ambassador_application.get_status_display }}</strong>.
+      </p>
+      <p><a href="{% url 'ambassadors:status' %}">View your application</a></p>
+    {% else %}
+      <p>Help grow the Python community on your campus as a Black Python Devs student ambassador.</p>
+      <p>
+        <a role="button" class="btn" href="{% url 'ambassadors:apply' %}">Apply now</a>
+      </p>
+    {% endif %}
+  </section>
+
+  <section class="auth-panel">
     <h2>Your account</h2>
     <ul>
       <li><a href="{% url 'account_email' %}">Manage email addresses</a></li>

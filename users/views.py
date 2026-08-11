@@ -3,6 +3,8 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
+from ambassadors.models import StudentAmbassador
+
 from .discord import is_configured, login_available
 
 
@@ -19,5 +21,7 @@ def members(request):
             "discord_role_enabled": is_configured(),
             # Whether a Discord OAuth app exists, so the connect flow can run.
             "discord_login_available": login_available(request),
+            # Their ambassador application, if they've started one.
+            "ambassador_application": StudentAmbassador.objects.filter(user=request.user).first(),
         },
     )
