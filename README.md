@@ -49,9 +49,35 @@ uv run python manage.py runserver
 | --- | --- |
 | `bootstrap_site` | Creates the page tree, site settings, and snippets. Idempotent. |
 | `import_content` | Imports markdown posts, events, and pages from the static repo, pulling referenced images into the Wagtail image library. Matches on slug, so re-running updates rather than duplicates. |
+| `import_foundational_supporters` | Loads the supporter roster from a CSV or JSON file. `--replace` makes the file the truth, clearing the old roster first; `--dry-run` parses and reports without writing. |
 
 Seed data for the snippets lives in `fixtures/`, carried over from the static
 site's `_data/` directory.
+
+### Re-uploading the supporter roster
+
+```bash
+uv run python manage.py import_foundational_supporters supporters.csv --replace
+```
+
+CSV needs a header row with `name`, `year`, and ideally `email`; `status`
+(`listed` / `anonymous` / `pending`) and `note` are optional. JSON works too,
+either as a flat list of those keys or the year-keyed shape in
+`fixtures/foundational_supporters.json`.
+
+**Include emails.** A supporter with an email gets an unverified account they
+claim themselves — they sign in with an emailed code, allauth verifies the
+address on the way through, and their whole support history is already
+attached. A name with no email gets a placeholder account on a reserved
+`.invalid` domain that nobody can sign into; re-importing that person later
+*with* an address upgrades the same account rather than duplicating them, so
+their earlier years follow along.
+
+`--replace` deletes every support record, then removes placeholder accounts
+left with nothing attached. Real accounts are never deleted — a member who also
+donated keeps their account. The whole import is one transaction, and rows are
+validated before anything is written, so a bad line aborts cleanly instead of
+leaving a half-replaced roster.
 
 ## Content model
 
@@ -75,7 +101,7 @@ and cancelled ones stay internal to the CMS. Completed-but-unpaid entries still
 show, carrying a "community" badge for non-monetary support (visibility,
 volunteer time). The `amount` and `notes` fields are internal and never render.
 
-**Snippets** — `Author`, `Leader`, `Sponsor`, `Partner`, `FoundationalSupporter`.
+**Snippets** — `Author`, `Leader`, `Sponsor`, `Partner`, `FoundationalSupport` (a user's $200+ support in one year, with a listed / anonymous / pending status; imported supporters hold unverified placeholder accounts on a `.invalid` domain until they claim them).
 
 **Site settings** (Wagtail Settings menu) — navigation, announcement toast,
 social links, footer copy.

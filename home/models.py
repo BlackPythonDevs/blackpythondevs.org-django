@@ -205,15 +205,17 @@ class SupportPage(SEOMixin, Page):
     def get_context(self, request, *args, **kwargs):
         from collections import defaultdict
 
-        from core.models import FoundationalSupporter, Partner, Sponsor
+        from core.models import FoundationalSupport, Partner, Sponsor
 
         context = super().get_context(request, *args, **kwargs)
         context["partners"] = Partner.objects.all()
         context["sponsors"] = Sponsor.objects.filter(active=True)
 
+        # Anonymous and unconfirmed support is deliberately left off the page.
         by_year = defaultdict(list)
-        for supporter in FoundationalSupporter.objects.all():
-            by_year[supporter.year].append(supporter.name)
+        support = FoundationalSupport.objects.filter(status=FoundationalSupport.LISTED).select_related("user")
+        for entry in support:
+            by_year[entry.year].append(entry.display_name)
         # Newest year first; the template opens the current year by default.
-        context["supporters_by_year"] = sorted(by_year.items(), reverse=True)
+        context["supporters_by_year"] = [(year, sorted(names)) for year, names in sorted(by_year.items(), reverse=True)]
         return context

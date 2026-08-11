@@ -228,20 +228,57 @@ class Leader(models.Model):
 
 
 @register_snippet
-class FoundationalSupporter(models.Model):
-    """Individual donor giving at least $200 in a given year."""
+class FoundationalSupport(models.Model):
+    """One person's foundational support ($200+) in one year.
 
-    name = models.CharField(max_length=160)
+    Support hangs off a user account rather than a bare name, so someone who
+    gives across several years is one identity with a history. Imported
+    supporters have placeholder accounts (see `core.supporters`) until they
+    claim them.
+    """
+
+    LISTED = "listed"
+    ANONYMOUS = "anonymous"
+    PENDING = "pending"
+    STATUS_CHOICES = [
+        (LISTED, "Listed publicly"),
+        (ANONYMOUS, "Anonymous"),
+        (PENDING, "Pending confirmation"),
+    ]
+
+    user = models.ForeignKey(
+        "users.User",
+        on_delete=models.CASCADE,
+        related_name="foundational_support",
+    )
     year = models.PositiveIntegerField(db_index=True)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=LISTED,
+        help_text="Only 'Listed publicly' appears on the support page.",
+    )
+    note = models.CharField(max_length=200, blank=True)
 
-    panels = [FieldPanel("name"), FieldPanel("year")]
+    panels = [
+        FieldPanel("user"),
+        FieldPanel("year"),
+        FieldPanel("status"),
+        FieldPanel("note"),
+    ]
 
     class Meta:
-        ordering = ["-year", "name"]
-        unique_together = [("name", "year")]
+        ordering = ["-year", "user__display_name"]
+        unique_together = [("user", "year")]
+        verbose_name = "foundational support"
+        verbose_name_plural = "foundational support"
 
     def __str__(self):
-        return f"{self.name} — {self.year}"
+        return f"{self.user} — {self.year} ({self.get_status_display()})"
+
+    @property
+    def display_name(self):
+        return self.user.display_name or str(self.user)
 
 
 @register_snippet
