@@ -15,10 +15,10 @@ from django.db import transaction
 from wagtail.models import Page, Site
 
 from blog.models import BlogIndexPage
+from core.management.commands.import_foundational_supporters import parse_rows
 from core.models import (
     Author,
     FooterSettings,
-    FoundationalSupporter,
     Leader,
     NavigationItem,
     NavigationSettings,
@@ -26,6 +26,7 @@ from core.models import (
     SocialSettings,
     Sponsor,
 )
+from core.supporters import import_supporters
 from events.models import EventIndexPage, EventPage
 from home.models import AboutPage, HomePage, MembershipPage, StandardPage, SupportPage
 from sponsorships.models import SponsorshipRequest
@@ -341,9 +342,11 @@ class Command(BaseCommand):
                 },
             )
 
-        for year, names in (load_fixture("foundational_supporters.json") or {}).items():
-            for name in names:
-                FoundationalSupporter.objects.get_or_create(name=name, year=int(year))
+        # Seed only: the real roster is re-uploaded with
+        # `import_foundational_supporters --replace`, which is where emails arrive.
+        supporters = FIXTURES / "foundational_supporters.json"
+        if supporters.exists():
+            import_supporters(parse_rows(supporters))
 
         for author in load_fixture("authors.json") or []:
             social = author.get("social") or {}

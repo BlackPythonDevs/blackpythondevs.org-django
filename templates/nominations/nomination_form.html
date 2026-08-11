@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Edit nomination{% else %}Nominate someone for the council{% endif %}{% endblock %}
+
+{% block content %}
+  <section class="auth-panel">
+    <h1>{% if object %}Edit nomination{% else %}Nominate someone for the council{% endif %}</h1>
+    <p class="auth-intro">
+      The Leadership Council steers Black Python Devs. Tell the council who you
+      think should have a seat and why. Nominations stay internal to leadership.
+    </p>
+
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit" class="btn">
+        {% if object %}Save changes{% else %}Submit nomination{% endif %}
+      </button>
+      <a role="button" class="secondary" href="{% url 'nominations:list' %}">Cancel</a>
+    </form>
+  </section>
+{% endblock %}

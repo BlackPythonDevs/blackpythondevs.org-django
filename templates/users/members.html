@@ -61,6 +61,20 @@
     {% endif %}
   </section>
 
+  {% if can_nominate %}
+    <section class="auth-panel">
+      <h2>Leadership Council nominations</h2>
+      <p>
+        As a member of leadership you can put people forward for a seat on the
+        Black Python Devs Leadership Council.
+      </p>
+      <p>
+        <a role="button" class="btn" href="{% url 'nominations:nominate' %}">Nominate someone</a>
+        <a role="button" class="secondary" href="{% url 'nominations:list' %}">See all nominations</a>
+      </p>
+    </section>
+  {% endif %}
+
   <section class="auth-panel">
     <h2>Your account</h2>
     <ul>
