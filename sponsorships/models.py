@@ -81,6 +81,9 @@ class SponsorshipRequest(models.Model):
         verbose_name_plural = "sponsorship requests"
         ordering = ["-year", "region", "name"]
 
+    def __str__(self):
+        return f"{self.name} ({self.year})"
+
     def save(self, *args, **kwargs):
         # Keep the derived fields in step with their sources. Only overwrite
         # when a source is present so legacy rows (year/region imported without
@@ -90,9 +93,6 @@ class SponsorshipRequest(models.Model):
         if self.country:
             self.region = region_for_country(self.country.code) or self.region
         super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f"{self.name} ({self.year})"
 
     @property
     def is_published(self):

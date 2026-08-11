@@ -27,8 +27,8 @@ from core.models import (
     Sponsor,
 )
 from events.models import EventIndexPage, EventPage
-from sponsorships.models import SponsorshipRequest
 from home.models import AboutPage, HomePage, MembershipPage, StandardPage, SupportPage
+from sponsorships.models import SponsorshipRequest
 
 FIXTURES = Path(django_settings.BASE_DIR) / "fixtures"
 
