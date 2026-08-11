@@ -172,9 +172,22 @@ class Partner(models.Model):
         return self.name
 
 
+# Membership groups for the leadership roster. Like the "Ambassadors" group
+# these carry no permissions of their own — they record who someone is, so
+# views and templates can gate on membership and permissions can be attached
+# later without a rename. A data migration provisions them.
+COUNCIL_GROUP_NAME = "Leadership Council"
+LEADERSHIP_GROUP_NAME = "Leadership"
+
+
 @register_snippet
 class Leader(models.Model):
-    """A member of leadership: executor, team lead, advisor, or council member."""
+    """A member of leadership: executor, team lead, advisor, or council member.
+
+    This is the public roster shown on the About page and is deliberately not
+    tied to a `User` — plenty of leaders predate having an account here. The
+    matching auth groups above are maintained separately.
+    """
 
     EXECUTOR = "executor"
     TEAM_LEAD = "lead"
