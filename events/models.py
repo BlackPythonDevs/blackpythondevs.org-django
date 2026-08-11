@@ -183,6 +183,12 @@ class LeadershipSummitPage(EventPage):
         verbose_name="Call for speakers URL",
         help_text="Leave blank until the call for speakers opens.",
     )
+    cfp_deadline = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Call for speakers closes",
+        help_text="After this date the call is shown as closed rather than open.",
+    )
 
     # Summits split into a morning and an afternoon session, and each is
     # recorded separately. Stored as whatever YouTube URL the editor pastes;
@@ -233,7 +239,12 @@ class LeadershipSummitPage(EventPage):
             heading="Codes of Conduct",
         ),
         MultiFieldPanel(
-            [FieldPanel("registration_url"), FieldPanel("cfp_url"), FieldPanel("prospectus_url")],
+            [
+                FieldPanel("registration_url"),
+                FieldPanel("cfp_url"),
+                FieldPanel("cfp_deadline"),
+                FieldPanel("prospectus_url"),
+            ],
             heading="Registration, speaking, and sponsorship",
         ),
         MultiFieldPanel(
@@ -262,6 +273,39 @@ class LeadershipSummitPage(EventPage):
     def date(self):
         """The single day the summit runs on."""
         return self.start_date
+
+    @property
+    def has_happened(self):
+        """Whether this summit is in the past.
+
+        A date that has passed says so outright. Published recordings say so
+        too, and are checked because summits carried over from the static site
+        never recorded a date — the 2024 page states only the year. Without
+        this, a past summit with no date would advertise itself as upcoming.
+        """
+        from django.utils import timezone
+
+        if self.recordings:
+            return True
+        return bool(self.date and self.date < timezone.localdate())
+
+    @property
+    def cfp_open(self):
+        """Whether talks can still be submitted."""
+        from django.utils import timezone
+
+        if not self.cfp_url or self.has_happened:
+            return False
+        return not (self.cfp_deadline and timezone.localdate() > self.cfp_deadline)
+
+    @property
+    def cfp_closed(self):
+        """Whether the call ran and has since shut."""
+        from django.utils import timezone
+
+        if self.has_happened or not self.cfp_deadline:
+            return False
+        return timezone.localdate() > self.cfp_deadline
 
     @property
     def recordings(self):

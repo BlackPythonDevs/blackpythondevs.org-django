@@ -43,28 +43,35 @@
       </section>
     {% endif %}
 
-    <section>
-      <h2>{% if page.registration_url %}Register{% else %}Coming Soon{% endif %}</h2>
-      <p>
-        {% if page.date %}
-          The next summit is on <strong>{{ page.date|date:"j F Y" }}</strong>{% if page.city %} in <strong>{{ page.city }}</strong>{% endif %}{% if page.host_event_name %} at
-            {% if page.host_event_url %}<a href="{{ page.host_event_url }}" rel="noopener">{{ page.host_event_name }}</a>{% else %}{{ page.host_event_name }}{% endif %}
-          {% endif %}.
-        {% endif %}
-        {% if page.host_event_name and page.host_event_dates %}
-          We're partnering with {{ page.host_event_name }}, which runs <strong>{{ page.host_event_dates }}</strong>{% if page.location %} at the {{ page.location }}{% endif %}.
-        {% endif %}
-      </p>
-
-      {% if page.registration_url %}
-        <p><a role="button" class="btn" href="{{ page.registration_url }}" rel="noopener">Register for the summit</a></p>
-      {% else %}
+    {% comment %}
+      Everything below is forward-looking — where to register, what's still to be
+      announced. A summit that has already happened skips it entirely; its page
+      is a record, not a call to action.
+    {% endcomment %}
+    {% if not page.has_happened %}
+      <section>
+        <h2>{% if page.registration_url %}Register{% else %}Coming Soon{% endif %}</h2>
         <p>
-          Registration, speakers, and the schedule will be announced on this page.
-          Follow Black Python Devs to hear about them first.
+          {% if page.date %}
+            The next summit is on <strong>{{ page.date|date:"j F Y" }}</strong>{% if page.city %} in <strong>{{ page.city }}</strong>{% endif %}{% if page.host_event_name %} at
+              {% if page.host_event_url %}<a href="{{ page.host_event_url }}" rel="noopener">{{ page.host_event_name }}</a>{% else %}{{ page.host_event_name }}{% endif %}
+            {% endif %}.
+          {% endif %}
+          {% if page.host_event_name and page.host_event_dates %}
+            We're partnering with {{ page.host_event_name }}, which runs <strong>{{ page.host_event_dates }}</strong>{% if page.location %} at the {{ page.location }}{% endif %}.
+          {% endif %}
         </p>
-      {% endif %}
-    </section>
+
+        {% if page.registration_url %}
+          <p><a role="button" class="btn" href="{{ page.registration_url }}" rel="noopener">Register for the summit</a></p>
+        {% else %}
+          <p>
+            Registration, speakers, and the schedule will be announced on this page.
+            Follow Black Python Devs to hear about them first.
+          </p>
+        {% endif %}
+      </section>
+    {% endif %}
 
     <section>
       <h2>Who is Invited?</h2>
@@ -88,21 +95,32 @@
       </p>
     </section>
 
-    <section>
-      <h2>Speaking and Sponsorship</h2>
-      {% if page.cfp_url %}
-        <p><a role="button" class="btn" href="{{ page.cfp_url }}" rel="noopener">Submit a talk</a></p>
-      {% else %}
-        <p>The call for speakers will be released closer to the event.</p>
-      {% endif %}
-      {% if not page.prospectus_url %}
-        <p>Sponsor information will be released closer to the event.</p>
-      {% endif %}
-      <p>
-        If you'd like to help fund this and initiatives like it,
-        <a href="/support/">support Black Python Devs</a>.
-      </p>
-    </section>
+    {% if page.has_happened %}
+      <section>
+        <p>
+          If you'd like to help fund summits like this one,
+          <a href="/support/">support Black Python Devs</a>.
+        </p>
+      </section>
+    {% else %}
+      <section>
+        <h2>Speaking and Sponsorship</h2>
+        {% if page.cfp_open %}
+          <p><a role="button" class="btn" href="{{ page.cfp_url }}" rel="noopener">Submit a talk</a></p>
+        {% elif page.cfp_closed %}
+          <p>The call for speakers has closed. The line-up will be announced on this page.</p>
+        {% else %}
+          <p>The call for speakers will be released closer to the event.</p>
+        {% endif %}
+        {% if not page.prospectus_url %}
+          <p>Sponsor information will be released closer to the event.</p>
+        {% endif %}
+        <p>
+          If you'd like to help fund this and initiatives like it,
+          <a href="/support/">support Black Python Devs</a>.
+        </p>
+      </section>
+    {% endif %}
 
     {% include_block page.body %}
 

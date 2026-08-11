@@ -89,14 +89,14 @@ class TestSummit2027:
         assert summit.location == "Austin Central Library"
         assert summit.city == "Austin, TX"
         assert summit.host_event_name == "PyTexas"
-        assert summit.is_upcoming
 
     def test_page_generates_the_standard_sections(self, client, summit):
+        # Only the time-invariant sections are asserted here — the seed carries a
+        # fixed date, so the forward-looking copy is covered by the relative-date
+        # tests below rather than by assertions that expire in April 2027.
         html = client.get(summit.url).content.decode()
         assert "single day workshop" in html
-        assert "Coming Soon" in html
         assert "Who is Invited?" in html
-        assert "Speaking and Sponsorship" in html
 
     def test_page_states_when_and_where(self, client, summit):
         html = client.get(summit.url).content.decode()
@@ -120,10 +120,15 @@ class TestSummitTemplate:
 
     @pytest.fixture
     def summit(self, events_index):
+        from django.utils import timezone
+
+        # Relative, not a hardcoded year: these assertions are about the
+        # forward-looking copy, which a fixed date would silently stop
+        # exercising once that date went past.
         page = LeadershipSummitPage(
-            title="Leadership Summit 2028",
-            slug="leadership-summit-2028",
-            start_date=datetime.date(2028, 5, 1),
+            title="Leadership Summit",
+            slug="leadership-summit-upcoming",
+            start_date=timezone.localdate() + datetime.timedelta(days=365),
         )
         events_index.add_child(instance=page)
         page.save_revision().publish()
@@ -475,3 +480,118 @@ class TestSummitRecordings:
         html = client.get(summit.url).content.decode()
         assert "Afternoon session" in html
         assert "Morning session" not in html
+
+
+class TestPastSummitsDropForwardLookingCopy:
+    """A summit that has happened is a record, not a call to action."""
+
+    def make(self, events_index, slug, **kwargs):
+        page = LeadershipSummitPage(title=slug.title(), slug=slug, **kwargs)
+        events_index.add_child(instance=page)
+        page.save_revision().publish()
+        return page
+
+    @pytest.fixture
+    def today(self):
+        from django.utils import timezone
+
+        return timezone.localdate()
+
+    def test_a_dated_past_summit_has_happened(self, events_index, today):
+        page = self.make(events_index, "past-summit", start_date=today - datetime.timedelta(days=1))
+        assert page.has_happened
+
+    def test_an_upcoming_summit_has_not(self, events_index, today):
+        page = self.make(events_index, "future-summit", start_date=today + datetime.timedelta(days=1))
+        assert not page.has_happened
+
+    def test_recordings_mark_a_dateless_summit_as_past(self, events_index):
+        """Summits carried over from the static site never recorded a date."""
+        page = self.make(events_index, "old-summit", morning_video_url="https://youtu.be/AAAAAAAAAAA")
+        assert page.date is None
+        assert page.has_happened
+
+    def test_a_dateless_summit_without_recordings_is_still_upcoming(self, events_index):
+        page = self.make(events_index, "unscheduled-summit")
+        assert not page.has_happened
+
+    def test_past_summit_hides_coming_soon_and_pending_copy(self, client, events_index, today):
+        page = self.make(
+            events_index,
+            "finished-summit",
+            start_date=today - datetime.timedelta(days=30),
+            registration_url="https://example.com/register",
+        )
+        html = client.get(page.url).content.decode()
+        assert "Coming Soon" not in html
+        assert "Register for the summit" not in html
+        assert "will be announced on this page" not in html
+        assert "will be released closer to the event" not in html
+        # The support ask survives, in past tense.
+        assert "support Black Python Devs" in html
+        # And the parts that describe the summit itself remain.
+        assert "Who is Invited?" in html
+
+    def test_upcoming_summit_still_shows_coming_soon(self, client, events_index, today):
+        page = self.make(events_index, "next-summit", start_date=today + datetime.timedelta(days=30))
+        html = client.get(page.url).content.decode()
+        assert "Coming Soon" in html
+        assert "will be announced on this page" in html
+
+
+class TestCallForSpeakersDeadline:
+    def make(self, events_index, slug, **kwargs):
+        page = LeadershipSummitPage(title=slug.title(), slug=slug, **kwargs)
+        events_index.add_child(instance=page)
+        page.save_revision().publish()
+        return page
+
+    @pytest.fixture
+    def today(self):
+        from django.utils import timezone
+
+        return timezone.localdate()
+
+    def test_open_while_before_the_deadline(self, client, events_index, today):
+        page = self.make(
+            events_index,
+            "cfp-open",
+            start_date=today + datetime.timedelta(days=60),
+            cfp_url="https://example.com/cfp",
+            cfp_deadline=today + datetime.timedelta(days=10),
+        )
+        assert page.cfp_open and not page.cfp_closed
+        assert "Submit a talk" in client.get(page.url).content.decode()
+
+    def test_closed_once_the_deadline_passes(self, client, events_index, today):
+        page = self.make(
+            events_index,
+            "cfp-closed",
+            start_date=today + datetime.timedelta(days=30),
+            cfp_url="https://example.com/cfp",
+            cfp_deadline=today - datetime.timedelta(days=1),
+        )
+        assert page.cfp_closed and not page.cfp_open
+        html = client.get(page.url).content.decode()
+        assert "The call for speakers has closed." in html
+        assert "Submit a talk" not in html
+
+    def test_no_deadline_means_open_for_as_long_as_the_link_is_up(self, events_index, today):
+        page = self.make(
+            events_index,
+            "cfp-no-deadline",
+            start_date=today + datetime.timedelta(days=30),
+            cfp_url="https://example.com/cfp",
+        )
+        assert page.cfp_open
+
+    def test_a_past_summit_is_neither_open_nor_closed(self, events_index, today):
+        page = self.make(
+            events_index,
+            "cfp-past",
+            start_date=today - datetime.timedelta(days=1),
+            cfp_url="https://example.com/cfp",
+            cfp_deadline=today - datetime.timedelta(days=30),
+        )
+        assert not page.cfp_open
+        assert not page.cfp_closed
