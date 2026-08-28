@@ -5,6 +5,8 @@ standalone ``SponsorshipRequest`` rows managed from the Django admin; this page
 only reads the completed ones for public display.
 """
 
+from urllib.parse import parse_qs, urlparse
+
 from django.db import models
 from modelcluster.fields import ParentalKey
 from wagtail.admin.panels import FieldPanel, InlinePanel, MultiFieldPanel
@@ -14,6 +16,32 @@ from wagtail.search import index
 
 from core.blocks import BodyStreamBlock
 from home.models import SEOMixin
+
+
+def youtube_embed_url(url):
+    """Turn any YouTube link an editor might paste into an embeddable one.
+
+    Editors copy whatever the browser or the share sheet gives them — a full
+    ``watch?v=`` URL, a ``youtu.be`` short link, or occasionally an ``/embed/``
+    one already. All three become ``https://www.youtube.com/embed/<id>``.
+    Anything unrecognised returns "" so the template can skip it rather than
+    render a broken iframe.
+    """
+    if not url:
+        return ""
+    parsed = urlparse(url)
+    host = parsed.netloc.lower().removeprefix("www.")
+    video_id = ""
+    if host == "youtu.be":
+        video_id = parsed.path.lstrip("/").split("/")[0]
+    elif host in {"youtube.com", "m.youtube.com", "youtube-nocookie.com"}:
+        if parsed.path == "/watch":
+            video_id = parse_qs(parsed.query).get("v", [""])[0]
+        elif parsed.path.startswith(("/embed/", "/live/", "/shorts/")):
+            video_id = parsed.path.split("/")[2]
+    if not video_id:
+        return ""
+    return f"https://www.youtube.com/embed/{video_id}"
 
 
 class EventIndexPage(SEOMixin, Page):
@@ -42,7 +70,9 @@ class EventIndexPage(SEOMixin, Page):
         FieldPanel("grants_note"),
     ]
 
-    subpage_types = ["events.EventPage"]
+    # Wagtail matches subpage_types exactly, so the EventPage subclass has to be
+    # listed alongside it rather than being covered by it.
+    subpage_types = ["events.EventPage", "events.LeadershipSummitPage"]
     max_count = 1
 
     def get_context(self, request, *args, **kwargs):
@@ -72,19 +102,10 @@ class EventPage(SEOMixin, Page):
     end_date = models.DateField(null=True, blank=True)
     location = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
-    banner = models.ForeignKey(
-        "core.CustomImage", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
-    )
+    banner = models.ForeignKey("core.CustomImage", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     body = StreamField(BodyStreamBlock(), blank=True, use_json_field=True)
 
-    tito_event = models.CharField(
-        max_length=200,
-        blank=True,
-        help_text="Tito event slug, e.g. black-python-devs/leadership-summit",
-    )
     prospectus_url = models.URLField(blank=True)
-    commitchange_campaign_id = models.CharField(max_length=40, blank=True)
-    commitchange_designation = models.CharField(max_length=200, blank=True)
 
     content_panels = Page.content_panels + [
         MultiFieldPanel(
@@ -95,15 +116,7 @@ class EventPage(SEOMixin, Page):
         FieldPanel("banner"),
         FieldPanel("body"),
         InlinePanel("sponsors", label="Event sponsors"),
-        MultiFieldPanel(
-            [
-                FieldPanel("tito_event"),
-                FieldPanel("prospectus_url"),
-                FieldPanel("commitchange_campaign_id"),
-                FieldPanel("commitchange_designation"),
-            ],
-            heading="Tickets and fundraising",
-        ),
+        FieldPanel("prospectus_url"),
     ]
 
     search_fields = Page.search_fields + [
@@ -121,6 +134,324 @@ class EventPage(SEOMixin, Page):
         return bool(self.start_date and self.start_date >= timezone.localdate())
 
 
+class LeadershipSummitPage(EventPage):
+    """A Leadership Summit, generated from its details rather than hand-written.
+
+    Every summit says the same things in the same order — what it is, when and
+    where, who's invited, and how to speak at or sponsor it — so this page type
+    asks an editor for the details and the template writes the prose. Creating
+    next year's summit is filling in a form, not copying last year's body.
+
+    It subclasses `EventPage` to inherit the dates, venue, banner, and sponsors,
+    so a summit still behaves like any other BPD event on the /events/ listing.
+    `body` is still there for anything the generated sections don't cover — it
+    renders after them.
+    """
+
+    TAGLINE = (
+        "The Black Python Devs Leadership Summit is a single day workshop where leaders in the "
+        "Python Community are invited to connect, grow, and learn with one another."
+    )
+    WHO_IS_INVITED = (
+        "Anyone in leadership or wanting to get into leadership at the local, regional, or "
+        "global level of the Python community."
+    )
+
+    city = models.CharField(
+        max_length=120,
+        blank=True,
+        help_text='City and region, e.g. "Austin, TX". Used in the summary line.',
+    )
+
+    # The conference the summit is co-located with. Its own dates are kept
+    # separately because the summit is usually one day inside a longer event.
+    host_event_name = models.CharField(
+        max_length=160,
+        blank=True,
+        help_text='The conference this summit runs alongside, e.g. "PyTexas". Leave blank if standalone.',
+    )
+    host_event_url = models.URLField(blank=True)
+    host_event_start = models.DateField(null=True, blank=True, help_text="First day of the host conference.")
+    host_event_end = models.DateField(null=True, blank=True, help_text="Last day of the host conference.")
+
+    registration_url = models.URLField(
+        blank=True,
+        help_text="Leave blank until registration opens — the page then says announcements are coming.",
+    )
+    cfp_url = models.URLField(
+        blank=True,
+        verbose_name="Call for speakers URL",
+        help_text="Leave blank until the call for speakers opens.",
+    )
+    cfp_deadline = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Call for speakers closes",
+        help_text="After this date the call is shown as closed rather than open.",
+    )
+
+    # Summits split into a morning and an afternoon session, and each is
+    # recorded separately. Stored as whatever YouTube URL the editor pastes;
+    # `youtube_embed_url` normalises it at render time.
+    morning_video_url = models.URLField(
+        blank=True,
+        verbose_name="Morning session recording",
+        help_text="YouTube link to the morning session. Leave blank until it's published.",
+    )
+    afternoon_video_url = models.URLField(
+        blank=True,
+        verbose_name="Afternoon session recording",
+        help_text="YouTube link to the afternoon session. Leave blank until it's published.",
+    )
+
+    code_of_conduct_url = models.CharField(
+        max_length=255,
+        blank=True,
+        default="/code-of-conduct/",
+        help_text="The Black Python Devs Code of Conduct.",
+    )
+    host_code_of_conduct_url = models.URLField(
+        blank=True,
+        help_text="The host conference's Code of Conduct, if there is one.",
+    )
+
+    content_panels = Page.content_panels + [
+        MultiFieldPanel(
+            # A summit is a single day, so `end_date` is kept off the form and
+            # mirrored from `start_date` on save (see below).
+            [FieldPanel("start_date", heading="Date"), FieldPanel("location"), FieldPanel("city")],
+            heading="When and where",
+        ),
+        MultiFieldPanel(
+            [
+                FieldPanel("host_event_name"),
+                FieldPanel("host_event_url"),
+                FieldPanel("host_event_start"),
+                FieldPanel("host_event_end"),
+            ],
+            heading="Host conference",
+        ),
+        FieldPanel("description"),
+        FieldPanel("banner"),
+        MultiFieldPanel(
+            # The invitation wording itself is fixed — see `invitation` below.
+            [FieldPanel("code_of_conduct_url"), FieldPanel("host_code_of_conduct_url")],
+            heading="Codes of Conduct",
+        ),
+        MultiFieldPanel(
+            [
+                FieldPanel("registration_url"),
+                FieldPanel("cfp_url"),
+                FieldPanel("cfp_deadline"),
+                FieldPanel("prospectus_url"),
+            ],
+            heading="Registration, speaking, and sponsorship",
+        ),
+        MultiFieldPanel(
+            [FieldPanel("morning_video_url"), FieldPanel("afternoon_video_url")],
+            heading="Recordings",
+        ),
+        InlinePanel("speaker_lineup", label="Speakers", heading="Speakers"),
+        InlinePanel("schedule_items", label="Schedule row", heading="Schedule"),
+        FieldPanel("body", heading="Extra sections (optional)"),
+        InlinePanel("sponsors", label="Event sponsors"),
+    ]
+
+    parent_page_types = ["events.EventIndexPage"]
+    subpage_types = []
+
+    class Meta:
+        verbose_name = "leadership summit"
+
+    def save(self, *args, **kwargs):
+        # A summit runs for one day. `start_date`/`end_date` are inherited from
+        # EventPage and are what the /events/ listing sorts and renders on, so
+        # rather than adding a separate field the end is mirrored from the start
+        # — one date to fill in, and no half-set date range in the database.
+        self.end_date = self.start_date
+        super().save(*args, **kwargs)
+
+    @property
+    def date(self):
+        """The single day the summit runs on."""
+        return self.start_date
+
+    @property
+    def speaker_groups(self):
+        """The line-up as (heading, [SummitSpeaker]) pairs.
+
+        Grouped in Python rather than with `{% regroup %}` so that speakers
+        sharing a heading are collected even when they aren't adjacent — an
+        editor dragging one row can't accidentally split a section in two.
+        Headings keep the order they first appear in.
+        """
+        groups = {}
+        for entry in self.speaker_lineup.all().select_related("speaker", "speaker__photo"):
+            groups.setdefault(entry.group or "Speakers", []).append(entry)
+        return list(groups.items())
+
+    @property
+    def schedule_tracks(self):
+        """The running order as (heading, [SummitScheduleItem]) pairs.
+
+        Same grouping rule as the line-up. An unnamed track yields a "" heading,
+        which the template renders as a single untitled table.
+        """
+        tracks = {}
+        for item in self.schedule_items.all().select_related("speaker"):
+            tracks.setdefault(item.track, []).append(item)
+        return list(tracks.items())
+
+    @property
+    def has_happened(self):
+        """Whether this summit is in the past.
+
+        A date that has passed says so outright. Published recordings say so
+        too, and are checked because summits carried over from the static site
+        never recorded a date — the 2024 page states only the year. Without
+        this, a past summit with no date would advertise itself as upcoming.
+        """
+        from django.utils import timezone
+
+        if self.recordings:
+            return True
+        return bool(self.date and self.date < timezone.localdate())
+
+    @property
+    def cfp_open(self):
+        """Whether talks can still be submitted."""
+        from django.utils import timezone
+
+        if not self.cfp_url or self.has_happened:
+            return False
+        return not (self.cfp_deadline and timezone.localdate() > self.cfp_deadline)
+
+    @property
+    def cfp_closed(self):
+        """Whether the call ran and has since shut."""
+        from django.utils import timezone
+
+        if self.has_happened or not self.cfp_deadline:
+            return False
+        return timezone.localdate() > self.cfp_deadline
+
+    @property
+    def recordings(self):
+        """The published session recordings, as (label, embed URL) pairs.
+
+        Empty until at least one is set, which is what keeps the "Watch Online"
+        section off a summit that hasn't happened yet.
+        """
+        pairs = [
+            ("Morning session", youtube_embed_url(self.morning_video_url)),
+            ("Afternoon session", youtube_embed_url(self.afternoon_video_url)),
+        ]
+        return [(label, embed) for label, embed in pairs if embed]
+
+    @property
+    def tagline(self):
+        """What the summit is. Editors can override it per-year via `description`."""
+        return self.description or self.TAGLINE
+
+    @property
+    def invitation(self):
+        """Who the summit is for.
+
+        Deliberately not editable per-summit: this is who Black Python Devs
+        invites to every summit, and it should read identically on all of them.
+        Change `WHO_IS_INVITED` to change it everywhere at once.
+        """
+        return self.WHO_IS_INVITED
+
+    @property
+    def host_event_dates(self):
+        """The host conference's run, as a display string, or "" if unknown."""
+        if not self.host_event_start:
+            return ""
+        start = self.host_event_start
+        end = self.host_event_end
+        if not end or end == start:
+            return start.strftime("%B %-d, %Y")
+        if (start.year, start.month) == (end.year, end.month):
+            return f"{start.strftime('%B %-d')} – {end.strftime('%-d, %Y')}"
+        if start.year == end.year:
+            return f"{start.strftime('%B %-d')} – {end.strftime('%B %-d, %Y')}"
+        return f"{start.strftime('%B %-d, %Y')} – {end.strftime('%B %-d, %Y')}"
+
+
+class SummitSpeaker(Orderable):
+    """One speaker in a summit's line-up.
+
+    The person lives in the `core.Speaker` snippet; what belongs here is the
+    year-specific part — which section of the line-up they're in and what they
+    spoke about. Ordering is Wagtail's inline drag handle.
+    """
+
+    page = ParentalKey("events.LeadershipSummitPage", related_name="speaker_lineup", on_delete=models.CASCADE)
+    speaker = models.ForeignKey("core.Speaker", on_delete=models.CASCADE, related_name="summit_appearances")
+    group = models.CharField(
+        max_length=80,
+        blank=True,
+        default="Speakers",
+        help_text='Section heading these appear under, e.g. "Keynote Speakers". '
+        "Speakers sharing a heading are shown together, so keep them next to each other.",
+    )
+    talk_title = models.CharField(max_length=255, blank=True, help_text="The talk they gave at this summit.")
+
+    panels = [FieldPanel("speaker"), FieldPanel("group"), FieldPanel("talk_title")]
+
+    def __str__(self):
+        return f"{self.speaker} ({self.group})"
+
+
+class SummitScheduleItem(Orderable):
+    """One row of a summit's running order.
+
+    `speaker` picks someone from the snippets, so a name entered once in the
+    line-up can't drift from the name in the schedule. `presenter` covers the
+    rest — a sponsor, "Everyone", or anyone with no speaker record.
+    """
+
+    page = ParentalKey("events.LeadershipSummitPage", related_name="schedule_items", on_delete=models.CASCADE)
+    track = models.CharField(
+        max_length=80,
+        blank=True,
+        help_text='Optional heading when a day splits, e.g. "Morning". Rows sharing one are shown together.',
+    )
+    time = models.CharField(max_length=40, help_text='e.g. "09:00" or "8:00am - 9:00am"')
+    title = models.CharField(max_length=255)
+    speaker = models.ForeignKey(
+        "core.Speaker",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        help_text="Pick from the speaker snippets.",
+    )
+    presenter = models.CharField(
+        max_length=160,
+        blank=True,
+        help_text='Used when the presenter has no speaker record — a sponsor, "Everyone", and so on. '
+        "Ignored if a speaker is chosen above.",
+    )
+
+    panels = [
+        FieldPanel("track"),
+        FieldPanel("time"),
+        FieldPanel("title"),
+        FieldPanel("speaker"),
+        FieldPanel("presenter"),
+    ]
+
+    def __str__(self):
+        return f"{self.time} — {self.title}"
+
+    @property
+    def presented_by(self):
+        """Who's presenting: the chosen speaker, else the free-text fallback."""
+        return str(self.speaker) if self.speaker else self.presenter
+
+
 class EventSponsor(Orderable):
     """A sponsor of one specific event, at a given tier."""
 
@@ -133,9 +464,7 @@ class EventSponsor(Orderable):
     name = models.CharField(max_length=160)
     tier = models.CharField(max_length=20, choices=TIER_CHOICES, default=GOLD)
     url = models.URLField(blank=True)
-    logo = models.ForeignKey(
-        "core.CustomImage", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
-    )
+    logo = models.ForeignKey("core.CustomImage", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
 
     panels = [FieldPanel("name"), FieldPanel("tier"), FieldPanel("url"), FieldPanel("logo")]
 

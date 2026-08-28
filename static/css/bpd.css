@@ -1419,6 +1419,17 @@ main.page-content div.wrapper p img {
   border-radius: 10px;
 }
 
+/* ── 18b. Schedule ────────────────────────────────────────── */
+
+/* Running order table. The time column is the row header: kept on one line
+   and in tabular figures so the times line up down the column. */
+.schedule th[scope="row"] {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--bpd-muted);
+}
+
 /* ── 19. Video ────────────────────────────────────────────── */
 
 .video-container {

@@ -23,49 +23,6 @@
 
     {% include_block page.body %}
 
-    {% if page.tito_event %}
-      <section>
-        <h2>Tickets</h2>
-        <tito-widget event="{{ page.tito_event }}"></tito-widget>
-      </section>
-    {% endif %}
-
-    {% if page.commitchange_campaign_id %}
-      <section>
-        <h2>Support this event</h2>
-        {% include "includes/donate_widget.html" %}
-      </section>
-    {% endif %}
-
-    {% regroup page.sponsors.all by get_tier_display as sponsor_tiers %}
-    {% if sponsor_tiers %}
-      <section>
-        <h2>Event Sponsors</h2>
-        {% for tier in sponsor_tiers %}
-          <h3>{{ tier.grouper }}</h3>
-          <div class="grid">
-            {% for sponsor in tier.list %}
-              <article class="sponsor">
-                <a href="{{ sponsor.url }}" target="_blank" rel="noopener">
-                  {% if sponsor.logo %}
-                    {% image sponsor.logo max-300x120 alt=sponsor.name|add:" logo" %}
-                  {% else %}{{ sponsor.name }}{% endif %}
-                </a>
-              </article>
-            {% endfor %}
-          </div>
-        {% endfor %}
-      </section>
-    {% endif %}
-
-    {% if page.prospectus_url %}
-      <p><a href="{{ page.prospectus_url }}" target="_blank" rel="noopener">Read the sponsorship prospectus</a></p>
-    {% endif %}
+    {% include "events/includes/event_extras.html" %}
   </article>
-{% endblock %}
-
-{% block extra_js %}
-  {% if page.tito_event %}
-    <script src="https://js.tito.io/v2" async></script>
-  {% endif %}
 {% endblock %}

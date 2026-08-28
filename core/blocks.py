@@ -41,7 +41,7 @@ class CardGridBlock(blocks.StructBlock):
 
 
 class EmbedIframeBlock(blocks.StructBlock):
-    """Raw iframe embed for Canva decks, Tito widgets, and the presence map."""
+    """Raw iframe embed for Canva decks, the presence map, and similar."""
 
     title = blocks.CharBlock(help_text="Accessible title for the iframe.")
     src = blocks.URLBlock()

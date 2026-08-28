@@ -1,0 +1,30 @@
+{% load wagtailimages_tags %}
+{% comment %}
+  The tail every event page shares: sponsors and the prospectus link.
+  Extracted so EventPage and LeadershipSummitPage can't drift apart.
+{% endcomment %}
+
+{% regroup page.sponsors.all by get_tier_display as sponsor_tiers %}
+{% if sponsor_tiers %}
+  <section>
+    <h2>Event Sponsors</h2>
+    {% for tier in sponsor_tiers %}
+      <h3>{{ tier.grouper }}</h3>
+      <div class="grid">
+        {% for sponsor in tier.list %}
+          <article class="sponsor">
+            <a href="{{ sponsor.url }}" target="_blank" rel="noopener">
+              {% if sponsor.logo %}
+                {% image sponsor.logo max-300x120 alt=sponsor.name|add:" logo" %}
+              {% else %}{{ sponsor.name }}{% endif %}
+            </a>
+          </article>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </section>
+{% endif %}
+
+{% if page.prospectus_url %}
+  <p><a href="{{ page.prospectus_url }}" target="_blank" rel="noopener">Read the sponsorship prospectus</a></p>
+{% endif %}

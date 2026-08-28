@@ -282,6 +282,43 @@ class FoundationalSupport(models.Model):
 
 
 @register_snippet
+class Speaker(index.Indexed, models.Model):
+    """Someone who has spoken at a Black Python Devs event.
+
+    A snippet rather than a field on the event, because speakers come back:
+    a keynote one year is a panellist the next, and their bio should be written
+    once. Events reference this and add the year-specific part (their talk
+    title) alongside — see `events.SummitSpeaker`.
+    """
+
+    name = models.CharField(max_length=160)
+    url = models.URLField(blank=True, help_text="Their site, LinkedIn, or Mastodon.")
+    photo = models.ForeignKey(CustomImage, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    photo_url = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="External or /static/ photo URL, used when no image is uploaded.",
+    )
+    bio = RichTextField(blank=True)
+
+    panels = [
+        FieldPanel("name"),
+        FieldPanel("url"),
+        FieldPanel("photo"),
+        FieldPanel("photo_url"),
+        FieldPanel("bio"),
+    ]
+
+    search_fields = [index.SearchField("name"), index.SearchField("bio"), index.AutocompleteField("name")]
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+@register_snippet
 class Author(index.Indexed, models.Model):
     """Blog post author with a bio, replacing `_data/authors.json`."""
 
