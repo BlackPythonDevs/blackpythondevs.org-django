@@ -1,0 +1,44 @@
+# Caddy terminates TLS for the production stack. Certificates are issued and
+# renewed automatically from Let's Encrypt, so there is nothing to cron.
+#
+# Requirements: DNS A/AAAA records for {$DOMAIN} (and www) point at this host,
+# and ports 80 and 443 are reachable from the internet. Port 80 must stay open
+# after the first issuance — renewals use it too.
+
+{
+	email {$ACME_EMAIL}
+}
+
+www.{$DOMAIN} {
+	{$CADDY_TLS_INTERNAL}
+	redir https://{$DOMAIN}{uri} permanent
+}
+
+{$DOMAIN} {
+	# Empty by default (real Let's Encrypt certificates). Set
+	# CADDY_TLS_INTERNAL="tls internal" for a local dry run under the real
+	# hostname: Caddy signs with its own CA and never contacts Let's Encrypt,
+	# so a failed validation cannot burn the 5-per-hour rate limit.
+	{$CADDY_TLS_INTERNAL}
+
+	encode zstd gzip
+
+	# Wagtail images and documents live on a shared volume when object storage
+	# is not configured. With AWS_STORAGE_BUCKET_NAME set, MEDIA_URL points at
+	# the bucket instead and this block simply goes unused.
+	handle_path /media/* {
+		root * /srv/media
+		file_server
+		header Cache-Control "public, max-age=86400"
+	}
+
+	handle {
+		# reverse_proxy sets X-Forwarded-Proto, which Django reads through
+		# SECURE_PROXY_SSL_HEADER to know the request arrived over HTTPS.
+		reverse_proxy web:8000
+	}
+
+	log {
+		output stdout
+	}
+}

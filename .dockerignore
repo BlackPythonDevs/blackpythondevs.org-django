@@ -11,3 +11,5 @@ media
 .env
 *.sqlite3
 .DS_Store
+.env.*
+*.dump
