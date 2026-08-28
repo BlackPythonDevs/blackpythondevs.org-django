@@ -122,6 +122,60 @@
       </section>
     {% endif %}
 
+    {% for heading, entries in page.speaker_groups %}
+      <section>
+        <h2>{{ heading }}</h2>
+        <div class="grid">
+          {% for entry in entries %}
+            <article>
+              {% if entry.speaker.photo %}
+                {% image entry.speaker.photo fill-400x500 class="speaker-photo" alt=entry.speaker.name %}
+              {% elif entry.speaker.photo_url %}
+                <img class="speaker-photo" src="{{ entry.speaker.photo_url }}" alt="{{ entry.speaker.name }}" />
+              {% endif %}
+              <h3>
+                {% if entry.speaker.url %}
+                  <a href="{{ entry.speaker.url }}" rel="noopener">{{ entry.speaker.name }}</a>
+                {% else %}{{ entry.speaker.name }}{% endif %}
+              </h3>
+              {% if entry.talk_title %}<p><strong>{{ entry.talk_title }}</strong></p>{% endif %}
+              {{ entry.speaker.bio|safe }}
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+    {% endfor %}
+
+    {% for heading, items in page.schedule_tracks %}
+      <section>
+        <h2>{% firstof heading "Schedule" %}</h2>
+        {% comment %}
+          Wrapped in <figure> like the site's other tables, which is what gives
+          it its own horizontal scroll on narrow screens.
+        {% endcomment %}
+        <figure>
+          <table role="grid" class="schedule">
+            <thead>
+              <tr>
+                <th scope="col">Time</th>
+                <th scope="col">Session</th>
+                <th scope="col">Presenter</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in items %}
+                <tr>
+                  <th scope="row">{{ item.time }}</th>
+                  <td>{{ item.title }}</td>
+                  <td>{{ item.presented_by|default:"—" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </figure>
+      </section>
+    {% endfor %}
+
     {% include_block page.body %}
 
     {% include "events/includes/event_extras.html" %}

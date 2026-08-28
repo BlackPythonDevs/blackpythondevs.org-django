@@ -251,6 +251,8 @@ class LeadershipSummitPage(EventPage):
             [FieldPanel("morning_video_url"), FieldPanel("afternoon_video_url")],
             heading="Recordings",
         ),
+        InlinePanel("speaker_lineup", label="Speakers", heading="Speakers"),
+        InlinePanel("schedule_items", label="Schedule row", heading="Schedule"),
         FieldPanel("body", heading="Extra sections (optional)"),
         InlinePanel("sponsors", label="Event sponsors"),
     ]
@@ -273,6 +275,32 @@ class LeadershipSummitPage(EventPage):
     def date(self):
         """The single day the summit runs on."""
         return self.start_date
+
+    @property
+    def speaker_groups(self):
+        """The line-up as (heading, [SummitSpeaker]) pairs.
+
+        Grouped in Python rather than with `{% regroup %}` so that speakers
+        sharing a heading are collected even when they aren't adjacent — an
+        editor dragging one row can't accidentally split a section in two.
+        Headings keep the order they first appear in.
+        """
+        groups = {}
+        for entry in self.speaker_lineup.all().select_related("speaker", "speaker__photo"):
+            groups.setdefault(entry.group or "Speakers", []).append(entry)
+        return list(groups.items())
+
+    @property
+    def schedule_tracks(self):
+        """The running order as (heading, [SummitScheduleItem]) pairs.
+
+        Same grouping rule as the line-up. An unnamed track yields a "" heading,
+        which the template renders as a single untitled table.
+        """
+        tracks = {}
+        for item in self.schedule_items.all().select_related("speaker"):
+            tracks.setdefault(item.track, []).append(item)
+        return list(tracks.items())
 
     @property
     def has_happened(self):
@@ -349,6 +377,79 @@ class LeadershipSummitPage(EventPage):
         if start.year == end.year:
             return f"{start.strftime('%B %-d')} – {end.strftime('%B %-d, %Y')}"
         return f"{start.strftime('%B %-d, %Y')} – {end.strftime('%B %-d, %Y')}"
+
+
+class SummitSpeaker(Orderable):
+    """One speaker in a summit's line-up.
+
+    The person lives in the `core.Speaker` snippet; what belongs here is the
+    year-specific part — which section of the line-up they're in and what they
+    spoke about. Ordering is Wagtail's inline drag handle.
+    """
+
+    page = ParentalKey("events.LeadershipSummitPage", related_name="speaker_lineup", on_delete=models.CASCADE)
+    speaker = models.ForeignKey("core.Speaker", on_delete=models.CASCADE, related_name="summit_appearances")
+    group = models.CharField(
+        max_length=80,
+        blank=True,
+        default="Speakers",
+        help_text='Section heading these appear under, e.g. "Keynote Speakers". '
+        "Speakers sharing a heading are shown together, so keep them next to each other.",
+    )
+    talk_title = models.CharField(max_length=255, blank=True, help_text="The talk they gave at this summit.")
+
+    panels = [FieldPanel("speaker"), FieldPanel("group"), FieldPanel("talk_title")]
+
+    def __str__(self):
+        return f"{self.speaker} ({self.group})"
+
+
+class SummitScheduleItem(Orderable):
+    """One row of a summit's running order.
+
+    `speaker` picks someone from the snippets, so a name entered once in the
+    line-up can't drift from the name in the schedule. `presenter` covers the
+    rest — a sponsor, "Everyone", or anyone with no speaker record.
+    """
+
+    page = ParentalKey("events.LeadershipSummitPage", related_name="schedule_items", on_delete=models.CASCADE)
+    track = models.CharField(
+        max_length=80,
+        blank=True,
+        help_text='Optional heading when a day splits, e.g. "Morning". Rows sharing one are shown together.',
+    )
+    time = models.CharField(max_length=40, help_text='e.g. "09:00" or "8:00am - 9:00am"')
+    title = models.CharField(max_length=255)
+    speaker = models.ForeignKey(
+        "core.Speaker",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        help_text="Pick from the speaker snippets.",
+    )
+    presenter = models.CharField(
+        max_length=160,
+        blank=True,
+        help_text='Used when the presenter has no speaker record — a sponsor, "Everyone", and so on. '
+        "Ignored if a speaker is chosen above.",
+    )
+
+    panels = [
+        FieldPanel("track"),
+        FieldPanel("time"),
+        FieldPanel("title"),
+        FieldPanel("speaker"),
+        FieldPanel("presenter"),
+    ]
+
+    def __str__(self):
+        return f"{self.time} — {self.title}"
+
+    @property
+    def presented_by(self):
+        """Who's presenting: the chosen speaker, else the free-text fallback."""
+        return str(self.speaker) if self.speaker else self.presenter
 
 
 class EventSponsor(Orderable):

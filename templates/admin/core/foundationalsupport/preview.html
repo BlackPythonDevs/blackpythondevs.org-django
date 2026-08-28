@@ -1,0 +1,136 @@
+{% extends "admin/base_site.html" %}
+
+{% block breadcrumbs %}
+  <div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Home</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='core' %}">Core</a>
+    &rsaquo; <a href="{% url 'admin:core_foundationalsupport_changelist' %}">Foundational support</a>
+    &rsaquo; Confirm import
+  </div>
+{% endblock %}
+
+{% block content %}
+  <p>
+    Read {{ summary.payments }} payment{{ summary.payments|pluralize }}.
+    {{ summary.anonymous_skipped }} marked anonymous {{ summary.anonymous_skipped|pluralize:"was,were" }} skipped,
+    and {{ summary.below_threshold }} supporter-year{{ summary.below_threshold|pluralize }} fell below the threshold.
+    That leaves <strong>{{ summary.supporters }}</strong> support record{{ summary.supporters|pluralize }}
+    across {{ summary.years|length }} year{{ summary.years|length|pluralize }}.
+  </p>
+
+  {% if not summary.has_email_column %}
+    <ul class="messagelist"><li class="warning">
+      That export has no email column, so everyone imported gets a placeholder account they cannot sign in to.
+    </li></ul>
+  {% elif without_email %}
+    <ul class="messagelist"><li class="warning">
+      {{ without_email|length }} supporter{{ without_email|length|pluralize:" has,s have" }} no email address and
+      will get a placeholder account they cannot sign in to.
+    </li></ul>
+  {% endif %}
+
+  {% if not summary.has_anonymous_column %}
+    <ul class="messagelist"><li class="warning">
+      That export has no “Anonymous?” column, so every payment counted — check nobody is listed who asked not to be.
+    </li></ul>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+
+    {% if conflicts %}
+      <h2>Is this the same person?</h2>
+      <ul class="messagelist"><li class="warning">
+        {{ conflicts|length }} name{{ conflicts|length|pluralize }} in the export already belong{{ conflicts|length|pluralize:"s," }}
+        to an account under a different email address. Two people really can share a name, so nothing is merged
+        without your say-so.
+      </li></ul>
+
+      {% for conflict in conflicts %}
+        <fieldset class="module aligned">
+          <h3>
+            {{ conflict.row.name }}
+            {% if conflict.row.email %}&lt;{{ conflict.row.email }}&gt;{% else %}(no email in the export){% endif %}
+            — {{ conflict.row.year }}, ${{ conflict.row.total|floatformat:2 }}
+          </h3>
+          {% for option in conflict.options %}
+            <div class="form-row">
+              <label for="resolve_{{ conflict.index }}_{{ forloop.counter }}">
+                <input type="radio" id="resolve_{{ conflict.index }}_{{ forloop.counter }}"
+                       name="resolve_{{ conflict.index }}" value="{{ option.value }}"
+                       {% if option.checked %}checked{% endif %}>
+                {{ option.label }}
+                <span class="help">— {{ option.detail }}</span>
+              </label>
+            </div>
+          {% endfor %}
+        </fieldset>
+      {% endfor %}
+    {% endif %}
+
+  <h2>Changes</h2>
+  <p>
+    <strong>{{ added|length }}</strong> new, <strong>{{ unchanged|length }}</strong> already recorded,
+    <strong>{{ removed|length }}</strong> in the roster but not in this export.
+    {% if conflicts %}These counts assume the answers preselected above.{% endif %}
+  </p>
+
+  {% if added %}
+    <h3>New support records</h3>
+    <table>
+      <thead><tr><th>Year</th><th>Supporter</th><th>Email</th><th>Total given</th></tr></thead>
+      <tbody>
+        {% for row in added %}
+          <tr>
+            <td>{{ row.year }}</td>
+            <td>{{ row.name|default:"—" }}</td>
+            <td>{{ row.email|default:"—" }}</td>
+            <td>${{ row.total|floatformat:2 }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  {% if removed %}
+    <h3>Not in this export</h3>
+    {% if replace %}
+      <ul class="messagelist"><li class="warning">
+        You chose to replace the roster, so {{ removed|length }} record{{ removed|length|pluralize }} below
+        will be deleted.
+      </li></ul>
+    {% else %}
+      <p>These stay as they are — tick “replace the whole roster” only if the export covers all of BPD’s history.</p>
+    {% endif %}
+    <table>
+      <thead><tr><th>Year</th><th>Supporter</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for support in removed %}
+          <tr>
+            <td>{{ support.year }}</td>
+            <td>{{ support.display_name }}</td>
+            <td>{{ support.get_status_display }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  <h2>Roster by year</h2>
+  {% for year, rows in by_year %}
+    <details>
+      <summary>{{ year }} — {{ rows|length }} supporter{{ rows|length|pluralize }}</summary>
+      <ul>
+        {% for row in rows %}
+          <li>{{ row.name|default:row.email }} — ${{ row.total|floatformat:2 }}</li>
+        {% endfor %}
+      </ul>
+    </details>
+  {% endfor %}
+
+    <div class="submit-row">
+      <input type="submit" name="confirm" value="{% if replace %}Replace roster with this import{% else %}Apply this import{% endif %}" class="default">
+      <a href="{% url 'admin:core_foundationalsupport_import' %}" class="closelink">Start over</a>
+    </div>
+  </form>
+{% endblock %}

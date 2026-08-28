@@ -76,74 +76,6 @@ class AmbassadorApplyBlock(blocks.StructBlock):
         template = "core/blocks/ambassador_apply.html"
 
 
-class SpeakerBlock(blocks.StructBlock):
-    """One speaker in a speaker line-up.
-
-    `photo_url` mirrors the fallback on the `Leader` and `Sponsor` snippets: the
-    summit pages carried over from the static site reference photos under
-    /static/, and re-uploading every one of them into the image library isn't a
-    prerequisite for using this block. An uploaded `photo` wins when both exist.
-    """
-
-    name = blocks.CharBlock()
-    url = blocks.URLBlock(required=False, help_text="Their site, LinkedIn, or Mastodon.")
-    talk_title = blocks.CharBlock(required=False, help_text="The title of their talk, if they have one.")
-    photo = ImageBlock(required=False)
-    photo_url = blocks.CharBlock(
-        required=False,
-        help_text="External or /static/ photo URL, used when no image is uploaded.",
-    )
-    bio = blocks.RichTextBlock(required=False)
-
-    class Meta:
-        icon = "user"
-
-
-class SpeakersBlock(blocks.StructBlock):
-    """A grid of speakers under one heading — keynotes, community talks, panels."""
-
-    heading = blocks.CharBlock(required=False, default="Speakers")
-    intro = blocks.RichTextBlock(required=False, help_text="Optional copy shown above the grid.")
-    speakers = blocks.ListBlock(SpeakerBlock())
-
-    class Meta:
-        icon = "group"
-        label = "Speakers"
-        template = "core/blocks/speakers.html"
-
-
-class ScheduleItemBlock(blocks.StructBlock):
-    time = blocks.CharBlock(help_text='e.g. "09:00" or "8:00am - 9:00am"')
-    title = blocks.CharBlock()
-    presenter = blocks.CharBlock(required=False)
-
-    class Meta:
-        icon = "time"
-
-
-class ScheduleBlock(blocks.StructBlock):
-    """A running order. Use one block per track when a day splits in two."""
-
-    heading = blocks.CharBlock(required=False, default="Schedule")
-    intro = blocks.RichTextBlock(required=False, help_text="Optional copy shown above the times.")
-    items = blocks.ListBlock(ScheduleItemBlock())
-
-    class Meta:
-        icon = "list-ul"
-        label = "Schedule"
-        template = "core/blocks/schedule.html"
-
-    def get_context(self, value, parent_context=None):
-        """Flag whether any row names a presenter.
-
-        A schedule of breaks and logistics has none, and an empty third column
-        of em dashes is worse than no column at all — so the template drops it.
-        """
-        context = super().get_context(value, parent_context=parent_context)
-        context["has_presenters"] = any(item.get("presenter") for item in value["items"])
-        return context
-
-
 class BodyStreamBlock(blocks.StreamBlock):
     heading = blocks.CharBlock(form_classname="title", template="core/blocks/heading.html")
     paragraph = blocks.RichTextBlock()
@@ -153,8 +85,6 @@ class BodyStreamBlock(blocks.StreamBlock):
     iframe = EmbedIframeBlock()
     callout = CalloutBlock()
     card_grid = CardGridBlock()
-    speakers = SpeakersBlock()
-    schedule = ScheduleBlock()
     ambassador_apply = AmbassadorApplyBlock()
     html = blocks.RawHTMLBlock(
         help_text="Raw HTML — available to editors with the required permission only.",

@@ -332,62 +332,38 @@ class TestConvertSummitsCommand:
         assert not LeadershipSummitPage.objects.filter(pk=other.pk).exists()
 
 
-class TestSpeakerAndScheduleBlocks:
-    """Speakers and schedules are structured blocks, not hand-written HTML."""
+class TestSpeakerLineup:
+    """Speakers are inline children pointing at reusable Speaker snippets."""
 
     @pytest.fixture
     def summit(self, events_index):
+        from django.utils import timezone
+
+        from core.models import Speaker
+        from events.models import SummitSpeaker
+
         page = LeadershipSummitPage(
-            title="Leadership Summit 2030",
-            slug="leadership-summit-2030",
-            start_date=datetime.date(2030, 9, 9),
-            body=[
-                (
-                    "speakers",
-                    {
-                        "heading": "Keynote Speakers",
-                        "intro": "<p>Two of them.</p>",
-                        "speakers": [
-                            {
-                                "name": "Ada Speaker",
-                                "url": "https://example.com/ada",
-                                "talk_title": "On Leadership",
-                                "photo": None,
-                                "photo_url": "/static/images/ada.webp",
-                                "bio": "<p>Ada builds things.</p>",
-                            },
-                            {
-                                "name": "Grace Speaker",
-                                "url": "",
-                                "talk_title": "",
-                                "photo": None,
-                                "photo_url": "",
-                                "bio": "",
-                            },
-                        ],
-                    },
-                ),
-                (
-                    "schedule",
-                    {
-                        "heading": "Schedule",
-                        "intro": "",
-                        "items": [
-                            {"time": "09:00", "title": "Welcome", "presenter": ""},
-                            {"time": "09:15", "title": "Keynote", "presenter": "Ada Speaker"},
-                        ],
-                    },
-                ),
-            ],
+            title="Leadership Summit",
+            slug="lineup-summit",
+            start_date=timezone.localdate() + datetime.timedelta(days=30),
         )
         events_index.add_child(instance=page)
+
+        ada = Speaker.objects.create(
+            name="Ada Speaker",
+            url="https://example.com/ada",
+            photo_url="/static/images/ada.webp",
+            bio="<p>Ada builds things.</p>",
+        )
+        grace = Speaker.objects.create(name="Grace Speaker")
+        SummitSpeaker.objects.create(page=page, speaker=ada, group="Keynote Speakers", talk_title="On Leadership")
+        SummitSpeaker.objects.create(page=page, speaker=grace, group="Community Speakers")
         page.save_revision().publish()
         return page
 
     def test_speakers_render_with_names_links_and_talks(self, client, summit):
         html = client.get(summit.url).content.decode()
         assert "Keynote Speakers" in html
-        assert "Two of them." in html
         assert 'href="https://example.com/ada"' in html
         assert "On Leadership" in html
         assert "Ada builds things." in html
@@ -399,54 +375,141 @@ class TestSpeakerAndScheduleBlocks:
     def test_a_speaker_with_only_a_name_still_renders(self, client, summit):
         html = client.get(summit.url).content.decode()
         assert "Grace Speaker" in html
+        assert "Community Speakers" in html
+
+    def test_groups_keep_first_appearance_order(self, summit):
+        assert [heading for heading, _ in summit.speaker_groups] == [
+            "Keynote Speakers",
+            "Community Speakers",
+        ]
+
+    def test_non_adjacent_speakers_still_group_together(self, summit):
+        """An editor dragging one row must not split a section in two."""
+        from core.models import Speaker
+        from events.models import SummitSpeaker
+
+        extra = Speaker.objects.create(name="Late Addition")
+        SummitSpeaker.objects.create(page=summit, speaker=extra, group="Keynote Speakers")
+
+        groups = dict(summit.speaker_groups)
+        assert [e.speaker.name for e in groups["Keynote Speakers"]] == ["Ada Speaker", "Late Addition"]
+
+    def test_a_speaker_snippet_is_reusable_across_summits(self, events_index, summit):
+        """The point of the snippet: one bio, however many summits."""
+        from core.models import Speaker
+
+        ada = Speaker.objects.get(name="Ada Speaker")
+        assert ada.summit_appearances.count() == 1
+
+        other = LeadershipSummitPage(title="Next Summit", slug="next-lineup-summit")
+        events_index.add_child(instance=other)
+        other.speaker_lineup.create(speaker=ada, group="Keynote Speakers")
+        other.save_revision().publish()
+
+        assert ada.summit_appearances.count() == 2
+
+
+class TestScheduleRows:
+    @pytest.fixture
+    def summit(self, events_index):
+        from django.utils import timezone
+
+        from core.models import Speaker
+        from events.models import SummitScheduleItem
+
+        page = LeadershipSummitPage(
+            title="Leadership Summit",
+            slug="schedule-summit",
+            start_date=timezone.localdate() + datetime.timedelta(days=30),
+        )
+        events_index.add_child(instance=page)
+
+        ada = Speaker.objects.create(name="Ada Speaker")
+        SummitScheduleItem.objects.create(page=page, time="09:00", title="Welcome")
+        SummitScheduleItem.objects.create(page=page, time="09:15", title="Keynote", speaker=ada)
+        SummitScheduleItem.objects.create(page=page, time="10:00", title="Break", presenter="Everyone")
+        page.save_revision().publish()
+        return page
 
     def test_schedule_renders_as_a_table(self, client, summit):
         html = client.get(summit.url).content.decode()
         assert '<table role="grid" class="schedule">' in html
-        # Wrapped so a wide schedule scrolls itself rather than the page.
         assert "<figure>" in html
         for heading in ("Time", "Session", "Presenter"):
             assert f'<th scope="col">{heading}</th>' in html
-        # The time is the row header, not a plain cell.
         assert '<th scope="row">09:00</th>' in html
-        assert "Welcome" in html
+
+    def test_a_chosen_speaker_names_the_presenter(self, client, summit):
+        html = client.get(summit.url).content.decode()
         assert "Ada Speaker" in html
 
-    def test_presenter_column_is_dropped_when_nobody_is_named(self, client, events_index):
+    def test_free_text_presenter_covers_anyone_without_a_record(self, summit):
+        from events.models import SummitScheduleItem
+
+        row = SummitScheduleItem.objects.get(title="Break")
+        assert row.presented_by == "Everyone"
+
+    def test_a_row_with_no_presenter_falls_back_to_a_dash(self, client, summit):
+        from events.models import SummitScheduleItem
+
+        assert SummitScheduleItem.objects.get(title="Welcome").presented_by == ""
+        assert "—" in client.get(summit.url).content.decode()
+
+    def test_a_speaker_wins_over_stale_free_text(self, summit):
+        from core.models import Speaker
+        from events.models import SummitScheduleItem
+
+        row = SummitScheduleItem.objects.create(
+            page=summit,
+            time="11:00",
+            title="Panel",
+            speaker=Speaker.objects.get(name="Ada Speaker"),
+            presenter="Someone Else",
+        )
+        assert row.presented_by == "Ada Speaker"
+
+    def test_tracks_split_the_day_into_separate_tables(self, client, events_index):
         from django.utils import timezone
 
+        from events.models import SummitScheduleItem
+
         page = LeadershipSummitPage(
-            title="Logistics Only",
-            slug="logistics-only",
+            title="Two Track Summit",
+            slug="two-track-summit",
             start_date=timezone.localdate() + datetime.timedelta(days=30),
-            body=[
-                (
-                    "schedule",
-                    {
-                        "heading": "Schedule",
-                        "intro": "",
-                        "items": [
-                            {"time": "09:00", "title": "Doors open", "presenter": ""},
-                            {"time": "17:00", "title": "Close", "presenter": ""},
-                        ],
-                    },
-                )
-            ],
         )
         events_index.add_child(instance=page)
+        SummitScheduleItem.objects.create(page=page, track="Morning", time="09:00", title="Opening")
+        SummitScheduleItem.objects.create(page=page, track="Afternoon", time="13:00", title="Keynote")
         page.save_revision().publish()
 
+        assert [t for t, _ in page.schedule_tracks] == ["Morning", "Afternoon"]
         html = client.get(page.url).content.decode()
-        assert '<th scope="col">Time</th>' in html
-        # An empty column of em dashes is worse than no column.
-        assert '<th scope="col">Presenter</th>' not in html
+        assert html.count('<table role="grid" class="schedule">') == 2
+        assert "Morning" in html and "Afternoon" in html
 
-    def test_blocks_are_available_on_any_body_stream(self):
-        from core.blocks import BodyStreamBlock
+    def test_an_untracked_schedule_is_titled_Schedule(self, client, summit):
+        assert [t for t, _ in summit.schedule_tracks] == [""]
+        assert "<h2>Schedule</h2>" in client.get(summit.url).content.decode()
 
-        names = BodyStreamBlock().child_blocks.keys()
-        assert "speakers" in names
-        assert "schedule" in names
+
+class TestLineupInWagtailAdmin:
+    """Both lists are inline panels, which is what gives them drag handles."""
+
+    @pytest.fixture
+    def editor(self, db):
+        from django.contrib.auth import get_user_model
+
+        return get_user_model().objects.create_superuser(username="cms2", email="cms2@example.com", password="pw")
+
+    def test_edit_form_offers_speakers_and_schedule_inline(self, client, editor, events_index):
+        client.force_login(editor)
+        html = client.get(f"/cms/pages/add/events/leadershipsummitpage/{events_index.pk}/").content.decode()
+        assert "Speakers" in html
+        assert "Schedule" in html
+        # Inline panels post an ORDER field per row; that is the drag handle.
+        assert "speaker_lineup-ORDER" in html or "speaker_lineup" in html
+        assert "schedule_items" in html
 
 
 class TestYouTubeEmbedUrl:
