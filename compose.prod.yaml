@@ -1,0 +1,123 @@
+# Production stack: Caddy terminates TLS in front of gunicorn.
+#
+#   docker compose -f compose.prod.yaml --env-file .env.production up -d --build
+#
+# Only Caddy publishes ports. Postgres and Valkey stay on the internal network,
+# reachable from the host only through `docker compose exec`.
+name: blackpythondevs-prod
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      # The real site's values, so a missing .env.production cannot silently
+      # fall back to base.py's localhost ALLOWED_HOSTS and 400 every request.
+      DOMAIN: ${DOMAIN:-blackpythondevs.org}
+      ACME_EMAIL: ${ACME_EMAIL:-contact@blackpythondevs.org}
+      # Set to "tls internal" to self-sign for local testing. See the Caddyfile.
+      CADDY_TLS_INTERNAL: ${CADDY_TLS_INTERNAL:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data       # issued certificates — losing this re-issues, and
+      - caddy_config:/config   # Let's Encrypt rate-limits repeat issuance
+      - media_data:/srv/media:ro
+    depends_on:
+      - web
+
+  web:
+    build:
+      context: .
+      target: production
+    restart: unless-stopped
+    environment:
+      DJANGO_SETTINGS_MODULE: bpd.settings.production
+      DATABASE_URL: postgres://${POSTGRES_USER:-bpd}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-bpd}
+      VALKEY_URL: redis://valkey:6379/0
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY}
+      ALLOWED_HOSTS: ${DOMAIN:-blackpythondevs.org},www.${DOMAIN:-blackpythondevs.org}
+      CSRF_TRUSTED_ORIGINS: https://${DOMAIN:-blackpythondevs.org},https://www.${DOMAIN:-blackpythondevs.org}
+      WAGTAILADMIN_BASE_URL: https://${DOMAIN:-blackpythondevs.org}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@blackpythondevs.org}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      AWS_STORAGE_BUCKET_NAME: ${AWS_STORAGE_BUCKET_NAME:-}
+      AWS_S3_ACCESS_KEY_ID: ${AWS_S3_ACCESS_KEY_ID:-}
+      AWS_S3_SECRET_ACCESS_KEY: ${AWS_S3_SECRET_ACCESS_KEY:-}
+      AWS_S3_REGION_NAME: ${AWS_S3_REGION_NAME:-us-east-1}
+      AWS_S3_ENDPOINT_URL: ${AWS_S3_ENDPOINT_URL:-}
+      AWS_S3_CUSTOM_DOMAIN: ${AWS_S3_CUSTOM_DOMAIN:-}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:-}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
+      DISCORD_MEMBER_ROLE_ID: ${DISCORD_MEMBER_ROLE_ID:-}
+      DISCORD_INVITE_URL: ${DISCORD_INVITE_URL:-https://discord.gg/XUc3tFqCT3}
+    volumes:
+      # No source bind-mount in production: the image carries the code and the
+      # static files collected at build time.
+      - media_data:/app/media
+    healthcheck:
+      # SECURE_SSL_REDIRECT would 301 a plain internal request, and the Host
+      # must be one Django allows — so the probe mimics what Caddy sends.
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import os, urllib.request
+          host = os.environ["ALLOWED_HOSTS"].split(",")[0]
+          req = urllib.request.Request(
+              "http://127.0.0.1:8000/",
+              headers={"Host": host, "X-Forwarded-Proto": "https"},
+          )
+          urllib.request.urlopen(req, timeout=5)
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      db:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bpd}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-bpd}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bpd} -d ${POSTGRES_DB:-bpd}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    restart: unless-stopped
+    command: valkey-server --save 60 1 --loglevel warning
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
+  valkey_data:
+  media_data:
+  caddy_data:
+  caddy_config:

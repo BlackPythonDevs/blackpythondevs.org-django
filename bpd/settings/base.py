@@ -233,4 +233,4 @@ WAGTAILSEARCH_BACKENDS = {
     }
 }
 
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="contact@blackpythondevs.com")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@blackpythondevs.org")

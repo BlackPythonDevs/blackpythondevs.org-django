@@ -6,8 +6,8 @@ __pycache__
 *.pyo
 .pytest_cache
 .ruff_cache
-staticfiles
-media
 .env
 *.sqlite3
 .DS_Store
+.env.*
+*.dump

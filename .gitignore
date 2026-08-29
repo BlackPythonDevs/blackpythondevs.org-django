@@ -10,3 +10,8 @@ media/
 .ruff_cache/
 .DS_Store
 bpd/settings/local.py
+.env.production
+bpd.dump
+*.dump
+*.prod*
+fnox.toml

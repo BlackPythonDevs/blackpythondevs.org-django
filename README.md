@@ -149,8 +149,89 @@ filesystem. In production, setting `AWS_STORAGE_BUCKET_NAME` switches Wagtail's
 images and documents to S3-compatible object storage via django-storages — AWS
 S3, Cloudflare R2, Backblaze B2, DigitalOcean Spaces, or MinIO (set
 `AWS_S3_ENDPOINT_URL` for non-AWS providers). With the variable unset,
-production falls back to the local filesystem, so nothing breaks before storage
-is provisioned.
+production falls back to the local filesystem — Caddy serves that volume at
+`/media` — so nothing breaks before storage is provisioned.
+
+## Deployment
+
+Production runs the same four services behind [Caddy](https://caddyserver.com),
+which terminates TLS and gets Let's Encrypt certificates automatically — no
+certbot, no renewal cron. Only Caddy publishes ports; Postgres and Valkey stay
+on the internal Docker network.
+
+```
+          :80/:443
+  Caddy ──────────── TLS, HTTP→HTTPS redirect, /media, www→apex
+    │
+  web   gunicorn, bpd.settings.production (DEBUG = False)
+    ├── db      postgres:17
+    └── valkey  valkey:8
+```
+
+**Before the first deploy**, point `A` (and `AAAA`) records for the apex and
+`www` at the server, and open ports 80 and 443. Port 80 has to stay open —
+renewals use it too.
+
+```bash
+cp .env.production.example .env.production   # then fill in DOMAIN, SECRET_KEY,
+                                             # POSTGRES_PASSWORD, ACME_EMAIL, SMTP
+docker compose -f compose.prod.yaml --env-file .env.production up -d --build
+docker compose -f compose.prod.yaml --env-file .env.production \
+  exec web python manage.py migrate
+```
+
+`DOMAIN` is the single source of truth: it sets the certificate hostname,
+`ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, and `WAGTAILADMIN_BASE_URL`. It
+defaults to `blackpythondevs.org`, so a missing or half-filled env file can't
+quietly fall back to `localhost` and 400 every request; override it to deploy a
+staging host. `SECRET_KEY` and `POSTGRES_PASSWORD` have no defaults on purpose —
+compose refuses to start without them. There is no `DEBUG` setting to get
+wrong: `production.py` hardcodes `DEBUG = False`.
+
+Verify the security posture at any time with:
+
+```bash
+docker compose -f compose.prod.yaml --env-file .env.production \
+  exec web python manage.py check --deploy
+```
+
+### Trying it locally under the real hostname
+
+Set `CADDY_TLS_INTERNAL="tls internal"` and Caddy signs with its own local CA
+instead of contacting Let's Encrypt — a failed validation from a machine the
+domain does not point at would otherwise count against a rate limit of five per
+hour for the domain.
+
+```bash
+CADDY_TLS_INTERNAL="tls internal" \
+  docker compose -f compose.prod.yaml --env-file .env.production up -d --build
+curl -k --resolve blackpythondevs.org:443:127.0.0.1 https://blackpythondevs.org/
+```
+
+`--resolve` points curl at the local stack without touching `/etc/hosts`. Leave
+the variable unset on the server; production issues real certificates.
+
+### Loading a database dump
+
+`pg_dump` custom-format dumps (`.dump`) restore with `pg_restore`, not `psql`:
+
+```bash
+docker compose -f compose.prod.yaml --env-file .env.production \
+  exec -T db pg_restore -U bpd -d bpd --no-owner --no-privileges --clean --if-exists < bpd.dump
+```
+
+### Redeploying
+
+```bash
+git pull
+docker compose -f compose.prod.yaml --env-file .env.production up -d --build
+docker compose -f compose.prod.yaml --env-file .env.production \
+  exec web python manage.py migrate
+```
+
+Static files are collected into the image at build time, so a rebuild is all
+that ships new CSS. The `caddy_data` volume holds issued certificates — keep it
+across deploys, since Let's Encrypt rate-limits repeat issuance for a domain.
 
 ## Settings layout
 
