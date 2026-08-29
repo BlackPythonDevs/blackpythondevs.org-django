@@ -18,11 +18,23 @@ STORAGES = {
 WHITENOISE_AUTOREFRESH = True
 WHITENOISE_USE_FINDERS = True
 
-# Sign-in codes and verification codes print to the console in development.
-# ACCOUNT_EMAIL_VERIFICATION stays "mandatory" (from base) because
+# Sign-in codes and verification codes print to the console in development by
+# default. ACCOUNT_EMAIL_VERIFICATION stays "mandatory" (from base) because
 # verification-by-code requires it, and with passwordless signup the emailed
 # code *is* the verification step.
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+#
+# Set EMAIL_HOST (e.g. to the Forwardemail SMTP settings in .env.example) to
+# send real email locally instead — useful when you need the code to land in
+# an actual inbox rather than the container logs.
+if env("EMAIL_HOST", default=""):
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = env("EMAIL_HOST")
+    EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+    EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+    EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+    EMAIL_USE_TLS = True
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 INSTALLED_APPS = INSTALLED_APPS + ["wagtail.contrib.styleguide", "debug_toolbar"]
 MIDDLEWARE = ["debug_toolbar.middleware.DebugToolbarMiddleware"] + MIDDLEWARE

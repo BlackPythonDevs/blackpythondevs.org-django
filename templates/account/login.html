@@ -14,7 +14,7 @@ Discord is a connection members make after joining, not a sign-in method.
       Enter your email and we'll send you a sign-in code. There's no password to remember.
     </p>
 
-    <form method="post" action="{% url 'account_request_login_code' %}">
+    <form method="post" action="{% url 'account_login' %}">
       {% csrf_token %}
       {{ form.as_p }}
       {% if redirect_field_value %}
