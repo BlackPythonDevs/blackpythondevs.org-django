@@ -32,10 +32,53 @@ www.{$DOMAIN} {
 		header Cache-Control "public, max-age=86400"
 	}
 
+	# The Django and Wagtail admins are reachable over the tailnet only — see
+	# the :8080 block below. Refusing them here means a leaked session cookie or
+	# a stolen sign-in code still buys nothing from the public internet.
+	#
+	# 404 rather than 403: an unauthenticated scanner learns nothing about
+	# whether the path exists or where it moved to.
+	@admin path /cms /cms/* /django-admin /django-admin/*
+	handle @admin {
+		respond "Not Found" 404
+	}
+
 	handle {
 		# reverse_proxy sets X-Forwarded-Proto, which Django reads through
 		# SECURE_PROXY_SSL_HEADER to know the request arrived over HTTPS.
 		reverse_proxy web:8000
+	}
+
+	log {
+		output stdout
+	}
+}
+
+# ── Tailnet origin ────────────────────────────────────────────────────────
+# The tailscale sidecar terminates TLS for <hostname>.<tailnet>.ts.net and
+# proxies plaintext here. This port is never published to the host, so the only
+# way in is from another container on the compose network — in practice, the
+# sidecar. That is what makes the admin paths tailnet-only: they are served
+# here and refused in the public block above.
+#
+# Going through Caddy rather than straight to web:8000 keeps /media working,
+# which the Wagtail image chooser needs when uploads live on the volume.
+:8080 {
+	encode zstd gzip
+
+	handle_path /media/* {
+		root * /srv/media
+		file_server
+		header Cache-Control "public, max-age=86400"
+	}
+
+	handle {
+		# Tailscale already terminated TLS. Without this, Caddy would forward
+		# X-Forwarded-Proto: http and Django's SECURE_SSL_REDIRECT would send
+		# the client into a redirect loop.
+		reverse_proxy web:8000 {
+			header_up X-Forwarded-Proto https
+		}
 	}
 
 	log {
