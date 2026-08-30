@@ -47,3 +47,29 @@ def test_login_uses_email(client, site):
         "/accounts/login/", {"login": "someone@example.com", "password": "s3cure-passphrase!"}
     )
     assert response.status_code == 302
+
+
+def test_signup_emails_a_verification_code(client, site):
+    from django.core import mail
+
+    response = client.post("/accounts/signup/", {"email": "brandnew@example.com"}, follow=True)
+    assert response.redirect_chain[-1][0] == "/accounts/confirm-email/"
+    assert "verification code" in mail.outbox[-1].body
+    assert "password" not in mail.outbox[-1].body.lower()
+
+
+def test_signup_with_existing_email_sends_a_login_code_not_a_password_reset(client, site):
+    """The site is passwordless: signing up again with a registered address
+    should email a sign-in code, never allauth's "reset your password" notice."""
+    from django.core import mail
+
+    User.objects.create_user(username="existing", email="existing@example.com", password="unused-pw")
+    mail.outbox.clear()
+
+    response = client.post("/accounts/signup/", {"email": "existing@example.com"}, follow=True)
+
+    assert response.redirect_chain[-1][0] == "/accounts/login/code/confirm/"
+    body = mail.outbox[-1].body.lower()
+    assert "code" in body
+    assert "password" not in body
+    assert "/accounts/password/reset/" not in body

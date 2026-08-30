@@ -156,10 +156,13 @@ class MembershipPage(SEOMixin, Page):
     max_count = 1
 
     def get_context(self, request, *args, **kwargs):
+        from allauth.account import app_settings as account_settings
         from allauth.account.forms import SignupForm
+        from allauth.utils import get_form_class
 
         context = super().get_context(request, *args, **kwargs)
-        context["signup_form"] = SignupForm()
+        form_class = get_form_class(account_settings.FORMS, "signup", SignupForm)
+        context["signup_form"] = form_class()
         context["discord_invite_url"] = settings.DISCORD_INVITE_URL
         return context
 

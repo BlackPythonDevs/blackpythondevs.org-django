@@ -146,6 +146,11 @@ ACCOUNT_LOGIN_BY_CODE_ENABLED = True
 ACCOUNT_LOGIN_BY_CODE_TIMEOUT = env.int("ACCOUNT_LOGIN_BY_CODE_TIMEOUT", default=600)
 ACCOUNT_LOGIN_BY_CODE_MAX_ATTEMPTS = 3
 
+# Passwordless signup: if the email already has an account, email that member a
+# login code and drop them on the code-entry page, rather than allauth's default
+# "reset your password" notice (there are no passwords here). See users/forms.py.
+ACCOUNT_FORMS = {"signup": "users.forms.SignupForm"}
+
 ACCOUNT_EMAIL_VERIFICATION = env("ACCOUNT_EMAIL_VERIFICATION", default="mandatory")
 ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = True
 ACCOUNT_UNIQUE_EMAIL = True
