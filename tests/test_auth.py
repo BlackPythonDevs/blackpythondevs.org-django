@@ -73,3 +73,23 @@ def test_signup_with_existing_email_sends_a_login_code_not_a_password_reset(clie
     assert "code" in body
     assert "password" not in body
     assert "/accounts/password/reset/" not in body
+
+
+def test_can_resend_confirmation_code(client, site):
+    """A stuck signup can request a fresh code instead of being stuck with an expired one.
+
+    `ACCOUNT_EMAIL_VERIFICATION_SUPPORTS_RESEND` defaults to False, which hides
+    the "Request new code" button on the confirm-email page entirely (not just
+    rate-limits it) — someone who lets their signup code expire has no way
+    back in short of cancelling the stage and starting over.
+    """
+    from django.core import mail
+
+    client.post("/accounts/signup/", {"email": "pending@example.com"})
+    assert len(mail.outbox) == 1
+    mail.outbox.clear()
+
+    response = client.post("/accounts/confirm-email/", {"action": "resend"})
+
+    assert response.status_code == 302
+    assert len(mail.outbox) == 1
