@@ -25,6 +25,12 @@
             <a href="/become-a-member/"><i class="iconoir-user-plus" aria-hidden="true"></i>&nbsp;Become a Member</a>
           {% endif %}
         </li>
+
+        {% if not request.user.is_authenticated %}
+          <li class="menu-item" role="menuitem">
+            <a href="{% url 'account_login' %}"><i class="iconoir-log-in" aria-hidden="true"></i>&nbsp;Login</a>
+          </li>
+        {% endif %}
       </ul>
 
       <button id="menu-close" class="menu-toggle">
