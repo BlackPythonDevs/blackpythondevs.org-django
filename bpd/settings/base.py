@@ -153,6 +153,11 @@ ACCOUNT_FORMS = {"signup": "users.forms.SignupForm"}
 
 ACCOUNT_EMAIL_VERIFICATION = env("ACCOUNT_EMAIL_VERIFICATION", default="mandatory")
 ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = True
+# Without this, a signup whose confirmation code expires or gets lost has no
+# "Request new code" button on the confirm-email page at all (it defaults to
+# 0 allowed resends) -- their only way back in is to cancel out of the stage
+# and request a fresh sign-in code from the login page instead.
+ACCOUNT_EMAIL_VERIFICATION_SUPPORTS_RESEND = True
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[Black Python Devs] "
 
