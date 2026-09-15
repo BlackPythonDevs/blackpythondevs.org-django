@@ -7,7 +7,7 @@ direction (community admin -> leadership rather than staff -> members).
 from django.contrib import messages
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.urls import reverse_lazy
-from django.views.generic import CreateView, ListView
+from django.views.generic import CreateView, DetailView, ListView
 
 from communities.models import can_manage_community
 from core.models import CustomImage
@@ -38,6 +38,19 @@ class CommunityMessageListView(CommunityMessageSenderRequiredMixin, ListView):
             CommunityMessage.objects.filter(community__admins=self.request.user)
             .select_related("community", "sender")
             .distinct()
+        )
+
+
+class CommunityMessageDetailView(CommunityMessageSenderRequiredMixin, DetailView):
+    """A single past message, scoped the same way the list is."""
+
+    model = CommunityMessage
+    template_name = "community_messages/message_detail.html"
+    context_object_name = "community_message"
+
+    def get_queryset(self):
+        return CommunityMessage.objects.filter(community__admins=self.request.user).select_related(
+            "community", "sender"
         )
 
 

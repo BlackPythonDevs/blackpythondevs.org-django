@@ -128,6 +128,37 @@ class TestSendMessageView:
         assert client.get("/communities/messages/send/").status_code == 403
 
 
+class TestMessageDetailView:
+    def test_admin_can_read_a_past_message(self, client, admin_user, community):
+        message = CommunityMessage.objects.create(
+            community=community, sender=admin_user, subject="Update", body="Full details here."
+        )
+        client.force_login(admin_user)
+        response = client.get(f"/communities/messages/{message.pk}/")
+        assert response.status_code == 200
+        assert "Full details here." in response.content.decode()
+
+    def test_list_links_to_the_detail_page(self, client, admin_user, community):
+        message = CommunityMessage.objects.create(community=community, sender=admin_user, subject="Update", body="x")
+        client.force_login(admin_user)
+        body = client.get("/communities/messages/").content.decode()
+        assert f"/communities/messages/{message.pk}/" in body
+
+    def test_admin_of_a_different_community_gets_404(self, client, admin_user, community):
+        other_admin = make_user("other-admin")
+        other_community = Community.objects.create(name="Not mine", country="US")
+        CommunityAdmin.objects.create(community=other_community, user=other_admin)
+        message = CommunityMessage.objects.create(community=community, sender=admin_user, subject="Update", body="x")
+
+        client.force_login(other_admin)
+        assert client.get(f"/communities/messages/{message.pk}/").status_code == 404
+
+    def test_non_admin_gets_403(self, client, member, community, admin_user):
+        message = CommunityMessage.objects.create(community=community, sender=admin_user, subject="Update", body="x")
+        client.force_login(member)
+        assert client.get(f"/communities/messages/{message.pk}/").status_code == 403
+
+
 class TestMarkdownAndImages:
     """The composer is shared with notifications' — same markdown pipeline
     and image-upload handling, see templates/includes/message_composer_*."""

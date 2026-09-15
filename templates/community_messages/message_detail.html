@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}{{ community_message.subject }}{% endblock %}
+
+{% block content %}
+  <section>
+    <p><a href="{% url 'community_messages:list' %}">&larr; Messages to leadership</a></p>
+
+    <h1>{{ community_message.subject }}</h1>
+    <p class="lead">
+      From {{ community_message.community.name }}, sent by {{ community_message.sender }}
+    </p>
+
+    <div class="card">
+      <dl>
+        <dt>Message</dt>
+        {# Escaped plain text, not the rendered Markdown: this can be read back by any
+           other admin of the same community, and body_html may contain raw HTML the
+           sender typed — never render it unescaped outside the outgoing email. #}
+        <dd>{{ community_message.body|linebreaksbr }}</dd>
+
+        <dt>Recipients</dt>
+        <dd>{{ community_message.recipient_count }}</dd>
+
+        <dt>Sent</dt>
+        <dd>{{ community_message.sent_at|date:"d M Y H:i"|default:"Not sent" }}</dd>
+      </dl>
+    </div>
+  </section>
+{% endblock %}

@@ -24,7 +24,7 @@
           <tbody>
             {% for community_message in community_messages %}
               <tr>
-                <th scope="row">{{ community_message.subject }}</th>
+                <th scope="row"><a href="{% url 'community_messages:detail' community_message.pk %}">{{ community_message.subject }}</a></th>
                 <td>{{ community_message.community.name }}</td>
                 <td>{{ community_message.sender }}</td>
                 <td>{{ community_message.recipient_count }}</td>
