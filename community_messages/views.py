@@ -10,6 +10,7 @@ from django.urls import reverse_lazy
 from django.views.generic import CreateView, ListView
 
 from communities.models import can_manage_community
+from core.models import CustomImage
 
 from .forms import CommunityMessageForm
 from .models import CommunityMessage
@@ -55,6 +56,13 @@ class SendCommunityMessageView(CommunityMessageSenderRequiredMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.sender = self.request.user
+
+        image_file = form.cleaned_data.get("image")
+        if image_file:
+            image = CustomImage.objects.create(title=image_file.name, file=image_file)
+            image_url = self.request.build_absolute_uri(image.get_rendition("width-800").url)
+            form.instance.body = f"{form.instance.body}\n\n![]({image_url})\n"
+
         response = super().form_valid(form)
         count = self.object.send()
         if count:

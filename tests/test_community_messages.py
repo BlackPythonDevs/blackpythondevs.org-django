@@ -6,15 +6,23 @@ whichever admin happens to be logged in. See communities/models.py's
 docstring for why region uses the users.regions taxonomy specifically.
 """
 
+import base64
+
 import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core import mail
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 
 from communities.models import COMMUNITY_ADMIN_GROUP_NAME, Community, CommunityAdmin
 from community_messages.models import CommunityMessage
 from core.models import LEADERSHIP_GROUP_NAME
+
+# A 1x1 transparent PNG, for the image-upload test.
+ONE_PIXEL_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -118,3 +126,52 @@ class TestSendMessageView:
     def test_non_admin_gets_403(self, client, member):
         client.force_login(member)
         assert client.get("/communities/messages/send/").status_code == 403
+
+
+class TestMarkdownAndImages:
+    """The composer is shared with notifications' — same markdown pipeline
+    and image-upload handling, see templates/includes/message_composer_*."""
+
+    def test_body_is_rendered_from_markdown_in_the_html_alternative(self, client, admin_user, community):
+        make_leader("lead-ng", "NG")
+        client.force_login(admin_user)
+        response = client.post(
+            "/communities/messages/send/",
+            {
+                "community": community.pk,
+                "subject": "Update",
+                "body": "Check out our **new** [site](https://example.com).",
+            },
+        )
+        assert response.status_code == 302
+
+        sent_message = CommunityMessage.objects.get()
+        assert "<strong>new</strong>" in sent_message.body_html
+        assert '<a href="https://example.com">site</a>' in sent_message.body_html
+
+        sent = mail.outbox[0]
+        assert sent.body == sent_message.body  # plain-text fallback stays raw Markdown
+        html_alternative = next(content for content, mimetype in sent.alternatives if mimetype == "text/html")
+        assert "<strong>new</strong>" in html_alternative
+
+    def test_uploaded_image_is_appended_to_the_body_as_markdown(self, client, admin_user, community):
+        client.force_login(admin_user)
+        image = SimpleUploadedFile("logo.png", ONE_PIXEL_PNG, content_type="image/png")
+        response = client.post(
+            "/communities/messages/send/",
+            {"community": community.pk, "subject": "Update", "body": "Photos from the meetup:", "image": image},
+        )
+        assert response.status_code == 302
+
+        sent_message = CommunityMessage.objects.get()
+        assert "![](http://testserver/media/images/logo" in sent_message.body
+        assert "<img" in sent_message.body_html
+
+    def test_no_image_leaves_the_body_untouched(self, client, admin_user, community):
+        client.force_login(admin_user)
+        response = client.post(
+            "/communities/messages/send/",
+            {"community": community.pk, "subject": "Update", "body": "Nothing to see here."},
+        )
+        assert response.status_code == 302
+        assert CommunityMessage.objects.get().body == "Nothing to see here."

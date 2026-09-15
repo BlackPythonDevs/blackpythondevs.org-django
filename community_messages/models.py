@@ -15,6 +15,7 @@ up to leadership from one specific community's admin — different enough
 app whose job is generic broadcast, rather than keeping the two concerns apart.
 """
 
+import markdown
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.db import models
@@ -22,6 +23,7 @@ from django.utils import timezone
 
 from communities.models import Community
 from core.models import LEADERSHIP_GROUP_NAME
+from notifications.models import MARKDOWN_EXTENSIONS
 from users.models import User
 
 
@@ -50,6 +52,13 @@ class CommunityMessage(models.Model):
     def __str__(self):
         return self.subject
 
+    @property
+    def body_html(self):
+        """`body` rendered from Markdown, for the HTML half of the email —
+        same pipeline as `notifications.Notification.body_html`, since the
+        compose form is the same markdown-editor-with-preview composer."""
+        return markdown.markdown(self.body, extensions=MARKDOWN_EXTENSIONS)
+
     def recipients(self):
         """Leadership members in the community's region.
 
@@ -73,6 +82,7 @@ class CommunityMessage(models.Model):
                 to=[settings.DEFAULT_FROM_EMAIL],
                 bcc=emails,
             )
+            message.attach_alternative(self.body_html, "text/html")
             message.send()
         self.recipient_count = len(emails)
         self.sent_at = timezone.now()

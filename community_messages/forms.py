@@ -15,6 +15,11 @@ class CommunityMessageForm(forms.ModelForm):
     doesn't admin.
     """
 
+    image = forms.ImageField(
+        required=False,
+        help_text="Optional. Added to the end of the message as a Markdown image.",
+    )
+
     class Meta:
         model = CommunityMessage
         fields = ["community", "subject", "body"]
