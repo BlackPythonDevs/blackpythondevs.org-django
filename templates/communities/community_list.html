@@ -17,14 +17,6 @@
       what's happening in one.
     </p>
 
-    {% if filterset %}
-      <form method="get" class="card" style="margin-bottom: 2rem;">
-        {{ filterset.form.as_p }}
-        <button type="submit" class="btn">Filter</button>
-        <a role="button" class="secondary" href="{% url 'communities-list' %}">Clear</a>
-      </form>
-    {% endif %}
-
     {% if object_list %}
       <figure>
         <table role="grid">

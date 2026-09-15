@@ -23,7 +23,6 @@ class CommunityAdminConsole(PermissionRequiredMixin, CRUDView):
     model = Community
     url_base = "communities"
     form_class = CommunityAdminForm
-    filterset_fields = ["is_online", "region"]
     paginate_by = 25
 
     # Only view_community + change_community are granted to the "Community
