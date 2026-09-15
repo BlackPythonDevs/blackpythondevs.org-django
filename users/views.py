@@ -1,16 +1,20 @@
+from allauth.account.internal.flows.login_by_code import LoginCodeVerificationProcess
+from allauth.core.internal.httpkit import headed_redirect_response
 from allauth.socialaccount.models import SocialAccount
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from ambassadors.models import StudentAmbassador
 from core.models import CustomImage, Leader, is_council_member
 from nominations.models import can_nominate
+from notifications.models import can_send_notifications
 
 from .discord import is_configured, login_available
 from .forms import CouncilProfileForm, OnboardingForm
+from .models import InviteLink
 
 
 @login_required
@@ -33,6 +37,8 @@ def members(request):
             "ambassador_application": StudentAmbassador.objects.filter(user=request.user).first(),
             # Council/Leadership members get the nominations panel.
             "can_nominate": can_nominate(request.user),
+            # Staff, Executors, Sponsors, and Community Partners get the notifications panel.
+            "can_send_notifications": can_send_notifications(request.user),
         },
     )
 
@@ -74,3 +80,23 @@ def onboarding(request):
         council_form = CouncilProfileForm(instance=leader) if leader else None
 
     return render(request, "users/onboarding.html", {"form": form, "council_form": council_form})
+
+
+def invite_accept(request, token):
+    """Landing page for a one-time invite link.
+
+    Confirming applies the invite's groups to the (found-or-created) account for
+    its email, then hands off to allauth's own login-by-code flow — same as an
+    existing member signing up again in users.forms.SignupForm.
+    """
+    invite = get_object_or_404(InviteLink, token=token)
+
+    if not invite.is_valid:
+        return render(request, "users/invite_accept.html", {"invite": invite, "invalid": True})
+
+    if request.method == "POST":
+        user = invite.accept(request)
+        LoginCodeVerificationProcess.initiate(request=request, user=user, email=invite.email)
+        return headed_redirect_response("account_confirm_login_code")
+
+    return render(request, "users/invite_accept.html", {"invite": invite, "invalid": False})
