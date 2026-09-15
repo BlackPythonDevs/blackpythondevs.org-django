@@ -33,6 +33,7 @@ urlpatterns = [
     *SponsorshipRequestView.get_urls(),
     path("sitemap.xml", sitemap),
     path("robots.txt", core_views.robots_txt, name="robots"),
+    path("community-map/", core_views.community_map, name="community-map"),
 ]
 
 if settings.DEBUG:

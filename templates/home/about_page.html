@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static wagtailcore_tags wagtailimages_tags %}
+{% load wagtailcore_tags wagtailimages_tags %}
 
 {% block content %}
   <section>
@@ -12,7 +12,7 @@
       <h2>{{ page.map_heading }}</h2>
       {% if page.map_description %}<p>{{ page.map_description }}</p>{% endif %}
       <div id="map-container">
-        <iframe src="{% static 'map.html' %}" title="Map of Black Python Devs community presence"
+        <iframe src="{% url 'community-map' %}" title="Map of Black Python Devs community presence"
                 width="100%" height="600" style="border:none;" loading="lazy"></iframe>
       </div>
     </section>

@@ -19,6 +19,9 @@ DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 
+# CARTO now requires an API key on all basemap tile requests.
+CARTO_API_KEY = env("CARTO_API_KEY", default="")
+
 INSTALLED_APPS = [
     # Project apps
     "core",

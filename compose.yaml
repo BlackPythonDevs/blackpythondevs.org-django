@@ -42,6 +42,7 @@ services:
       SECRET_KEY: ${SECRET_KEY:-django-insecure-dev-only-not-for-production}
       DEBUG: ${DEBUG:-True}
       WAGTAILADMIN_BASE_URL: ${WAGTAILADMIN_BASE_URL:-http://localhost:8000}
+      CARTO_API_KEY: ${CARTO_API_KEY:-}
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
       DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:-}
