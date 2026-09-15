@@ -8,6 +8,7 @@ from django.utils import timezone
 from ambassadors.models import StudentAmbassador
 from core.models import CustomImage, Leader, is_council_member
 from nominations.models import can_nominate
+from notifications.models import can_send_notifications
 
 from .discord import is_configured, login_available
 from .forms import CouncilProfileForm, OnboardingForm
@@ -33,6 +34,8 @@ def members(request):
             "ambassador_application": StudentAmbassador.objects.filter(user=request.user).first(),
             # Council/Leadership members get the nominations panel.
             "can_nominate": can_nominate(request.user),
+            # Staff, Executors, Sponsors, and Community Partners get the notifications panel.
+            "can_send_notifications": can_send_notifications(request.user),
         },
     )
 
