@@ -557,6 +557,11 @@ main.container {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 2rem;
   align-items: start;
+  padding-left: 0;
+}
+
+.grid li {
+  list-style: none;
 }
 
 @media (max-width: 600px) {

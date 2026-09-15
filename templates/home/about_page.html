@@ -39,9 +39,9 @@
   {% if advisors %}
     <section>
       <h3 id="advisors">Advisors</h3>
-      <div class="grid">
-        <ul>{% for leader in advisors %}<li><strong>{{ leader.name }}</strong></li>{% endfor %}</ul>
-      </div>
+      <ul class="grid">
+        {% for leader in advisors %}<li><strong>{{ leader.name }}</strong></li>{% endfor %}
+      </ul>
     </section>
   {% endif %}
 
@@ -49,9 +49,9 @@
     <section>
       <h3 id="leadership-council">BPD Leadership Council</h3>
       <p>We also vet our actions through our Black Python Devs Leadership Council made up of members who serve as Python Community leaders on a local, regional, or global scale.</p>
-      <div class="grid">
-        <ul>{% for leader in council %}<li><strong>{{ leader.name }}</strong></li>{% endfor %}</ul>
-      </div>
+      <ul class="grid">
+        {% for leader in council %}<li><strong>{{ leader.name }}</strong></li>{% endfor %}
+      </ul>
     </section>
   {% endif %}
 
