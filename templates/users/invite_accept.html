@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}You're invited{% endblock %}
+
+{% block content %}
+  <section>
+    <h1>You're invited to Black Python Devs</h1>
+  </section>
+
+  <section class="auth-panel">
+    {% if invalid %}
+      {% if invite.is_used %}
+        <p>This invite link has already been used.</p>
+      {% else %}
+        <p>This invite link has expired. Ask whoever sent it to send you a new one.</p>
+      {% endif %}
+    {% else %}
+      <p>
+        You've been invited to join as <strong>{{ invite.email }}</strong>.
+        Continuing will sign you in (or create your account) with that address
+        and send you a login code by email.
+      </p>
+      <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn">Accept invite</button>
+      </form>
+    {% endif %}
+  </section>
+{% endblock %}

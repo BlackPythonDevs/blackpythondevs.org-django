@@ -1,9 +1,26 @@
-from django.contrib.auth.models import AbstractUser
+import secrets
+from datetime import timedelta
+
+from django.conf import settings
+from django.contrib.auth.models import AbstractUser, Group
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
+from django.urls import reverse
+from django.utils import timezone
 from django_countries.fields import CountryField
 
 from .regions import region_for_country
+
+# How long a generated invite link stays valid if it isn't used.
+INVITE_LINK_EXPIRY_DAYS = 7
+
+
+def _invite_token():
+    return secrets.token_urlsafe(32)
+
+
+def _invite_expiry():
+    return timezone.now() + timedelta(days=INVITE_LINK_EXPIRY_DAYS)
 
 
 class User(AbstractUser):
@@ -76,3 +93,80 @@ class User(AbstractUser):
     @property
     def needs_onboarding(self):
         return self.onboarding_completed_at is None
+
+
+class InviteLink(models.Model):
+    """A one-time link a staff member sends to bring someone in with groups pre-applied.
+
+    Only staff/superusers can create these (see users.admin.InviteLinkAdmin), and a
+    non-superuser can only bake in groups they themselves belong to, so no one can use
+    an invite to hand out access they don't already have. The link is single-use and
+    expires on its own after INVITE_LINK_EXPIRY_DAYS, so a forgotten or leaked link
+    doesn't stay a standing risk.
+    """
+
+    email = models.EmailField(help_text="The address this invite is for. The link only works for this email.")
+    groups = models.ManyToManyField(
+        Group, blank=True, help_text="Groups applied to the account automatically when the invite is accepted."
+    )
+    token = models.CharField(max_length=64, unique=True, editable=False, default=_invite_token)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="sent_invites"
+    )
+    accepted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="accepted_invite",
+        editable=False,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=_invite_expiry)
+    used_at = models.DateTimeField(null=True, blank=True, editable=False)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Invite for {self.email}"
+
+    def get_absolute_url(self):
+        return reverse("invite-accept", args=[self.token])
+
+    @property
+    def is_expired(self):
+        return timezone.now() >= self.expires_at
+
+    @property
+    def is_used(self):
+        return self.used_at is not None
+
+    @property
+    def is_valid(self):
+        return not self.is_used and not self.is_expired
+
+    def accept(self, request):
+        """Find-or-create the account for this invite's email, apply its groups, and
+        mark the invite used. Returns the User. Caller is responsible for checking
+        `is_valid` first — this doesn't re-check.
+        """
+        from allauth.account.adapter import get_adapter
+        from allauth.account.utils import filter_users_by_email
+
+        existing = filter_users_by_email(self.email, prefer_verified=True)
+        if existing:
+            user = existing[0]
+        else:
+            adapter = get_adapter(request)
+            user = User(email=self.email)
+            adapter.populate_username(request, user)
+            user.set_unusable_password()
+            user.save()
+
+        user.groups.add(*self.groups.all())
+
+        self.used_at = timezone.now()
+        self.accepted_by = user
+        self.save(update_fields=["used_at", "accepted_by"])
+        return user
