@@ -30,6 +30,33 @@ static site repo:
 docker compose exec web python manage.py import_content --source ../blackpythondevs.github.io
 ```
 
+### Task shortcuts and reloading
+
+Every command in this README is also a [mise](https://mise.jdx.dev) task —
+`mise tasks` lists them, `mise run <name>` runs one, and `mise install` provides
+`uv` if it is not already on the host. The tasks are thin wrappers; nothing here
+depends on mise.
+
+In development the source is bind-mounted and `runserver` autoreloads, so **most
+changes need no command at all** — Python, templates, and `static/` (WhiteNoise
+runs with `WHITENOISE_AUTOREFRESH` in dev) are picked up on the next request.
+The rest:
+
+| Change | Command | Task |
+| --- | --- | --- |
+| Settings, or a wedged worker | `docker compose restart web` | `mise run restart` |
+| `pyproject.toml` / `uv.lock` | `docker compose up -d --build web` | `mise run rebuild` |
+| New migrations | `docker compose exec web python manage.py migrate` | `mise run migrate` |
+
+Production bakes the code into the image, so there is no live reload — a change
+to Python, templates, or static files means a rebuild (`mise run deploy`, see
+[Redeploying](#redeploying)). Two things reload without one:
+
+| Change | Command | Task |
+| --- | --- | --- |
+| `Caddyfile` (bind-mounted read-only) | `fnox exec -- docker compose -f compose.prod.yaml exec caddy caddy reload --config /etc/caddy/Caddyfile` | `mise run caddy-reload` |
+| Environment only, no new code | `fnox exec -- docker compose -f compose.prod.yaml kill -s HUP web` | `mise run gunicorn-reload` |
+
 ### Running outside Docker
 
 Keep Postgres and Valkey in containers, run Django on the host:
@@ -156,12 +183,16 @@ production falls back to the local filesystem — Caddy serves that volume at
 
 Production runs the same four services behind [Caddy](https://caddyserver.com),
 which terminates TLS and gets Let's Encrypt certificates automatically — no
-certbot, no renewal cron. Only Caddy publishes ports; Postgres and Valkey stay
-on the internal Docker network.
+certbot, no renewal cron. A Tailscale sidecar puts the admin surfaces on a
+private tailnet. Only Caddy publishes ports; Postgres, Valkey, and Tailscale
+stay on the internal Docker network.
 
 ```
-          :80/:443
-  Caddy ──────────── TLS, HTTP→HTTPS redirect, /media, www→apex
+          :80/:443                         tailnet (no published port)
+  Caddy ──────────── public site           Tailscale ── bpd.<tailnet>.ts.net
+    │                /cms, /django-admin → 404   │
+    │                                            │
+    └────────────── caddy:8080 ──────────────────┘  everything, admins included
     │
   web   gunicorn, bpd.settings.production (DEBUG = False)
     ├── db      postgres:17
@@ -172,12 +203,32 @@ on the internal Docker network.
 `www` at the server, and open ports 80 and 443. Port 80 has to stay open —
 renewals use it too.
 
+Secrets live in `fnox.toml` and are injected as environment variables by
+`fnox exec`, which is where compose's `${VAR}` interpolation reads them from.
+Because fnox maps each secret to an env var of the same name, the keys in
+`fnox.toml` must match the names compose expects exactly. `.env.production` is
+the fallback for hosts without fnox; don't maintain both.
+
+Outbound mail goes through [Forward Email](https://forwardemail.net). The only
+secret to fill in is `EMAIL_HOST_PASSWORD` — generate it per alias from the
+Forward Email dashboard ("Generate Password"), and note that it is shown once.
+`EMAIL_HOST_USER` is the full alias address, not a bare username. Sign-in codes
+ride this path, so `EMAIL_HOST`, `EMAIL_HOST_USER`, and `EMAIL_HOST_PASSWORD`
+are required rather than defaulted: compose aborts at `up` if any is missing,
+because the alternative is a stack that passes its healthcheck while no one can
+log in.
+
 ```bash
-cp .env.production.example .env.production   # then fill in DOMAIN, SECRET_KEY,
-                                             # POSTGRES_PASSWORD, ACME_EMAIL, SMTP
-docker compose -f compose.prod.yaml --env-file .env.production up -d --build
-docker compose -f compose.prod.yaml --env-file .env.production \
-  exec web python manage.py migrate
+fnox exec -- docker compose -f compose.prod.yaml up -d --build
+fnox exec -- docker compose -f compose.prod.yaml exec web python manage.py migrate
+```
+
+Every compose subcommand needs the same `fnox exec --` prefix — the required
+variables are checked on `exec` and `logs`, not just `up`. Verify what compose
+resolved before deploying, which fails loudly on anything missing:
+
+```bash
+fnox exec -- docker compose -f compose.prod.yaml config
 ```
 
 `DOMAIN` is the single source of truth: it sets the certificate hostname,
@@ -191,9 +242,47 @@ wrong: `production.py` hardcodes `DEBUG = False`.
 Verify the security posture at any time with:
 
 ```bash
-docker compose -f compose.prod.yaml --env-file .env.production \
-  exec web python manage.py check --deploy
+fnox exec -- docker compose -f compose.prod.yaml exec web python manage.py check --deploy
 ```
+
+### Admin access over Tailscale
+
+The Wagtail admin (`/cms`) and the Django admin (`/django-admin`) return 404 on
+the public domain. They are served only through the `tailscale` sidecar, at
+`https://<TS_HOSTNAME>.<your-tailnet>.ts.net/cms/`. Sign-in is unchanged once
+you are there — being on the tailnet is a gate in front of the login, not a
+replacement for it.
+
+The sidecar runs in userspace networking mode, so it needs no `NET_ADMIN`
+capability, no `/dev/net/tun`, and no access to the host's network namespace: it
+can reach the compose network and nothing else on the box. It does not advertise
+a subnet route or an exit node either, so joining the tailnet grants access to
+this stack alone.
+
+Set up, in the Tailscale admin console:
+
+1. **DNS** → enable MagicDNS *and* HTTPS Certificates. Without both, the sidecar
+   cannot get a certificate for its `ts.net` name and will serve nothing.
+2. **Access controls** → define `tag:server` with an owner.
+3. **Settings → Keys** → generate a *reusable*, *pre-approved* auth key tagged
+   `tag:server`.
+
+Then set `TS_AUTHKEY`, `TS_HOSTNAME`, and `TS_FQDN` in `fnox.toml`.
+`TS_FQDN` is the full MagicDNS name (`<TS_HOSTNAME>.<tailnet>.ts.net`) and gets
+appended to `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` — a mismatch shows up as
+a 400 rather than anything more obvious.
+
+```bash
+fnox exec -- docker compose -f compose.prod.yaml logs tailscale
+fnox exec -- docker compose -f compose.prod.yaml exec tailscale tailscale status
+```
+
+The auth key is only used to register. Once the node is in the `tailscale_state`
+volume it authenticates with its own key, so keep that volume across deploys —
+losing it re-registers the node under a new identity and needs a fresh key.
+
+To add someone, invite them to the tailnet; to cut access, remove them there.
+Nothing about it touches Django's own permissions.
 
 ### Trying it locally under the real hostname
 
@@ -204,7 +293,7 @@ hour for the domain.
 
 ```bash
 CADDY_TLS_INTERNAL="tls internal" \
-  docker compose -f compose.prod.yaml --env-file .env.production up -d --build
+  fnox exec -- docker compose -f compose.prod.yaml up -d --build
 curl -k --resolve blackpythondevs.org:443:127.0.0.1 https://blackpythondevs.org/
 ```
 
@@ -216,18 +305,35 @@ the variable unset on the server; production issues real certificates.
 `pg_dump` custom-format dumps (`.dump`) restore with `pg_restore`, not `psql`:
 
 ```bash
-docker compose -f compose.prod.yaml --env-file .env.production \
-  exec -T db pg_restore -U bpd -d bpd --no-owner --no-privileges --clean --if-exists < bpd.dump
+fnox exec -- docker compose -f compose.prod.yaml exec -T db pg_restore -U bpd -d bpd --no-owner --no-privileges --clean --if-exists < bpd.dump
 ```
+
+The dump carries the `CustomImage` rows but not the uploaded files, so on a
+fresh `media_data` volume every blog and event header image points at a
+`/media/...` path with nothing behind it. The originals are checked into
+`static/images/`, so restoring them needs no backup:
+
+```bash
+fnox exec -- docker compose -f compose.prod.yaml exec web python manage.py restore_media --dry-run   # report, change nothing
+fnox exec -- docker compose -f compose.prod.yaml exec web python manage.py restore_media
+```
+
+It copies each file back under the exact name the database already records — no
+rows are rewritten — and drops the stale rendition rows so Wagtail regenerates
+the resized versions on the next request. Images already in storage are skipped,
+so re-running it is safe. Anything uploaded through the CMS since the export has
+no counterpart in `static/images/` and is reported as unmatched; that needs a
+real backup of the volume.
 
 ### Redeploying
 
 ```bash
 git pull
-docker compose -f compose.prod.yaml --env-file .env.production up -d --build
-docker compose -f compose.prod.yaml --env-file .env.production \
-  exec web python manage.py migrate
+fnox exec -- docker compose -f compose.prod.yaml up -d --build
+fnox exec -- docker compose -f compose.prod.yaml exec web python manage.py migrate
 ```
+
+Or `mise run deploy`, which is the two commands above.
 
 Static files are collected into the image at build time, so a rebuild is all
 that ships new CSS. The `caddy_data` volume holds issued certificates — keep it
