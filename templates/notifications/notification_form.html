@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+
+{% block title %}Send a notification{% endblock %}
+
+{% block extra_css %}
+  {% if form.regions %}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsvectormap@1.5.3/dist/css/jsvectormap.min.css" />
+  {% endif %}
+  <style>
+    .notification-composer {
+      max-width: 56rem;
+    }
+
+    .markdown-editor {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1.1rem;
+    }
+
+    .markdown-editor > div {
+      flex: 1 1 16rem;
+      min-width: 0;
+    }
+
+    .markdown-editor textarea {
+      width: 100%;
+    }
+
+    .markdown-preview {
+      border: 1px solid var(--bpd-border);
+      border-radius: 8px;
+      padding: 0.7rem 0.9rem;
+      background: var(--bpd-void);
+      color: var(--bpd-text);
+      min-height: 10rem;
+      overflow-wrap: anywhere;
+    }
+
+    .markdown-preview img {
+      max-width: 100%;
+      border-radius: 6px;
+    }
+
+    .markdown-preview:empty::before {
+      content: "Nothing to preview yet.";
+      color: var(--bpd-muted);
+    }
+
+    .region-map {
+      height: 380px;
+      background: var(--bpd-void);
+      border: 1px solid var(--bpd-border);
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+    }
+
+    .region-map-hint {
+      color: var(--bpd-muted);
+      font-size: 0.85rem;
+      margin-top: 0;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Each geoscheme region (Africa, Americas, …) becomes its own grid
+       column instead of one long stacked list of 22 subregions. */
+    #id_regions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1rem 1.5rem;
+    }
+
+    #id_regions > div > label:first-child {
+      display: block;
+      font-weight: 600;
+      color: var(--bpd-white);
+      margin-bottom: 0.4rem;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <section class="auth-panel notification-composer">
+    <h1>Send a notification</h1>
+    <p class="auth-intro">
+      Write your message, then narrow who gets it. Leave a filter untouched to
+      skip it — a message with nothing checked anywhere goes to every active
+      member.
+    </p>
+
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      {{ form.subject.errors }}
+      <p>
+        {{ form.subject.label_tag }}
+        {{ form.subject }}
+      </p>
+
+      {{ form.body.errors }}
+      <div class="markdown-editor">
+        <div>
+          {{ form.body.label_tag }}
+          {{ form.body }}
+          {% if form.body.help_text %}<small class="helptext">{{ form.body.help_text }}</small>{% endif %}
+        </div>
+        <div>
+          <label>Preview</label>
+          <div id="body-preview" class="markdown-preview"></div>
+        </div>
+      </div>
+
+      {{ form.image.errors }}
+      <p>
+        {{ form.image.label_tag }}
+        {{ form.image }}
+        {% if form.image.help_text %}<small class="helptext">{{ form.image.help_text }}</small>{% endif %}
+      </p>
+
+      {% if form.regions %}
+        <div id="region-map" class="region-map"></div>
+        <p class="region-map-hint">
+          Click a country to toggle its region, shift-click to toggle its whole
+          continent, or use the checkboxes below.
+        </p>
+        {{ region_countries|json_script:"region-countries-data" }}
+        {{ parent_regions|json_script:"parent-regions-data" }}
+      {% endif %}
+
+      {% if form.affinities and not form.affinities.field.choices %}
+        <p class="onboarding-explainer">
+          You haven't identified with any subcommunity on your own profile yet,
+          so there's nothing you can target here. Update your profile from the
+          member area first.
+        </p>
+      {% endif %}
+
+      {% if form.regions %}
+        {{ form.regions.errors }}
+        <p>
+          {{ form.regions.label_tag }}
+          {{ form.regions }}
+          {% if form.regions.help_text %}<small class="helptext">{{ form.regions.help_text }}</small>{% endif %}
+        </p>
+      {% endif %}
+
+      {% if form.roles %}
+        {{ form.roles.errors }}
+        <p>
+          {{ form.roles.label_tag }}
+          {{ form.roles }}
+          {% if form.roles.help_text %}<small class="helptext">{{ form.roles.help_text }}</small>{% endif %}
+        </p>
+      {% endif %}
+
+      {% if form.affinities %}
+        {{ form.affinities.errors }}
+        <p>
+          {{ form.affinities.label_tag }}
+          {{ form.affinities }}
+          {% if form.affinities.help_text %}<small class="helptext">{{ form.affinities.help_text }}</small>{% endif %}
+        </p>
+      {% endif %}
+
+      <button type="submit" class="btn">Send</button>
+      <a role="button" class="secondary" href="{% url 'notifications:list' %}">Cancel</a>
+    </form>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script>
+    (function () {
+      if (typeof marked === "undefined") return;
+      var textarea = document.getElementById("id_body");
+      var preview = document.getElementById("body-preview");
+      if (!textarea || !preview) return;
+
+      function render() {
+        preview.innerHTML = textarea.value.trim() ? marked.parse(textarea.value) : "";
+      }
+
+      textarea.addEventListener("input", render);
+      render();
+    })();
+  </script>
+
+  {% if form.regions %}
+    <script src="https://cdn.jsdelivr.net/npm/jsvectormap@1.5.3/dist/js/jsvectormap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsvectormap@1.5.3/dist/maps/world.js"></script>
+    <script>
+      (function () {
+        if (typeof jsVectorMap === "undefined") return;
+
+        var regionCountries = JSON.parse(document.getElementById("region-countries-data").textContent);
+        var parentRegions = JSON.parse(document.getElementById("parent-regions-data").textContent);
+        var countryToRegion = {};
+        Object.keys(regionCountries).forEach(function (region) {
+          regionCountries[region].forEach(function (code) { countryToRegion[code] = region; });
+        });
+        var subregionToParent = {};
+        Object.keys(parentRegions).forEach(function (parent) {
+          parentRegions[parent].forEach(function (subregion) { subregionToParent[subregion] = parent; });
+        });
+        var allCodes = Object.keys(countryToRegion);
+
+        function checkedRegions() {
+          return Array.prototype.slice
+            .call(document.querySelectorAll('input[name="regions"]:checked'))
+            .map(function (box) { return box.value; });
+        }
+
+        function syncMap() {
+          var selected = {};
+          checkedRegions().forEach(function (region) {
+            (regionCountries[region] || []).forEach(function (code) { selected[code] = true; });
+          });
+          allCodes.forEach(function (code) {
+            var region = map.regions[code];
+            if (region) region.element.select(!!selected[code]);
+          });
+        }
+
+        function regionCheckbox(region) {
+          return document.querySelector('input[name="regions"][value="' + region + '"]');
+        }
+
+        // Plain click: toggle just the clicked country's subregion.
+        function toggleSubregion(region) {
+          var checkbox = regionCheckbox(region);
+          if (!checkbox) return;
+          checkbox.checked = !checkbox.checked;
+          checkbox.dispatchEvent(new Event("change"));
+        }
+
+        // Shift-click: toggle every subregion under the same continent —
+        // all selected already turns them all off, otherwise turns them all on.
+        function toggleParentRegion(region) {
+          var parent = subregionToParent[region];
+          var boxes = (parentRegions[parent] || []).map(regionCheckbox).filter(Boolean);
+          var allChecked = boxes.length > 0 && boxes.every(function (box) { return box.checked; });
+          boxes.forEach(function (box) {
+            box.checked = !allChecked;
+            box.dispatchEvent(new Event("change"));
+          });
+        }
+
+        var map = new jsVectorMap({
+          selector: "#region-map",
+          map: "world",
+          backgroundColor: "transparent",
+          zoomOnScroll: false,
+          regionsSelectable: false,
+          regionStyle: {
+            initial: { fill: "var(--bpd-border)", "fill-opacity": 1 },
+            hover: { fill: "var(--bpd-muted)", cursor: "pointer" },
+            selected: { fill: "var(--bpd-cyan)" },
+            selectedHover: { fill: "var(--bpd-cyan)" },
+          },
+          onRegionClick: function (event, code) {
+            var region = countryToRegion[code];
+            if (!region) return;
+            if (event.shiftKey) {
+              toggleParentRegion(region);
+            } else {
+              toggleSubregion(region);
+            }
+          },
+          // Overrides the tooltip the library already set to the country's
+          // own name, so hovering shows the subregion instead (e.g. "Western
+          // Africa", not "Nigeria").
+          onRegionTooltipShow: function (event, tooltip, code) {
+            var region = countryToRegion[code];
+            if (region) tooltip.text(region);
+          },
+          onLoaded: function () {
+            syncMap();
+            attachHoverHandlers();
+          },
+        });
+
+        document.querySelectorAll('input[name="regions"]').forEach(function (box) {
+          box.addEventListener("change", syncMap);
+        });
+
+        // The library's own hover effect only lights up the one country
+        // under the cursor. Extend it to every country in that region, so
+        // hovering previews the same grouping that clicking selects. Wired
+        // from `onLoaded` because `map.container` doesn't exist until the
+        // map has actually finished building itself.
+        function siblingsOf(code) {
+          return regionCountries[countryToRegion[code]] || [];
+        }
+
+        function attachHoverHandlers() {
+          map.container.addEventListener("mouseover", function (event) {
+            var el = event.target.closest(".jvm-region");
+            var code = el && el.getAttribute("data-code");
+            if (!code || !countryToRegion[code]) return;
+            siblingsOf(code).forEach(function (sibling) {
+              var region = map.regions[sibling];
+              if (region) region.element.hover(true);
+            });
+          });
+
+          map.container.addEventListener("mouseout", function (event) {
+            var el = event.target.closest(".jvm-region");
+            var code = el && el.getAttribute("data-code");
+            if (!code || !countryToRegion[code]) return;
+            siblingsOf(code).forEach(function (sibling) {
+              var region = map.regions[sibling];
+              if (region) region.element.hover(false);
+            });
+          });
+        }
+      })();
+    </script>
+  {% endif %}
+{% endblock %}

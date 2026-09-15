@@ -87,6 +87,55 @@ _SUBREGIONS = [
 
 REGION_CHOICES = [(name, name) for name, _codes in _SUBREGIONS]
 
+# The same subregions, grouped under their parent geoscheme region — for a
+# checkbox list, Django renders each group as its own labelled cluster
+# (`ChoiceWidget.optgroups` handles a nested list like this generically for
+# CheckboxSelectMultiple, the same way it would <optgroup> a <select>).
+GROUPED_REGION_CHOICES = [
+    ("Africa", [
+        ("Northern Africa", "Northern Africa"),
+        ("Eastern Africa", "Eastern Africa"),
+        ("Middle Africa", "Middle Africa"),
+        ("Southern Africa", "Southern Africa"),
+        ("Western Africa", "Western Africa"),
+    ]),
+    ("Americas", [
+        ("Caribbean", "Caribbean"),
+        ("Central America", "Central America"),
+        ("South America", "South America"),
+        ("Northern America", "Northern America"),
+    ]),
+    ("Asia", [
+        ("Central Asia", "Central Asia"),
+        ("Eastern Asia", "Eastern Asia"),
+        ("South-eastern Asia", "South-eastern Asia"),
+        ("Southern Asia", "Southern Asia"),
+        ("Western Asia", "Western Asia"),
+    ]),
+    ("Europe", [
+        ("Eastern Europe", "Eastern Europe"),
+        ("Northern Europe", "Northern Europe"),
+        ("Southern Europe", "Southern Europe"),
+        ("Western Europe", "Western Europe"),
+    ]),
+    ("Oceania", [
+        ("Australia and New Zealand", "Australia and New Zealand"),
+        ("Melanesia", "Melanesia"),
+        ("Micronesia", "Micronesia"),
+        ("Polynesia", "Polynesia"),
+    ]),
+    ("Antarctica", [("Antarctica", "Antarctica")]),
+]
+
+# Same data, keyed by region name, for the clickable-map widget on the
+# notification form — it needs to highlight every country in a subregion
+# when just one of them is clicked.
+SUBREGION_COUNTRIES = {name: sorted(codes) for name, codes in _SUBREGIONS}
+
+# Parent region -> its subregion names, for the map widget's shift-click
+# behaviour (select every subregion under one continent at once).
+PARENT_REGIONS = {group: [name for name, _label in options] for group, options in GROUPED_REGION_CHOICES}
+
 
 def region_for_country(alpha2):
     """Return the UN M49 subregion name for an alpha-2 code, or "" if unmappable."""

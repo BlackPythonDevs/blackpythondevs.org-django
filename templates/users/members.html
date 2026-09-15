@@ -75,6 +75,17 @@
     </section>
   {% endif %}
 
+  {% if can_send_notifications %}
+    <section class="auth-panel">
+      <h2>Notifications</h2>
+      <p>Send an announcement to members, filtered by region, group, or subcommunity.</p>
+      <p>
+        <a role="button" class="btn" href="{% url 'notifications:send' %}">Send a notification</a>
+        <a role="button" class="secondary" href="{% url 'notifications:list' %}">See all notifications</a>
+      </p>
+    </section>
+  {% endif %}
+
   <section class="auth-panel">
     <h2>Your account</h2>
     <ul>
