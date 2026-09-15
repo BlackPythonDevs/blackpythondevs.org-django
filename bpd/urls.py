@@ -3,11 +3,13 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
+from neapolitan.views import Role
 from wagtail import urls as wagtail_urls
 from wagtail.admin import urls as wagtailadmin_urls
 from wagtail.contrib.sitemaps.views import sitemap
 from wagtail.documents import urls as wagtaildocs_urls
 
+from communities.views import CommunityAdminConsole, LeaveCommunityView
 from core import views as core_views
 from sponsorships.views import (
     PublicSponsorshipRequestView,
@@ -30,6 +32,12 @@ urlpatterns = [
     path("council/nominations/", include("nominations.urls")),
     # Staff/Executor/Sponsor/Community Partner: broadcasting member announcements.
     path("notifications/", include("notifications.urls")),
+    # Community admins: messaging BPD leadership about their community.
+    path("communities/messages/", include("communities.urls")),
+    path("communities/<int:pk>/leave/", LeaveCommunityView.as_view(), name="communities-leave"),
+    # Front-end console for community admins (neapolitan). No create/delete
+    # role: staff create/delete communities in the Django admin only.
+    *CommunityAdminConsole.get_urls(roles={Role.LIST, Role.DETAIL, Role.UPDATE}),
     # Public sponsorship intake. Listed before the CRUD routes so these fixed
     # paths are matched before neapolitan's generated ones.
     path("sponsorships/request/", PublicSponsorshipRequestView.as_view(), name="sponsorship-request"),

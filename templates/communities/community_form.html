@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Edit {{ object.name }}{% endblock %}
+
+{% block content %}
+  <section class="auth-panel">
+    <p><a href="{% url 'communities-detail' object.pk %}">&larr; {{ object.name }}</a></p>
+
+    <h1>Edit {{ object.name }}</h1>
+    <p class="auth-intro">
+      Region is worked out from the country when you save, unless this is marked
+      an online-only community.
+    </p>
+
+    <form method="post" {% if form.is_multipart %}enctype="multipart/form-data"{% endif %}>
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit" class="btn">Save</button>
+      <a role="button" class="secondary" href="{% url 'communities-detail' object.pk %}">Cancel</a>
+    </form>
+  </section>
+{% endblock %}

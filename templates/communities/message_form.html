@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Message leadership{% endblock %}
+
+{% block content %}
+  <section class="auth-panel">
+    <h1>Message leadership</h1>
+    <p class="auth-intro">
+      Sent to leadership in your community's region (or everywhere, for an
+      online-only community) as soon as you submit it.
+    </p>
+
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit" class="btn">Send</button>
+      <a role="button" class="secondary" href="{% url 'communities:message-list' %}">Cancel</a>
+    </form>
+  </section>
+{% endblock %}
