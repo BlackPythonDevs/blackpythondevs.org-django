@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Notifications{% endblock %}
+
+{% block content %}
+  <section>
+    <h1>Notifications</h1>
+    <p class="lead">Announcements sent to the membership, newest first.</p>
+
+    <p><a role="button" class="btn" href="{% url 'notifications:send' %}">Send a notification</a></p>
+
+    {% if notifications %}
+      <figure>
+        <table role="grid">
+          <thead>
+            <tr>
+              <th scope="col">Subject</th>
+              <th scope="col">Sent by</th>
+              <th scope="col">Recipients</th>
+              <th scope="col">Sent</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for notification in notifications %}
+              <tr>
+                <th scope="row">{{ notification.subject }}</th>
+                <td>{{ notification.sender }}</td>
+                <td>{{ notification.recipient_count }}</td>
+                <td>{{ notification.sent_at|date:"d M Y H:i"|default:"Not sent" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </figure>
+    {% else %}
+      <p>Nothing sent yet.</p>
+    {% endif %}
+  </section>
+
+  {% if is_paginated %}
+    <section>
+      <div class="pagination">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}">Previous</a>
+        {% endif %}
+        <span class="current">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}">Next</a>
+        {% endif %}
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

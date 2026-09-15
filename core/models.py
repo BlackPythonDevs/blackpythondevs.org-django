@@ -180,13 +180,27 @@ COUNCIL_GROUP_NAME = "Leadership Council"
 LEADERSHIP_GROUP_NAME = "Leadership"
 
 
+def is_council_member(user):
+    """Whether `user` is a member of the Leadership Council.
+
+    Superusers pass so a site admin is never locked out of their own console.
+    """
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    return user.groups.filter(name=COUNCIL_GROUP_NAME).exists()
+
+
 @register_snippet
 class Leader(models.Model):
     """A member of leadership: executor, team lead, advisor, or council member.
 
     This is the public roster shown on the About page and is deliberately not
     tied to a `User` — plenty of leaders predate having an account here. The
-    matching auth groups above are maintained separately.
+    matching auth groups above are maintained separately. `user` links the
+    roster entry to a site account for council members who complete the
+    onboarding photo/affiliations step themselves.
     """
 
     EXECUTOR = "executor"
@@ -209,6 +223,19 @@ class Leader(models.Model):
         blank=True,
         help_text="External or /static/ photo URL, used when no image is uploaded.",
     )
+    affiliations = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Other organizations or communities you're affiliated with.",
+    )
+    user = models.OneToOneField(
+        "users.User",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="leader_profile",
+        help_text="Link this roster entry to a site account.",
+    )
     sort_order = models.IntegerField(default=0)
 
     panels = [
@@ -217,6 +244,8 @@ class Leader(models.Model):
         FieldPanel("role"),
         FieldPanel("photo"),
         FieldPanel("photo_url"),
+        FieldPanel("affiliations"),
+        FieldPanel("user"),
         FieldPanel("sort_order"),
     ]
 

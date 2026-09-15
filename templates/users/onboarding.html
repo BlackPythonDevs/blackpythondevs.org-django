@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome{% endblock %}
+
+{% block extra_css %}
+  <style>
+    .onboarding-progress {
+      margin-bottom: 2rem;
+    }
+
+    .onboarding-progress-track {
+      height: 8px;
+      border-radius: 999px;
+      background: var(--bpd-void);
+      border: 1px solid var(--bpd-border);
+      overflow: hidden;
+    }
+
+    .onboarding-progress-fill {
+      height: 100%;
+      background: var(--bpd-cyan);
+      border-radius: 999px;
+      width: 0%;
+      transition: width 0.25s ease;
+    }
+
+    .onboarding-progress-label {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--bpd-muted);
+    }
+
+    .onboarding-step {
+      animation: onboarding-fade-in 0.2s ease;
+    }
+
+    @keyframes onboarding-fade-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .onboarding-step h2 {
+      margin-bottom: 0.4rem;
+      font-size: 1.15rem;
+    }
+
+    .onboarding-explainer {
+      color: var(--bpd-muted);
+      font-size: 0.9rem;
+      margin-bottom: 1.25rem;
+      padding: 0.75rem 1rem;
+      background: var(--bpd-void);
+      border-left: 3px solid var(--bpd-cyan);
+      border-radius: 6px;
+    }
+
+    .onboarding-nav {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-top: 1.75rem;
+    }
+
+    .onboarding-nav button {
+      flex: 1;
+    }
+
+    .onboarding-nav .btn-back {
+      background: transparent;
+      color: var(--bpd-text);
+      border: 1px solid var(--bpd-border);
+    }
+
+    .onboarding-nav button[hidden] {
+      display: none;
+    }
+
+    fieldset {
+      border: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .onboarding-select-toggle {
+      margin: -0.5rem 0 1rem;
+    }
+
+    .onboarding-select-toggle button {
+      background: none;
+      border: none;
+      padding: 0;
+      color: var(--bpd-cyan);
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .onboarding-select-toggle button:not(:last-child)::after {
+      content: "·";
+      margin: 0 0.5rem;
+      color: var(--bpd-muted);
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <section class="auth-panel">
+    <h1>Welcome to Black Python Devs</h1>
+    <p class="auth-intro">
+      A few quick questions to help us connect you to the right people and
+      opportunities. You can update your answers anytime from the member area.
+    </p>
+
+    <div class="onboarding-progress">
+      <div class="onboarding-progress-track">
+        <div class="onboarding-progress-fill" id="onboarding-progress-fill"></div>
+      </div>
+      <div class="onboarding-progress-label">
+        <span id="onboarding-step-label">Step 1</span>
+        <span id="onboarding-step-count"></span>
+      </div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" id="onboarding-form" novalidate>
+      {% csrf_token %}
+
+      <section class="onboarding-step" data-title="BPD member or ally">
+        <h2>Are you a BPD Member or a Friend/Supporter/Ally?</h2>
+        <p class="onboarding-explainer">
+          <strong>Why we ask:</strong> knowing who's part of the core membership versus
+          who's a friend, supporter, or ally helps us tailor what we send you and
+          who we count as community versus who we count as support.
+        </p>
+        <fieldset>{{ form.member_type }}</fieldset>
+        {{ form.member_type.errors }}
+      </section>
+
+      <section class="onboarding-step" data-title="Country" hidden>
+        <h2>What country do you currently reside in?</h2>
+        <p class="onboarding-explainer">
+          <strong>Why we ask:</strong> we use this to match you to a region behind the
+          scenes, so we can point you to the people, events, and chapters closest to you.
+        </p>
+        {{ form.country }}
+        {{ form.country.errors }}
+      </section>
+
+      <section class="onboarding-step" data-title="Subcommunities" hidden>
+        <h2>Do you identify as a member of any of the following communities?</h2>
+        <p class="onboarding-explainer">
+          <strong>Why we ask:</strong> this is entirely optional. If you tell us, we can
+          let you know about opportunities aimed specifically at folks in these
+          subcommunities — nothing else changes if you skip it.
+        </p>
+        <fieldset>{{ form.subcommunities }}</fieldset>
+        {{ form.subcommunities.errors }}
+      </section>
+
+      <section class="onboarding-step" data-title="What to hear about" hidden>
+        <h2>Do you want to hear about the following?</h2>
+        <p class="onboarding-explainer">
+          <strong>Why we ask:</strong> so we only email you about what's actually useful
+          to you, instead of everything we send out.
+        </p>
+        <div class="onboarding-select-toggle">
+          <button type="button" class="select-all">Select all</button>
+          <button type="button" class="select-none">Select none</button>
+        </div>
+        <fieldset>{{ form.communication_preferences }}</fieldset>
+        {{ form.communication_preferences.errors }}
+      </section>
+
+      {% if council_form %}
+        <section class="onboarding-step" data-title="Council profile" hidden>
+          <h2>Your Leadership Council profile</h2>
+          <p class="onboarding-explainer">
+            <strong>Why we ask:</strong> as a Leadership Council member you have a spot
+            on the public leadership roster. A photo and your affiliations help the
+            community put a face and a background to your name — both are optional.
+          </p>
+          {{ council_form.as_p }}
+        </section>
+      {% endif %}
+
+      <div class="onboarding-nav">
+        <button type="button" class="btn-back" id="onboarding-back" hidden>Back</button>
+        <button type="button" id="onboarding-next">Next</button>
+        <button type="submit" id="onboarding-submit" hidden>Finish</button>
+      </div>
+    </form>
+  </section>
+
+  <script>
+    (function () {
+      var form = document.getElementById("onboarding-form");
+      var steps = Array.prototype.slice.call(form.querySelectorAll(".onboarding-step"));
+      var backBtn = document.getElementById("onboarding-back");
+      var nextBtn = document.getElementById("onboarding-next");
+      var submitBtn = document.getElementById("onboarding-submit");
+      var fill = document.getElementById("onboarding-progress-fill");
+      var stepLabel = document.getElementById("onboarding-step-label");
+      var stepCount = document.getElementById("onboarding-step-count");
+      var current = 0;
+
+      // If the form was redisplayed with server-side errors, land on the
+      // first step that has one instead of always starting over at step 1.
+      steps.forEach(function (step, index) {
+        if (step.querySelector(".errorlist") && current === 0 && index !== 0) {
+          current = index;
+        }
+      });
+
+      function render() {
+        steps.forEach(function (step, index) {
+          step.hidden = index !== current;
+        });
+        backBtn.hidden = current === 0;
+        nextBtn.hidden = current === steps.length - 1;
+        submitBtn.hidden = current !== steps.length - 1;
+        stepLabel.textContent = steps[current].dataset.title;
+        stepCount.textContent = "Step " + (current + 1) + " of " + steps.length;
+        fill.style.width = ((current + 1) / steps.length) * 100 + "%";
+      }
+
+      function currentStepIsValid() {
+        var invalid = steps[current].querySelector(":invalid");
+        if (invalid) {
+          invalid.reportValidity();
+          return false;
+        }
+        return true;
+      }
+
+      nextBtn.addEventListener("click", function () {
+        if (!currentStepIsValid()) return;
+        current = Math.min(current + 1, steps.length - 1);
+        render();
+      });
+
+      backBtn.addEventListener("click", function () {
+        current = Math.max(current - 1, 0);
+        render();
+      });
+
+      Array.prototype.slice.call(form.querySelectorAll(".onboarding-select-toggle")).forEach(function (toggle) {
+        var checkboxes = toggle.closest(".onboarding-step").querySelectorAll('input[type="checkbox"]');
+        toggle.querySelector(".select-all").addEventListener("click", function () {
+          checkboxes.forEach(function (box) { box.checked = true; });
+        });
+        toggle.querySelector(".select-none").addEventListener("click", function () {
+          checkboxes.forEach(function (box) { box.checked = false; });
+        });
+      });
+
+      render();
+    })();
+  </script>
+{% endblock %}

@@ -9,6 +9,7 @@ login redirect.
 import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.utils import timezone
 
 from core.models import COUNCIL_GROUP_NAME, LEADERSHIP_GROUP_NAME
 from nominations.models import CouncilNomination, current_term_year
@@ -25,6 +26,9 @@ def leadership_groups(db):
 
 
 def make_user(username, group=None, **kwargs):
+    # Already onboarded: these fixtures exercise leadership access, not the
+    # onboarding survey that would otherwise redirect a fresh account.
+    kwargs.setdefault("onboarding_completed_at", timezone.now())
     user = get_user_model().objects.create_user(
         username=username, email=f"{username}@example.com", password="pw", **kwargs
     )
