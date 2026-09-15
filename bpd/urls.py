@@ -22,6 +22,7 @@ urlpatterns = [
     path("documents/", include(wagtaildocs_urls)),
     path("accounts/", include("allauth.urls")),
     path("members/", user_views.members, name="members"),
+    path("onboarding/", user_views.onboarding, name="onboarding"),
     path("student-ambassadors/", include("ambassadors.urls")),
     # Leadership-only: nominating people for the Leadership Council.
     path("council/nominations/", include("nominations.urls")),

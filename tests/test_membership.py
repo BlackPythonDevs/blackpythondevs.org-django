@@ -13,6 +13,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.test import override_settings
+from django.utils import timezone
 
 pytestmark = pytest.mark.django_db
 
@@ -190,7 +191,11 @@ class TestDiscordRoleGrant:
 
 @pytest.fixture
 def member(db):
-    return get_user_model().objects.create_user(username="member", email="member@example.com")
+    # Already onboarded: these tests exercise the member area itself, not
+    # the onboarding survey that would otherwise redirect a fresh account.
+    return get_user_model().objects.create_user(
+        username="member", email="member@example.com", onboarding_completed_at=timezone.now()
+    )
 
 
 @pytest.fixture
