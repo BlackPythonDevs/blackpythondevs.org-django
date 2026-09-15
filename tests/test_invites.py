@@ -13,6 +13,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core import mail
+from django.urls import reverse
 from django.utils import timezone
 
 from users.models import InviteLink
@@ -175,3 +176,12 @@ class TestInviteLinkAdminGroupRestriction:
 
         assert allowed == {"Executor"}
         assert "Sponsors" not in allowed
+
+
+def test_admin_homepage_has_an_invite_button(client, staff_user):
+    client.force_login(staff_user)
+
+    response = client.get("/django-admin/")
+
+    assert response.status_code == 200
+    assert reverse("admin:users_invitelink_add") in response.content.decode()
