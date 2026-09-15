@@ -14,7 +14,7 @@
       {% csrf_token %}
       {{ form.as_p }}
       <button type="submit" class="btn">Send</button>
-      <a role="button" class="secondary" href="{% url 'communities:message-list' %}">Cancel</a>
+      <a role="button" class="secondary" href="{% url 'community_messages:list' %}">Cancel</a>
     </form>
   </section>
 {% endblock %}

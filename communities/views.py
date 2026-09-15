@@ -1,27 +1,22 @@
 """Front-end console for community admins.
 
-Two separate surfaces, mirroring the split already used elsewhere:
-
 - `CommunityAdminConsole` — a neapolitan CRUDView, list/detail/update only
   (see `sponsorships.views.SponsorshipRequestView` for the pattern it copies).
   No create or delete role is wired up at all: staff create communities in
   the Django admin, and a community admin can never delete a `Community`
   outright — only leave it (`LeaveCommunityView`).
-- `SendCommunityMessageView` / `CommunityMessageListView` — a plain
-  compose-and-send flow, mirroring
-  `notifications.views.SendNotificationView` / `NotificationListView`.
+
+Messaging leadership lives in the separate `community_messages` app.
 """
 
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin, UserPassesTestMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse_lazy
 from django.views import View
-from django.views.generic import CreateView, ListView
 from neapolitan.views import CRUDView
 
-from .forms import CommunityAdminForm, CommunityMessageForm
-from .models import Community, CommunityAdmin, CommunityMessage, can_manage_community
+from .forms import CommunityAdminForm
+from .models import Community, CommunityAdmin
 
 
 class CommunityAdminConsole(PermissionRequiredMixin, CRUDView):
@@ -57,52 +52,3 @@ class LeaveCommunityView(LoginRequiredMixin, View):
         admin_link.delete()
         messages.success(request, f"You're no longer an admin of {community_name}.")
         return redirect("communities-list")
-
-
-class CommunityMessageSenderRequiredMixin(UserPassesTestMixin):
-    def test_func(self):
-        return can_manage_community(self.request.user)
-
-    def handle_no_permission(self):
-        self.raise_exception = self.request.user.is_authenticated
-        return super().handle_no_permission()
-
-
-class CommunityMessageListView(CommunityMessageSenderRequiredMixin, ListView):
-    """Messages sent by communities the requester admins, newest first."""
-
-    model = CommunityMessage
-    template_name = "communities/message_list.html"
-    context_object_name = "community_messages"
-    paginate_by = 25
-
-    def get_queryset(self):
-        return (
-            CommunityMessage.objects.filter(community__admins=self.request.user)
-            .select_related("community", "sender")
-            .distinct()
-        )
-
-
-class SendCommunityMessageView(CommunityMessageSenderRequiredMixin, CreateView):
-    """The compose form. Sending happens as soon as it validates."""
-
-    model = CommunityMessage
-    form_class = CommunityMessageForm
-    template_name = "communities/message_form.html"
-    success_url = reverse_lazy("communities:message-list")
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["sender"] = self.request.user
-        return kwargs
-
-    def form_valid(self, form):
-        form.instance.sender = self.request.user
-        response = super().form_valid(form)
-        count = self.object.send()
-        if count:
-            messages.success(self.request, f"Sent to {count} leadership member{'' if count == 1 else 's'}.")
-        else:
-            messages.warning(self.request, "No leadership members matched that region — nothing was sent.")
-        return response

@@ -1,27 +1,24 @@
 """Communities: external groups partnered with Black Python Devs.
 
 Each community has one or more community admins — members who can update
-their own community's info and message BPD leadership about what's happening
-in it. Full CRUD (including deleting a community outright) stays in the
-Django admin for staff; the front-end console (see views.py) only ever lets
-an admin view/edit their own community and remove themselves from it.
+their own community's info and (via the separate `community_messages` app)
+message BPD leadership about what's happening in it. Full CRUD (including
+deleting a community outright) stays in the Django admin for staff; the
+front-end console (see views.py) only ever lets an admin view/edit their own
+community and remove themselves from it.
 
 `region` follows `users.regions` (the UN M49 subregion scheme), not
 `sponsorships.regions`'s coarser continent scheme — it has to match
-`User.region` exactly, since that's what a `CommunityMessage`'s recipients are
-filtered on. A community with no fixed location can be marked `is_online`
-instead of tied to a country; its messages then reach leadership in every
-region rather than being filtered to one.
+`User.region` exactly, since that's what `community_messages.CommunityMessage`
+filters its recipients on. A community with no fixed location can be marked
+`is_online` instead of tied to a country; its messages then reach leadership
+in every region rather than being filtered to one.
 """
 
 from django.conf import settings
-from django.core.mail import EmailMultiAlternatives
 from django.db import models
-from django.utils import timezone
 from django_countries.fields import CountryField
 
-from core.models import LEADERSHIP_GROUP_NAME
-from users.models import User
 from users.regions import region_for_country
 
 # Membership group for the front-end console: like Executor, it carries real
@@ -107,58 +104,3 @@ class CommunityAdmin(models.Model):
 
     def __str__(self):
         return f"{self.user} — {self.community}"
-
-
-class CommunityMessage(models.Model):
-    """A message a community admin sends to BPD leadership.
-
-    Sending happens immediately on save, the same as notifications.Notification
-    — the site has no task queue and volumes are small enough for a
-    synchronous send.
-    """
-
-    community = models.ForeignKey(Community, on_delete=models.CASCADE, related_name="messages")
-    sender = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="sent_community_messages"
-    )
-    subject = models.CharField(max_length=200)
-    body = models.TextField()
-
-    recipient_count = models.PositiveIntegerField(default=0, editable=False)
-    sent_at = models.DateTimeField(null=True, blank=True, editable=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-created_at"]
-
-    def __str__(self):
-        return self.subject
-
-    def recipients(self):
-        """Leadership members in the community's region.
-
-        Always keyed off the *community's* region, never the sending admin's
-        own `User.region` — a message is from the community, not from
-        whichever admin happens to be logged in. Online communities reach
-        leadership in every region instead of being filtered to one.
-        """
-        qs = User.objects.filter(is_active=True, groups__name=LEADERSHIP_GROUP_NAME).exclude(email="")
-        if not self.community.is_online:
-            qs = qs.filter(region=self.community.region)
-        return qs.distinct()
-
-    def send(self):
-        emails = list(self.recipients().values_list("email", flat=True))
-        if emails:
-            message = EmailMultiAlternatives(
-                subject=f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX}[{self.community.name}] {self.subject}",
-                body=self.body,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                to=[settings.DEFAULT_FROM_EMAIL],
-                bcc=emails,
-            )
-            message.send()
-        self.recipient_count = len(emails)
-        self.sent_at = timezone.now()
-        self.save(update_fields=["recipient_count", "sent_at"])
-        return len(emails)

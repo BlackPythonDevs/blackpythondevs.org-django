@@ -24,7 +24,7 @@
 
     <p>
       <a role="button" class="btn" href="{% url 'communities-update' object.pk %}">Edit</a>
-      <a role="button" class="secondary" href="{% url 'communities:message-send' %}">Message leadership</a>
+      <a role="button" class="secondary" href="{% url 'community_messages:send' %}">Message leadership</a>
       <a role="button" class="secondary" href="{% url 'communities-leave' object.pk %}">Leave this community</a>
     </p>
   </section>

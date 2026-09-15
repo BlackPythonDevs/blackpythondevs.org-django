@@ -7,7 +7,7 @@
     <h1>Messages to leadership</h1>
     <p class="lead">Sent from communities you admin, newest first.</p>
 
-    <p><a role="button" class="btn" href="{% url 'communities:message-send' %}">Message leadership</a></p>
+    <p><a role="button" class="btn" href="{% url 'community_messages:send' %}">Message leadership</a></p>
 
     {% if community_messages %}
       <figure>

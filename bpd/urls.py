@@ -33,7 +33,7 @@ urlpatterns = [
     # Staff/Executor/Sponsor/Community Partner: broadcasting member announcements.
     path("notifications/", include("notifications.urls")),
     # Community admins: messaging BPD leadership about their community.
-    path("communities/messages/", include("communities.urls")),
+    path("communities/messages/", include("community_messages.urls")),
     path("communities/<int:pk>/leave/", LeaveCommunityView.as_view(), name="communities-leave"),
     # Front-end console for community admins (neapolitan). No create/delete
     # role: staff create/delete communities in the Django admin only.

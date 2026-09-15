@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     "nominations",
     "notifications",
     "communities",
+    "community_messages",
     "users",
     # Wagtail
     "wagtail.contrib.forms",
