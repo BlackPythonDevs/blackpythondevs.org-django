@@ -14,9 +14,11 @@
     <div class="card">
       <dl>
         <dt>Message</dt>
-        {# Escaped plain text, not the rendered Markdown: this can be read back by any
-           other admin of the same community, and body_html may contain raw HTML the
-           sender typed — never render it unescaped outside the outgoing email. #}
+        {% comment %}
+          Escaped plain text, not the rendered Markdown: this can be read back by any
+          other admin of the same community, and body_html may contain raw HTML the
+          sender typed — never render it unescaped outside the outgoing email.
+        {% endcomment %}
         <dd>{{ community_message.body|linebreaksbr }}</dd>
 
         <dt>Recipients</dt>

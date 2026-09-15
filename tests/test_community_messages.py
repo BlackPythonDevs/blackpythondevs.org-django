@@ -135,8 +135,12 @@ class TestMessageDetailView:
         )
         client.force_login(admin_user)
         response = client.get(f"/communities/messages/{message.pk}/")
+        body = response.content.decode()
         assert response.status_code == 200
-        assert "Full details here." in response.content.decode()
+        assert "Full details here." in body
+        # Django's `{# #}` comment tag only works on a single line; a multi-line
+        # one silently renders as literal text instead of being stripped.
+        assert "{#" not in body and "{% comment %}" not in body
 
     def test_list_links_to_the_detail_page(self, client, admin_user, community):
         message = CommunityMessage.objects.create(community=community, sender=admin_user, subject="Update", body="x")
