@@ -185,3 +185,27 @@ def test_admin_homepage_has_an_invite_button(client, staff_user):
 
     assert response.status_code == 200
     assert reverse("admin:users_invitelink_add") in response.content.decode()
+
+
+class TestInviteLinkAdminCopyButton:
+    def test_creating_an_invite_shows_a_copy_button_for_it(self, client, staff_user):
+        client.force_login(staff_user)
+
+        response = client.post(
+            "/django-admin/users/invitelink/add/", {"email": "copyme@example.com", "groups": []}, follow=True
+        )
+
+        invite = InviteLink.objects.get(email="copyme@example.com")
+        html = response.content.decode()
+        assert "invite-copy-button" in html
+        assert invite.get_absolute_url() in html
+
+    def test_change_form_shows_a_copy_button_for_the_link(self, client, staff_user):
+        invite = make_invite(created_by=staff_user)
+        client.force_login(staff_user)
+
+        response = client.get(f"/django-admin/users/invitelink/{invite.pk}/change/")
+
+        html = response.content.decode()
+        assert "invite-copy-button" in html
+        assert invite.get_absolute_url() in html
