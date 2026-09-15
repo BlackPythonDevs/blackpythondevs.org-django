@@ -15,3 +15,4 @@ bpd.dump
 *.dump
 *.prod*
 fnox.toml
+.playwright-mcp/
