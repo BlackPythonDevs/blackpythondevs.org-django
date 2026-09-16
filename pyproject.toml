@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Black Python Devs community website — Django + Wagtail"
 requires-python = ">=3.13"
 dependencies = [
-    "django>=5.2,<6.0",
+    "django>=6.0,<7.0",
     "wagtail>=7.0,<8.0",
     "django-treebeard<5.3",  # 5.3 adds treebeard.E001 check Wagtail's PageManager fails; see logs
     "django-allauth[socialaccount]>=65.4",

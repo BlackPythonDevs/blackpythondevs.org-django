@@ -58,6 +58,11 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.discord",
     # Django
     "django.contrib.admin",
+    # Required as of Django 6.0 (postgres.E005) for ArrayField/SearchVectorField/
+    # GinIndex — used by notifications.Notification, users.User, and
+    # wagtailsearch.IndexEntry. Not needed for its own features (e.g. the admin
+    # widgets); Django only started enforcing this app-registry check in 6.0.
+    "django.contrib.postgres",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
