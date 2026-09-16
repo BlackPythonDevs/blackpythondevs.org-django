@@ -142,6 +142,31 @@ class TestMessageDetailView:
         # one silently renders as literal text instead of being stripped.
         assert "{#" not in body and "{% comment %}" not in body
 
+    def test_markdown_renders_as_html_not_raw_source(self, client, admin_user, community):
+        message = CommunityMessage.objects.create(
+            community=community, sender=admin_user, subject="Update", body="We had **40 people** show up."
+        )
+        client.force_login(admin_user)
+        body = client.get(f"/communities/messages/{message.pk}/").content.decode()
+        assert "<strong>40 people</strong>" in body
+        assert "**40 people**" not in body
+
+    def test_raw_html_in_the_body_is_stripped_not_rendered(self, client, admin_user, community):
+        message = CommunityMessage.objects.create(
+            community=community,
+            sender=admin_user,
+            subject="Update",
+            body='Hello <script>alert("x")</script> <img src=x onerror="alert(1)"> world.',
+        )
+        client.force_login(admin_user)
+        body = client.get(f"/communities/messages/{message.pk}/").content.decode()
+        # The <script> tag itself is stripped (its inert text content is allowed
+        # to remain, same as bleach's own default behaviour) — base.html has its
+        # own legitimate <script> (the theme toggle), so check for an actual
+        # <script> element wrapping the payload, not just the bare tag anywhere.
+        assert "<script>alert" not in body
+        assert "onerror" not in body
+
     def test_list_links_to_the_detail_page(self, client, admin_user, community):
         message = CommunityMessage.objects.create(community=community, sender=admin_user, subject="Update", body="x")
         client.force_login(admin_user)
@@ -161,6 +186,69 @@ class TestMessageDetailView:
         message = CommunityMessage.objects.create(community=community, sender=admin_user, subject="Update", body="x")
         client.force_login(member)
         assert client.get(f"/communities/messages/{message.pk}/").status_code == 403
+
+    def test_leader_it_reached_can_read_it(self, client, admin_user, community):
+        leader = make_leader("lead-ng", "NG")  # same country as the community
+        message = CommunityMessage.objects.create(community=community, sender=admin_user, subject="Update", body="x")
+        message.send()
+
+        client.force_login(leader)
+        assert client.get(f"/communities/messages/{message.pk}/").status_code == 200
+
+    def test_leader_it_did_not_reach_gets_404(self, client, admin_user, community):
+        leader = make_leader("lead-us", "US")  # different region than the community
+        message = CommunityMessage.objects.create(community=community, sender=admin_user, subject="Update", body="x")
+        message.send()
+
+        client.force_login(leader)
+        assert client.get(f"/communities/messages/{message.pk}/").status_code == 404
+
+
+class TestLeadershipInbox:
+    def test_leader_sees_messages_in_their_region(self, client, admin_user, community):
+        leader = make_leader("lead-ng", "NG")  # same country as the community
+        message = CommunityMessage.objects.create(community=community, sender=admin_user, subject="Update", body="x")
+        message.send()
+
+        client.force_login(leader)
+        body = client.get("/communities/messages/inbox/").content.decode()
+        assert "Update" in body
+
+    def test_leader_does_not_see_other_regions(self, client, admin_user, community):
+        leader = make_leader("lead-us", "US")  # different region than the community
+        CommunityMessage.objects.create(community=community, sender=admin_user, subject="Update", body="x").send()
+
+        client.force_login(leader)
+        body = client.get("/communities/messages/inbox/").content.decode()
+        assert "Update" not in body
+
+    def test_leader_sees_online_community_messages_regardless_of_region(self, client, admin_user):
+        online_community = Community.objects.create(name="Remote Pythonistas", is_online=True)
+        CommunityAdmin.objects.create(community=online_community, user=admin_user)
+        leader = make_leader("lead-us", "US")
+        CommunityMessage.objects.create(
+            community=online_community, sender=admin_user, subject="Update", body="x"
+        ).send()
+
+        client.force_login(leader)
+        body = client.get("/communities/messages/inbox/").content.decode()
+        assert "Update" in body
+
+    def test_unsent_messages_are_not_shown(self, client, admin_user, community):
+        leader = make_leader("lead-ng", "NG")
+        CommunityMessage.objects.create(community=community, sender=admin_user, subject="Draft", body="x")
+
+        client.force_login(leader)
+        body = client.get("/communities/messages/inbox/").content.decode()
+        assert "Draft" not in body
+
+    def test_non_leadership_gets_403(self, client, member):
+        client.force_login(member)
+        assert client.get("/communities/messages/inbox/").status_code == 403
+
+    def test_community_admin_who_is_not_leadership_gets_403(self, client, admin_user):
+        client.force_login(admin_user)
+        assert client.get("/communities/messages/inbox/").status_code == 403
 
 
 class TestMarkdownAndImages:

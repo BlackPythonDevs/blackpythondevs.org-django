@@ -15,11 +15,13 @@
       <dl>
         <dt>Message</dt>
         {% comment %}
-          Escaped plain text, not the rendered Markdown: this can be read back by any
-          other admin of the same community, and body_html may contain raw HTML the
-          sender typed — never render it unescaped outside the outgoing email.
+          body_html_safe, not body_html: this can be read back by any other admin
+          of the same community, or by Leadership — body_html_safe strips anything
+          outside community_messages.models.ALLOWED_MESSAGE_HTML_TAGS/ATTRIBUTES
+          (raw HTML the sender typed, or attributes slipped in via the `attr_list`
+          extension) before it's ever marked `|safe`.
         {% endcomment %}
-        <dd>{{ community_message.body|linebreaksbr }}</dd>
+        <dd>{{ community_message.body_html_safe|safe }}</dd>
 
         <dt>Recipients</dt>
         <dd>{{ community_message.recipient_count }}</dd>

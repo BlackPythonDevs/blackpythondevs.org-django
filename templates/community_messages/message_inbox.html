@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Messages from communities{% endblock %}
+
+{% block content %}
+  <section>
+    <h1>Messages from communities</h1>
+    <p class="lead">
+      Sent to leadership in your region ({{ request.user.region|default:"unset — update your profile" }}), plus
+      anything from online-only communities, newest first.
+    </p>
+
+    {% if community_messages %}
+      <figure>
+        <table role="grid">
+          <thead>
+            <tr>
+              <th scope="col">Subject</th>
+              <th scope="col">Community</th>
+              <th scope="col">Sent by</th>
+              <th scope="col">Sent</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for community_message in community_messages %}
+              <tr>
+                <th scope="row"><a href="{% url 'community_messages:detail' community_message.pk %}">{{ community_message.subject }}</a></th>
+                <td>{{ community_message.community.name }}</td>
+                <td>{{ community_message.sender }}</td>
+                <td>{{ community_message.sent_at|date:"d M Y H:i" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </figure>
+    {% else %}
+      <p>Nothing from your communities yet.</p>
+    {% endif %}
+  </section>
+
+  {% if is_paginated %}
+    <section>
+      <div class="pagination">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}">Previous</a>
+        {% endif %}
+        <span class="current">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}">Next</a>
+        {% endif %}
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

@@ -8,6 +8,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from ambassadors.models import StudentAmbassador
+from communities.models import can_manage_community
+from community_messages.models import is_leadership
 from core.models import CustomImage, Leader, is_council_member
 from nominations.models import can_nominate
 from notifications.models import can_send_notifications
@@ -39,6 +41,10 @@ def members(request):
             "can_nominate": can_nominate(request.user),
             # Staff, Executors, Sponsors, and Community Partners get the notifications panel.
             "can_send_notifications": can_send_notifications(request.user),
+            # Community admins get a link to their console + compose form.
+            "can_manage_communities": can_manage_community(request.user),
+            # Leadership members get a link to messages sent to them.
+            "is_leadership_member": is_leadership(request.user),
         },
     )
 

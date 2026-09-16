@@ -13,12 +13,35 @@ from communities.models import can_manage_community
 from core.models import CustomImage
 
 from .forms import CommunityMessageForm
-from .models import CommunityMessage
+from .models import CommunityMessage, is_leadership, messages_for_leader
 
 
 class CommunityMessageSenderRequiredMixin(UserPassesTestMixin):
     def test_func(self):
         return can_manage_community(self.request.user)
+
+    def handle_no_permission(self):
+        self.raise_exception = self.request.user.is_authenticated
+        return super().handle_no_permission()
+
+
+class CommunityMessageViewerRequiredMixin(UserPassesTestMixin):
+    """Either side of a message can read it: the sending community's admins,
+    or a Leadership member it actually reached."""
+
+    def test_func(self):
+        user = self.request.user
+        return can_manage_community(user) or is_leadership(user) or user.is_superuser
+
+    def handle_no_permission(self):
+        self.raise_exception = self.request.user.is_authenticated
+        return super().handle_no_permission()
+
+
+class LeadershipInboxRequiredMixin(UserPassesTestMixin):
+    def test_func(self):
+        user = self.request.user
+        return is_leadership(user) or user.is_superuser
 
     def handle_no_permission(self):
         self.raise_exception = self.request.user.is_authenticated
@@ -41,17 +64,32 @@ class CommunityMessageListView(CommunityMessageSenderRequiredMixin, ListView):
         )
 
 
-class CommunityMessageDetailView(CommunityMessageSenderRequiredMixin, DetailView):
-    """A single past message, scoped the same way the list is."""
+class CommunityMessageDetailView(CommunityMessageViewerRequiredMixin, DetailView):
+    """A single past message — visible to the sending community's admins and
+    to any Leadership member it actually reached."""
 
     model = CommunityMessage
     template_name = "community_messages/message_detail.html"
     context_object_name = "community_message"
 
     def get_queryset(self):
-        return CommunityMessage.objects.filter(community__admins=self.request.user).select_related(
-            "community", "sender"
-        )
+        user = self.request.user
+        qs = CommunityMessage.objects.filter(community__admins=user)
+        if is_leadership(user) or user.is_superuser:
+            qs = qs | messages_for_leader(user)
+        return qs.distinct().select_related("community", "sender")
+
+
+class LeadershipInboxView(LeadershipInboxRequiredMixin, ListView):
+    """Every sent message that reached this Leadership member, newest first."""
+
+    model = CommunityMessage
+    template_name = "community_messages/message_inbox.html"
+    context_object_name = "community_messages"
+    paginate_by = 25
+
+    def get_queryset(self):
+        return messages_for_leader(self.request.user).select_related("community", "sender")
 
 
 class SendCommunityMessageView(CommunityMessageSenderRequiredMixin, CreateView):
