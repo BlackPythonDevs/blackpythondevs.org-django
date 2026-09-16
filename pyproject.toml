@@ -21,6 +21,7 @@ dependencies = [
     "neapolitan>=26.1",
     "django-countries>=9.0.0",
     "pycountry-convert>=0.7.2",
+    "bleach>=6.4.0",
 ]
 
 [dependency-groups]

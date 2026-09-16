@@ -1,0 +1,30 @@
+{% comment %}
+  Subject + markdown body/preview + image fields, shared by every
+  send-a-message form (notifications, community_messages). Expects `form` to
+  have `subject`, `body`, and `image` fields — see message_composer_css.html.
+{% endcomment %}
+{{ form.subject.errors }}
+<p>
+  {{ form.subject.label_tag }}
+  {{ form.subject }}
+</p>
+
+{{ form.body.errors }}
+<div class="markdown-editor">
+  <div>
+    {{ form.body.label_tag }}
+    {{ form.body }}
+    {% if form.body.help_text %}<small class="helptext">{{ form.body.help_text }}</small>{% endif %}
+  </div>
+  <div>
+    <label>Preview</label>
+    <div id="body-preview" class="markdown-preview"></div>
+  </div>
+</div>
+
+{{ form.image.errors }}
+<p>
+  {{ form.image.label_tag }}
+  {{ form.image }}
+  {% if form.image.help_text %}<small class="helptext">{{ form.image.help_text }}</small>{% endif %}
+</p>

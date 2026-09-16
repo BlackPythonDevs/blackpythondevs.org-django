@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Message leadership{% endblock %}
+
+{% block extra_css %}
+  {% include "includes/message_composer_css.html" %}
+{% endblock %}
+
+{% block content %}
+  <section class="auth-panel">
+    <h1>Message leadership</h1>
+    <p class="auth-intro">
+      Sent to leadership in your community's region (or everywhere, for an
+      online-only community) as soon as you submit it.
+    </p>
+
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      {{ form.community.errors }}
+      <p>
+        {{ form.community.label_tag }}
+        {{ form.community }}
+      </p>
+
+      {% include "includes/message_composer_fields.html" %}
+
+      <button type="submit" class="btn">Send</button>
+      <a role="button" class="secondary" href="{% url 'community_messages:list' %}">Cancel</a>
+    </form>
+  </section>
+
+  {% include "includes/message_composer_js.html" %}
+{% endblock %}

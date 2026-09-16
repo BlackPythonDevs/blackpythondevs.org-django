@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}{{ community_message.subject }}{% endblock %}
+
+{% block content %}
+  <section>
+    <p><a href="{% url 'community_messages:list' %}">&larr; Messages to leadership</a></p>
+
+    <h1>{{ community_message.subject }}</h1>
+    <p class="lead">
+      From {{ community_message.community.name }}, sent by {{ community_message.sender }}
+    </p>
+
+    <div class="card">
+      <dl>
+        <dt>Message</dt>
+        {% comment %}
+          body_html_safe, not body_html: this can be read back by any other admin
+          of the same community, or by Leadership — body_html_safe strips anything
+          outside community_messages.models.ALLOWED_MESSAGE_HTML_TAGS/ATTRIBUTES
+          (raw HTML the sender typed, or attributes slipped in via the `attr_list`
+          extension) before it's ever marked `|safe`.
+        {% endcomment %}
+        <dd>{{ community_message.body_html_safe|safe }}</dd>
+
+        <dt>Recipients</dt>
+        <dd>{{ community_message.recipient_count }}</dd>
+
+        <dt>Sent</dt>
+        <dd>{{ community_message.sent_at|date:"d M Y H:i"|default:"Not sent" }}</dd>
+      </dl>
+    </div>
+  </section>
+{% endblock %}

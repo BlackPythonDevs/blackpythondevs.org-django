@@ -6,45 +6,10 @@
   {% if form.regions %}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsvectormap@1.5.3/dist/css/jsvectormap.min.css" />
   {% endif %}
+  {% include "includes/message_composer_css.html" %}
   <style>
     .notification-composer {
       max-width: 56rem;
-    }
-
-    .markdown-editor {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
-      margin-bottom: 1.1rem;
-    }
-
-    .markdown-editor > div {
-      flex: 1 1 16rem;
-      min-width: 0;
-    }
-
-    .markdown-editor textarea {
-      width: 100%;
-    }
-
-    .markdown-preview {
-      border: 1px solid var(--bpd-border);
-      border-radius: 8px;
-      padding: 0.7rem 0.9rem;
-      background: var(--bpd-void);
-      color: var(--bpd-text);
-      min-height: 10rem;
-      overflow-wrap: anywhere;
-    }
-
-    .markdown-preview img {
-      max-width: 100%;
-      border-radius: 6px;
-    }
-
-    .markdown-preview:empty::before {
-      content: "Nothing to preview yet.";
-      color: var(--bpd-muted);
     }
 
     .region-map {
@@ -91,31 +56,7 @@
     <form method="post" enctype="multipart/form-data">
       {% csrf_token %}
 
-      {{ form.subject.errors }}
-      <p>
-        {{ form.subject.label_tag }}
-        {{ form.subject }}
-      </p>
-
-      {{ form.body.errors }}
-      <div class="markdown-editor">
-        <div>
-          {{ form.body.label_tag }}
-          {{ form.body }}
-          {% if form.body.help_text %}<small class="helptext">{{ form.body.help_text }}</small>{% endif %}
-        </div>
-        <div>
-          <label>Preview</label>
-          <div id="body-preview" class="markdown-preview"></div>
-        </div>
-      </div>
-
-      {{ form.image.errors }}
-      <p>
-        {{ form.image.label_tag }}
-        {{ form.image }}
-        {% if form.image.help_text %}<small class="helptext">{{ form.image.help_text }}</small>{% endif %}
-      </p>
+      {% include "includes/message_composer_fields.html" %}
 
       {% if form.regions %}
         <div id="region-map" class="region-map"></div>
@@ -167,22 +108,7 @@
     </form>
   </section>
 
-  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
-  <script>
-    (function () {
-      if (typeof marked === "undefined") return;
-      var textarea = document.getElementById("id_body");
-      var preview = document.getElementById("body-preview");
-      if (!textarea || !preview) return;
-
-      function render() {
-        preview.innerHTML = textarea.value.trim() ? marked.parse(textarea.value) : "";
-      }
-
-      textarea.addEventListener("input", render);
-      render();
-    })();
-  </script>
+  {% include "includes/message_composer_js.html" %}
 
   {% if form.regions %}
     <script src="https://cdn.jsdelivr.net/npm/jsvectormap@1.5.3/dist/js/jsvectormap.min.js"></script>

@@ -1,0 +1,44 @@
+{% comment %}
+  Shared with community_messages/message_form.html: the markdown editor +
+  live-preview styling. Keep this and message_composer_fields.html /
+  message_composer_js.html in sync — they're one composer split across the
+  three places a template needs to plug it in (<head>, the form body, and the
+  closing <script>).
+{% endcomment %}
+<style>
+  .markdown-editor {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.1rem;
+  }
+
+  .markdown-editor > div {
+    flex: 1 1 16rem;
+    min-width: 0;
+  }
+
+  .markdown-editor textarea {
+    width: 100%;
+  }
+
+  .markdown-preview {
+    border: 1px solid var(--bpd-border);
+    border-radius: 8px;
+    padding: 0.7rem 0.9rem;
+    background: var(--bpd-void);
+    color: var(--bpd-text);
+    min-height: 10rem;
+    overflow-wrap: anywhere;
+  }
+
+  .markdown-preview img {
+    max-width: 100%;
+    border-radius: 6px;
+  }
+
+  .markdown-preview:empty::before {
+    content: "Nothing to preview yet.";
+    color: var(--bpd-muted);
+  }
+</style>

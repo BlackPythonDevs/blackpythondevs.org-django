@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}{{ object.name }}{% endblock %}
+
+{% block content %}
+  <section>
+    <p><a href="{% url 'communities-list' %}">&larr; Your communities</a></p>
+
+    <h1>{{ object.name }}</h1>
+    <p class="lead">{% if object.is_online %}Online community{% else %}{{ object.region|default:"—" }}{% endif %}</p>
+
+    <div class="card">
+      <dl>
+        <dt>Description</dt>
+        <dd>{{ object.description|linebreaksbr|default:"—" }}</dd>
+
+        <dt>Website</dt>
+        <dd>{% if object.website %}<a href="{{ object.website }}" rel="noopener">{{ object.website }}</a>{% else %}—{% endif %}</dd>
+
+        <dt>Country</dt>
+        <dd>{{ object.country.name|default:"—" }}</dd>
+      </dl>
+    </div>
+
+    <p>
+      <a role="button" class="btn" href="{% url 'communities-update' object.pk %}">Edit</a>
+      <a role="button" class="secondary" href="{% url 'community_messages:send' %}">Message leadership</a>
+      <a role="button" class="secondary" href="{% url 'communities-leave' object.pk %}">Leave this community</a>
+    </p>
+  </section>
+{% endblock %}

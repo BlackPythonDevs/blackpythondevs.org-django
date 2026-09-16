@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Leave {{ admin_link.community.name }}{% endblock %}
+
+{% block content %}
+  <section class="auth-panel">
+    <h1>Leave {{ admin_link.community.name }}?</h1>
+    <p class="auth-intro">
+      You'll no longer be able to edit this community's info or message leadership
+      on its behalf. This only removes you as an admin — the community itself
+      isn't affected.
+    </p>
+
+    <form method="post">
+      {% csrf_token %}
+      <button type="submit" class="btn">Leave this community</button>
+      <a role="button" class="secondary" href="{% url 'communities-detail' admin_link.community.pk %}">Cancel</a>
+    </form>
+  </section>
+{% endblock %}

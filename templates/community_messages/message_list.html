@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Messages to leadership{% endblock %}
+
+{% block content %}
+  <section>
+    <h1>Messages to leadership</h1>
+    <p class="lead">Sent from communities you admin, newest first.</p>
+
+    <p><a role="button" class="btn" href="{% url 'community_messages:send' %}">Message leadership</a></p>
+
+    {% if community_messages %}
+      <figure>
+        <table role="grid">
+          <thead>
+            <tr>
+              <th scope="col">Subject</th>
+              <th scope="col">Community</th>
+              <th scope="col">Sent by</th>
+              <th scope="col">Recipients</th>
+              <th scope="col">Sent</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for community_message in community_messages %}
+              <tr>
+                <th scope="row"><a href="{% url 'community_messages:detail' community_message.pk %}">{{ community_message.subject }}</a></th>
+                <td>{{ community_message.community.name }}</td>
+                <td>{{ community_message.sender }}</td>
+                <td>{{ community_message.recipient_count }}</td>
+                <td>{{ community_message.sent_at|date:"d M Y H:i"|default:"Not sent" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </figure>
+    {% else %}
+      <p>Nothing sent yet.</p>
+    {% endif %}
+  </section>
+
+  {% if is_paginated %}
+    <section>
+      <div class="pagination">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}">Previous</a>
+        {% endif %}
+        <span class="current">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}">Next</a>
+        {% endif %}
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

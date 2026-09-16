@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% comment %}
+  Neapolitan resolves "<app>/<model>_list.html" before its own Tailwind-styled
+  default, so this override is scoped to communities and leaves any future
+  CRUDView on its stock templates.
+{% endcomment %}
+
+{% block title %}Your communities{% endblock %}
+
+{% block content %}
+  <section>
+    <h1>Your communities</h1>
+    <p class="lead">
+      Communities you admin. Update their public info here, or
+      <a href="{% url 'community_messages:send' %}">message BPD leadership</a> about
+      what's happening in one.
+    </p>
+
+    {% if object_list %}
+      <figure>
+        <table role="grid">
+          <thead>
+            <tr>
+              <th scope="col">Community</th>
+              <th scope="col">Region</th>
+              <th scope="col"><span class="screen-reader-text">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for community in object_list %}
+              <tr>
+                <th scope="row"><a href="{% url 'communities-detail' community.pk %}">{{ community.name }}</a></th>
+                <td>{% if community.is_online %}Online{% else %}{{ community.region|default:"—" }}{% endif %}</td>
+                <td>
+                  <a href="{% url 'communities-update' community.pk %}">Edit</a>
+                  &middot;
+                  <a href="{% url 'communities-leave' community.pk %}">Leave</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </figure>
+    {% else %}
+      <p>You don't admin any communities yet.</p>
+    {% endif %}
+  </section>
+
+  {% if is_paginated %}
+    <section>
+      <div class="pagination">
+        {% if page_obj.has_previous %}
+          <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}">Previous</a>
+        {% endif %}
+        <span class="current">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+          <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}">Next</a>
+        {% endif %}
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}
