@@ -1,5 +1,5 @@
 {% load wagtailimages_tags %}
-<article class="leadership-card">
+<article class="leadership-card candidacy-card">
   {% with leader=candidacy.user.leader_profile %}
     {% if leader.photo %}
       {% image leader.photo fill-200x200 class="leadership-photo" alt=candidacy.user.display_name %}

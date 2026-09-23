@@ -1394,6 +1394,18 @@ img.leadership-photo:hover {
   height: 4rem;
 }
 
+/* Candidacy cards carry a lot more than a name/title — region, social
+   links, a full statement — so they align the photo to the top instead of
+   centering it against that whole column, and keep the photo at its base
+   (larger) size instead of .leadership-card's compact 4rem. */
+.candidacy-card {
+  align-items: flex-start;
+}
+.candidacy-card img.leadership-photo {
+  width: 5.5rem;
+  height: 5.5rem;
+}
+
 /* Update annotation — a dated callout for changes to event details. */
 .update-note {
   border-left: 4px solid var(--bpd-gold);
