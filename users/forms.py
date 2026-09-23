@@ -96,7 +96,7 @@ class ProfileForm(OnboardingForm):
     """
 
     class Meta(OnboardingForm.Meta):
-        fields = ["display_name", *OnboardingForm.Meta.fields, "twitter", "mastodon", "linkedin"]
+        fields = ["display_name", *OnboardingForm.Meta.fields, "twitter", "mastodon", "linkedin", "website"]
         labels = {**OnboardingForm.Meta.labels, "display_name": "Display name"}
         help_texts = {
             **OnboardingForm.Meta.help_texts,
@@ -106,7 +106,7 @@ class ProfileForm(OnboardingForm):
     def __init__(self, *args, include_social=False, **kwargs):
         super().__init__(*args, **kwargs)
         if not include_social:
-            for name in ("twitter", "mastodon", "linkedin"):
+            for name in ("twitter", "mastodon", "linkedin", "website"):
                 del self.fields[name]
 
 
