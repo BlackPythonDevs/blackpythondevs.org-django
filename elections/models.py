@@ -14,17 +14,30 @@ but no ballot logic lives here.
 
 import datetime as dt
 
+import bleach
+import markdown
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
-# Fixed-offset zones at the two edges of the international date line: the
-# first place on Earth to reach a new date (Kiritimati, UTC+14) and the last
-# place still finishing the previous one (Baker/Howland Islands, UTC-12).
-# `create_election` uses these to turn a plain date into a UTC instant that's
-# open/closed everywhere on Earth, not just in whichever timezone typed it.
-EARLIEST_TZ = dt.timezone(dt.timedelta(hours=14))
-LATEST_TZ = dt.timezone(dt.timedelta(hours=-12))
+from notifications.models import MARKDOWN_EXTENSIONS
+
+# Tags/attributes the Markdown pipeline (MARKDOWN_EXTENSIONS) can actually
+# produce for a short blurb: paragraphs, inline formatting, links, and lists.
+# Anything else — raw HTML an admin pasted in, or attributes slipped in via
+# the `attr_list` extension — is stripped by `intro_html` before this ever
+# reaches a visitor's browser, same reasoning as
+# `community_messages.CommunityMessage.body_html_safe`.
+ALLOWED_INTRO_HTML_TAGS = ["p", "br", "strong", "em", "a", "code", "ul", "ol", "li", "blockquote"]
+ALLOWED_INTRO_HTML_ATTRIBUTES = {"a": ["href", "title"]}
+
+# "Anywhere on Earth" (AOE, UTC-12): the standard convention for a deadline
+# that isn't over until it's over for literally everyone, since UTC-12 is the
+# last timezone still on any given date. `create_election` anchors *every*
+# window boundary — both opens and closes — to AOE, so a window never opens
+# before its date has begun everywhere, and never closes before its date has
+# ended everywhere.
+AOE = dt.timezone(dt.timedelta(hours=-12))
 
 
 def default_election_year():
@@ -32,18 +45,15 @@ def default_election_year():
     return timezone.now().year + 1
 
 
-def earliest_utc_instant(date):
-    """The UTC instant `date` begins somewhere on Earth. Used for windows
-    that *open* on `date`, so nobody's local "too early" excludes them."""
-    local_midnight = dt.datetime.combine(date, dt.time.min, tzinfo=EARLIEST_TZ)
+def aoe_instant(date):
+    """The UTC instant local midnight (00:00) arrives on `date`, AOE.
+
+    A window that *opens* on `date` opens at `aoe_instant(date)`. A window
+    that *closes* on `date` closes at `aoe_instant(date + one day)` — the
+    start of the next date, AOE, i.e. the moment `date` has fully ended.
+    """
+    local_midnight = dt.datetime.combine(date, dt.time.min, tzinfo=AOE)
     return local_midnight.astimezone(dt.UTC)
-
-
-def latest_utc_instant(date):
-    """The UTC instant `date` has ended everywhere on Earth. Used for windows
-    that *close* on `date`, so nobody's local "too late" excludes them."""
-    next_local_midnight = dt.datetime.combine(date + dt.timedelta(days=1), dt.time.min, tzinfo=LATEST_TZ)
-    return next_local_midnight.astimezone(dt.UTC)
 
 
 class Election(models.Model):
@@ -56,7 +66,7 @@ class Election(models.Model):
     CLOSED = "closed"
 
     year = models.PositiveIntegerField(unique=True, default=default_election_year)
-    intro = models.TextField(blank=True, help_text="Optional blurb shown at the top of the election page.")
+    intro = models.TextField(blank=True, help_text="Optional blurb shown at the top of the election page. Markdown.")
 
     nomination_opens_at = models.DateTimeField()
     nomination_closes_at = models.DateTimeField()
@@ -71,6 +81,17 @@ class Election(models.Model):
 
     def __str__(self):
         return f"{self.year} council election"
+
+    @property
+    def intro_html(self):
+        """`intro` rendered from Markdown and sanitized for display on the
+        public election page — authored in the Django admin, but by whoever
+        currently has staff access, not necessarily by someone who should be
+        able to inject arbitrary HTML into a page every visitor loads."""
+        if not self.intro:
+            return ""
+        html = markdown.markdown(self.intro, extensions=MARKDOWN_EXTENSIONS)
+        return bleach.clean(html, tags=ALLOWED_INTRO_HTML_TAGS, attributes=ALLOWED_INTRO_HTML_ATTRIBUTES, strip=True)
 
     @property
     def phase(self):

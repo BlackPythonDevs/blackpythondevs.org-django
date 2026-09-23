@@ -6,11 +6,11 @@ new cycle is one command, not a rebuilt page. Idempotent like
 for that year instead of duplicating it.
 
 Windows are given as plain dates, not datetimes — see
-`elections.models.earliest_utc_instant`/`latest_utc_instant` for why: a
-window that *opens* on a date opens at the earliest instant that date exists
-anywhere on Earth, and one that *closes* on a date closes at the latest
-instant that date is still going anywhere on Earth. That way nobody's local
-clock excludes them for being "too early" or "too late".
+`elections.models.aoe_instant` for why: every boundary (both opens and
+closes) is anchored to AOE ("Anywhere on Earth", UTC-12), the standard
+deadline convention. A window opens once its date has begun everywhere on
+Earth and closes once its date has ended everywhere on Earth, so nobody's
+local clock excludes them for being "too early" or "too late".
 """
 
 import datetime
@@ -18,10 +18,10 @@ import datetime
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from elections.models import Election, default_election_year, earliest_utc_instant, latest_utc_instant
+from elections.models import Election, aoe_instant, default_election_year
 
-OPENS_ARGS = ["nomination_opens", "voting_opens"]
-CLOSES_ARGS = ["nomination_closes", "voting_closes"]
+WINDOW_ARGS = ["nomination_opens", "nomination_closes", "voting_opens", "voting_closes"]
+ONE_DAY = datetime.timedelta(days=1)
 
 
 def _parse_date(name, raw):
@@ -32,34 +32,36 @@ def _parse_date(name, raw):
 
 
 class Command(BaseCommand):
-    help = "Create or update an election's nomination and voting windows."
+    help = "Create or update an election's nomination and voting windows (dates, AOE)."
 
     def add_arguments(self, parser):
         parser.add_argument(
             "year", type=int, nargs="?", default=None, help="Defaults to next calendar year if omitted."
         )
-        for name in OPENS_ARGS + CLOSES_ARGS:
-            parser.add_argument(f"--{name.replace('_', '-')}", required=True, help="Date (YYYY-MM-DD)")
+        for name in WINDOW_ARGS:
+            parser.add_argument(f"--{name.replace('_', '-')}", required=True, help="Date (YYYY-MM-DD), AOE")
         parser.add_argument("--intro", default="", help="Optional blurb shown on the election page.")
 
     @transaction.atomic
     def handle(self, *args, **options):
         year = options["year"] if options["year"] is not None else default_election_year()
+        dates = {name: _parse_date(name, options[name]) for name in WINDOW_ARGS}
 
-        dates = {name: _parse_date(name, options[name]) for name in OPENS_ARGS + CLOSES_ARGS}
-        instants = {name: earliest_utc_instant(dates[name]) for name in OPENS_ARGS}
-        instants.update({name: latest_utc_instant(dates[name]) for name in CLOSES_ARGS})
+        # Opens: the instant that date begins, AOE. Closes: the instant the
+        # *next* date begins, AOE — i.e. the moment that date has ended.
+        instants = {
+            "nomination_opens": aoe_instant(dates["nomination_opens"]),
+            "nomination_closes": aoe_instant(dates["nomination_closes"] + ONE_DAY),
+            "voting_opens": aoe_instant(dates["voting_opens"]),
+            "voting_closes": aoe_instant(dates["voting_closes"] + ONE_DAY),
+        }
 
         if instants["nomination_opens"] >= instants["nomination_closes"]:
             raise CommandError("--nomination-opens must be before --nomination-closes.")
         if instants["voting_opens"] >= instants["voting_closes"]:
             raise CommandError("--voting-opens must be before --voting-closes.")
         if instants["voting_opens"] < instants["nomination_closes"]:
-            # Expected when the two dates are adjacent or the same: nominations
-            # only truly close once the last timezone on Earth finishes that
-            # date, while voting opens as soon as the first timezone reaches
-            # its date — those two instants can overlap by design.
-            self.stdout.write(self.style.WARNING("Note: the nomination and voting windows overlap given these dates."))
+            raise CommandError("--voting-opens must be on or after --nomination-closes.")
 
         election, created = Election.objects.update_or_create(
             year=year,

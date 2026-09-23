@@ -7,7 +7,7 @@
   <section>
     {% if election %}
       <h1>{{ election.year }} Leadership Council election</h1>
-      {% if election.intro %}<p class="lead">{{ election.intro|linebreaksbr }}</p>{% endif %}
+      {% if election.intro %}<div class="lead">{{ election.intro_html|safe }}</div>{% endif %}
 
       {% if next_deadline_label %}
         <p class="lead">
