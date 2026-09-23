@@ -16,7 +16,13 @@ from django.core.management.base import CommandError
 from django.utils import timezone
 
 from core.models import COUNCIL_GROUP_NAME
-from elections.models import Candidacy, Election
+from elections.models import (
+    Candidacy,
+    Election,
+    default_election_year,
+    earliest_utc_instant,
+    latest_utc_instant,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -182,39 +188,75 @@ class TestCandidacyStatement:
         assert client.get("/elections/statement/").status_code == 200
 
 
+class TestElectionYearAndTable:
+    def test_default_year_is_next_calendar_year(self):
+        assert default_election_year() == timezone.now().year + 1
+
+    def test_table_name_is_specific(self):
+        assert Election._meta.db_table == "executor_elections"
+
+
+class TestGlobalTimeWindows:
+    def test_opens_at_the_earliest_instant_the_date_exists_anywhere(self):
+        # UTC+14 (the first timezone to reach a new date) hits midnight 14
+        # hours before UTC does.
+        when = earliest_utc_instant(datetime.date(2027, 3, 10))
+        assert when.isoformat() == "2027-03-09T10:00:00+00:00"
+
+    def test_closes_at_the_latest_instant_the_date_is_still_going_anywhere(self):
+        # UTC-12 (the last timezone still on that date) doesn't roll over to
+        # the next date until 12 hours after UTC does.
+        when = latest_utc_instant(datetime.date(2027, 3, 10))
+        assert when.isoformat() == "2027-03-11T12:00:00+00:00"
+
+
 class TestCreateElectionCommand:
     def test_creates_then_updates_the_same_year(self):
         call_command(
             "create_election",
             "2030",
             "--nomination-opens",
-            "2030-01-01T00:00",
+            "2030-01-01",
             "--nomination-closes",
-            "2030-01-15T00:00",
+            "2030-01-15",
             "--voting-opens",
-            "2030-01-16T00:00",
+            "2030-01-20",
             "--voting-closes",
-            "2030-01-30T00:00",
+            "2030-02-03",
         )
         assert Election.objects.count() == 1
         election = Election.objects.get(year=2030)
-        assert election.nomination_closes_at.day == 15
+        assert election.nomination_closes_at == latest_utc_instant(datetime.date(2030, 1, 15))
 
         call_command(
             "create_election",
             "2030",
             "--nomination-opens",
-            "2030-01-01T00:00",
+            "2030-01-01",
             "--nomination-closes",
-            "2030-01-20T00:00",
+            "2030-01-20",
             "--voting-opens",
-            "2030-01-21T00:00",
+            "2030-01-25",
             "--voting-closes",
-            "2030-02-04T00:00",
+            "2030-02-08",
         )
         assert Election.objects.count() == 1
         election.refresh_from_db()
-        assert election.nomination_closes_at.day == 20
+        assert election.nomination_closes_at == latest_utc_instant(datetime.date(2030, 1, 20))
+
+    def test_defaults_to_next_calendar_year_when_year_is_omitted(self):
+        call_command(
+            "create_election",
+            "--nomination-opens",
+            "2030-01-01",
+            "--nomination-closes",
+            "2030-01-15",
+            "--voting-opens",
+            "2030-01-20",
+            "--voting-closes",
+            "2030-02-03",
+        )
+        assert Election.objects.get().year == default_election_year()
 
     def test_rejects_out_of_order_windows(self):
         with pytest.raises(CommandError):
@@ -222,12 +264,12 @@ class TestCreateElectionCommand:
                 "create_election",
                 "2031",
                 "--nomination-opens",
-                "2031-01-15T00:00",
+                "2031-01-15",
                 "--nomination-closes",
-                "2031-01-01T00:00",
+                "2031-01-01",
                 "--voting-opens",
-                "2031-02-01T00:00",
+                "2031-02-01",
                 "--voting-closes",
-                "2031-02-15T00:00",
+                "2031-02-15",
             )
         assert Election.objects.count() == 0

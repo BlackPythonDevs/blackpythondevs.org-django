@@ -12,9 +12,38 @@ a future `Vote` model can slot in without another migration to this model,
 but no ballot logic lives here.
 """
 
+import datetime as dt
+
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
+
+# Fixed-offset zones at the two edges of the international date line: the
+# first place on Earth to reach a new date (Kiritimati, UTC+14) and the last
+# place still finishing the previous one (Baker/Howland Islands, UTC-12).
+# `create_election` uses these to turn a plain date into a UTC instant that's
+# open/closed everywhere on Earth, not just in whichever timezone typed it.
+EARLIEST_TZ = dt.timezone(dt.timedelta(hours=14))
+LATEST_TZ = dt.timezone(dt.timedelta(hours=-12))
+
+
+def default_election_year():
+    """Elections are set up ahead of time — next year, not this one."""
+    return timezone.now().year + 1
+
+
+def earliest_utc_instant(date):
+    """The UTC instant `date` begins somewhere on Earth. Used for windows
+    that *open* on `date`, so nobody's local "too early" excludes them."""
+    local_midnight = dt.datetime.combine(date, dt.time.min, tzinfo=EARLIEST_TZ)
+    return local_midnight.astimezone(dt.UTC)
+
+
+def latest_utc_instant(date):
+    """The UTC instant `date` has ended everywhere on Earth. Used for windows
+    that *close* on `date`, so nobody's local "too late" excludes them."""
+    next_local_midnight = dt.datetime.combine(date + dt.timedelta(days=1), dt.time.min, tzinfo=LATEST_TZ)
+    return next_local_midnight.astimezone(dt.UTC)
 
 
 class Election(models.Model):
@@ -26,7 +55,7 @@ class Election(models.Model):
     VOTING = "voting"
     CLOSED = "closed"
 
-    year = models.PositiveIntegerField(unique=True)
+    year = models.PositiveIntegerField(unique=True, default=default_election_year)
     intro = models.TextField(blank=True, help_text="Optional blurb shown at the top of the election page.")
 
     nomination_opens_at = models.DateTimeField()
@@ -35,6 +64,7 @@ class Election(models.Model):
     voting_closes_at = models.DateTimeField()
 
     class Meta:
+        db_table = "executor_elections"
         verbose_name = "election"
         verbose_name_plural = "elections"
         ordering = ["-year"]
