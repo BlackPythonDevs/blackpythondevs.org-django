@@ -4,7 +4,7 @@
 
 from django.contrib import messages
 from django.contrib.auth.mixins import UserPassesTestMixin
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views import View
 
@@ -39,6 +39,10 @@ def election_detail(request):
         if next_deadline is not None:
             context["next_deadline_label"], when = next_deadline
             context["next_deadline_iso"] = when.isoformat()
+        # Drives "Write" vs "Update"/"Remove" on the CTA — only meaningful
+        # for a council member, and only they could have one anyway.
+        if is_council_member(request.user):
+            context["user_candidacy"] = election.candidacies.filter(user=request.user).first()
 
     return render(request, "elections/election_detail.html", context)
 
@@ -58,12 +62,12 @@ class CouncilMemberRequiredMixin(UserPassesTestMixin):
         return super().handle_no_permission()
 
 
-class CandidacyEditView(CouncilMemberRequiredMixin, View):
-    """Create-or-update: a council member's statement for the latest election.
+class NominatingWindowRequiredMixin(CouncilMemberRequiredMixin):
+    """Only reachable while the latest election is accepting nominations.
 
-    Only reachable while that election is accepting nominations — the
-    statement is frozen (this view refuses further edits) once the window
-    closes, so what's shown during voting can't shift under it.
+    Shared by `CandidacyEditView` and `CandidacyRemoveView` so a statement
+    can't be changed *or* withdrawn once that window has closed — what's
+    shown during voting shouldn't be able to shift under it either way.
     """
 
     success_url = reverse_lazy("elections:detail")
@@ -74,6 +78,10 @@ class CandidacyEditView(CouncilMemberRequiredMixin, View):
             messages.error(request, "Nominations aren't open right now.")
             return redirect(self.success_url)
         return super().dispatch(request, *args, **kwargs)
+
+
+class CandidacyEditView(NominatingWindowRequiredMixin, View):
+    """Create-or-update: a council member's statement for the latest election."""
 
     def get_candidacy(self):
         try:
@@ -92,3 +100,22 @@ class CandidacyEditView(CouncilMemberRequiredMixin, View):
             messages.success(request, "Your candidacy statement has been saved.")
             return redirect(self.success_url)
         return render(request, "elections/candidacy_form.html", {"form": form, "election": self.election})
+
+
+class CandidacyRemoveView(NominatingWindowRequiredMixin, View):
+    """Confirm-then-delete: a council member withdraws their own statement.
+
+    Same shape as `communities.views.LeaveCommunityView` — a GET shows the
+    confirmation, the actual delete only happens on POST.
+    """
+
+    def get_candidacy(self):
+        return get_object_or_404(Candidacy, election=self.election, user=self.request.user)
+
+    def get(self, request, *args, **kwargs):
+        return render(request, "elections/candidacy_remove_confirm.html", {"candidacy": self.get_candidacy()})
+
+    def post(self, request, *args, **kwargs):
+        self.get_candidacy().delete()
+        messages.success(request, "Your candidacy statement has been removed.")
+        return redirect(self.success_url)

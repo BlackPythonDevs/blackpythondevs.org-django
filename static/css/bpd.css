@@ -1277,6 +1277,17 @@ a[role="button"].contrast:hover,
   background: var(--bpd-text);
 }
 
+a[role="button"].danger,
+.btn.danger {
+  color: #fff;
+  background: #dc2626;
+  border: 2px solid transparent;
+}
+a[role="button"].danger:hover,
+.btn.danger:hover {
+  background: #b91c1c;
+}
+
 a[role="button"].outline,
 .btn.outline {
   color: var(--bpd-cyan);

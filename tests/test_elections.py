@@ -175,6 +175,31 @@ class TestElectionDetailView:
         assert "https://mastodon.social/@example" in html
         assert "https://www.linkedin.com/in/example" in html
 
+    def test_cta_reads_write_when_the_viewer_has_no_statement_yet(self, client, council_member):
+        make_election(phase="nominating")
+        client.force_login(council_member)
+        html = client.get("/elections/").content.decode()
+        assert "Write your candidacy statement" in html
+        assert "Update your candidacy statement" not in html
+        assert "Remove your statement" not in html
+
+    def test_cta_reads_update_and_offers_removal_once_the_viewer_has_one(self, client, council_member):
+        election = make_election(phase="nominating")
+        Candidacy.objects.create(election=election, user=council_member, statement="Vote for me.")
+        client.force_login(council_member)
+        html = client.get("/elections/").content.decode()
+        assert "Update your candidacy statement" in html
+        assert "Remove your statement" in html
+        assert "Write your candidacy statement" not in html
+
+    def test_someone_elses_statement_does_not_change_your_cta(self, client, council_member, plain_member):
+        election = make_election(phase="nominating")
+        other = make_user("other_council", COUNCIL_GROUP_NAME, display_name="Other Council")
+        Candidacy.objects.create(election=election, user=other, statement="Vote for them.")
+        client.force_login(council_member)
+        html = client.get("/elections/").content.decode()
+        assert "Write your candidacy statement" in html
+
 
 class TestCandidacyStatement:
     def test_anonymous_is_redirected_to_login(self, client):
@@ -218,6 +243,61 @@ class TestCandidacyStatement:
         admin = get_user_model().objects.create_superuser(username="root", email="root@example.com", password="pw")
         client.force_login(admin)
         assert client.get("/elections/statement/").status_code == 200
+
+
+class TestCandidacyRemoval:
+    def test_anonymous_is_redirected_to_login(self, client):
+        make_election()
+        response = client.get("/elections/statement/remove/")
+        assert response.status_code == 302
+        assert "/accounts/login/" in response["Location"]
+
+    def test_member_outside_council_is_forbidden(self, client, plain_member):
+        make_election()
+        client.force_login(plain_member)
+        assert client.get("/elections/statement/remove/").status_code == 403
+
+    def test_get_shows_a_confirmation_without_deleting(self, client, council_member):
+        election = make_election(phase="nominating")
+        Candidacy.objects.create(election=election, user=council_member, statement="Vote for me.")
+        client.force_login(council_member)
+        response = client.get("/elections/statement/remove/")
+        assert response.status_code == 200
+        assert "Remove your candidacy statement" in response.content.decode()
+        assert Candidacy.objects.count() == 1
+
+    def test_post_deletes_the_statement(self, client, council_member):
+        election = make_election(phase="nominating")
+        Candidacy.objects.create(election=election, user=council_member, statement="Vote for me.")
+        client.force_login(council_member)
+        response = client.post("/elections/statement/remove/")
+        assert response.status_code == 302
+        assert response["Location"] == "/elections/"
+        assert Candidacy.objects.count() == 0
+
+    def test_without_a_statement_is_a_404(self, client, council_member):
+        make_election(phase="nominating")
+        client.force_login(council_member)
+        assert client.get("/elections/statement/remove/").status_code == 404
+
+    def test_cannot_remove_someone_elses_statement(self, client, council_member):
+        election = make_election(phase="nominating")
+        other = make_user("other_council", COUNCIL_GROUP_NAME, display_name="Other Council")
+        Candidacy.objects.create(election=election, user=other, statement="Vote for them.")
+        client.force_login(council_member)
+        # There's no per-candidacy URL to target — this always resolves to
+        # *your own* record, so a missing one of yours is just a 404, not a
+        # way to delete someone else's.
+        assert client.get("/elections/statement/remove/").status_code == 404
+        assert Candidacy.objects.count() == 1
+
+    def test_blocked_once_nominations_close(self, client, council_member):
+        election = make_election(phase="voting")
+        Candidacy.objects.create(election=election, user=council_member, statement="Vote for me.")
+        client.force_login(council_member)
+        response = client.post("/elections/statement/remove/", follow=True)
+        assert "open right now" in response.content.decode()
+        assert Candidacy.objects.count() == 1
 
 
 class TestMemberAreaElectionsPanel:

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Remove your candidacy statement{% endblock %}
+
+{% block content %}
+  <section class="auth-panel">
+    <h1>Remove your candidacy statement?</h1>
+    <p class="auth-intro">
+      Your card comes off the {{ candidacy.election.year }} election page. You can write a new one later,
+      as long as nominations are still open.
+    </p>
+
+    <form method="post">
+      {% csrf_token %}
+      <button type="submit" class="btn danger">Remove my statement</button>
+      <a role="button" class="secondary" href="{% url 'elections:detail' %}">Cancel</a>
+    </form>
+  </section>
+{% endblock %}
