@@ -192,6 +192,20 @@ def is_council_member(user):
     return user.groups.filter(name=COUNCIL_GROUP_NAME).exists()
 
 
+def is_leadership_or_above(user):
+    """Whether `user` is Leadership or Leadership Council (i.e. "leadership and
+    above"). Mirrors `nominations.models.can_nominate`'s group check, which
+    gates the same tier for a different feature.
+
+    Superusers pass so a site admin is never locked out of their own console.
+    """
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    return user.groups.filter(name__in=(LEADERSHIP_GROUP_NAME, COUNCIL_GROUP_NAME)).exists()
+
+
 @register_snippet
 class Leader(models.Model):
     """A member of leadership: executor, team lead, advisor, or council member.

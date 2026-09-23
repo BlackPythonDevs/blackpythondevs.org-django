@@ -10,12 +10,12 @@ from django.utils import timezone
 from ambassadors.models import StudentAmbassador
 from communities.models import can_manage_community
 from community_messages.models import is_leadership
-from core.models import CustomImage, Leader, is_council_member
+from core.models import CustomImage, Leader, is_council_member, is_leadership_or_above
 from nominations.models import can_nominate
 from notifications.models import can_send_notifications
 
 from .discord import is_configured, login_available
-from .forms import CouncilProfileForm, OnboardingForm
+from .forms import CouncilProfileForm, OnboardingForm, ProfileForm
 from .models import InviteLink
 
 
@@ -86,6 +86,26 @@ def onboarding(request):
         council_form = CouncilProfileForm(instance=leader) if leader else None
 
     return render(request, "users/onboarding.html", {"form": form, "council_form": council_form})
+
+
+@login_required
+def profile(request):
+    """Lets a signed-in member update their name and onboarding answers anytime,
+    not just on the one-time onboarding survey. Leadership and above also get
+    the social links fields here (see `core.models.is_leadership_or_above`).
+    """
+    include_social = is_leadership_or_above(request.user)
+
+    if request.method == "POST":
+        form = ProfileForm(request.POST, instance=request.user, include_social=include_social)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Your profile has been updated.")
+            return redirect("members")
+    else:
+        form = ProfileForm(instance=request.user, include_social=include_social)
+
+    return render(request, "users/profile.html", {"form": form})
 
 
 def invite_accept(request, token):

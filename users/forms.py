@@ -57,12 +57,26 @@ class OnboardingForm(forms.ModelForm):
         choices=User.COMMUNICATION_PREFERENCE_CHOICES,
         widget=forms.CheckboxSelectMultiple,
         required=False,
-        label="Do you want to hear about the following?",
+        label="Email notifications",
+        help_text="Off by default — choose what you'd like emailed to you.",
+    )
+    app_communication_preferences = forms.MultipleChoiceField(
+        choices=User.COMMUNICATION_PREFERENCE_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="App notifications",
+        help_text="On by default — turn off anything you don't want to see in-app.",
     )
 
     class Meta:
         model = User
-        fields = ["member_type", "country", "subcommunities", "communication_preferences"]
+        fields = [
+            "member_type",
+            "country",
+            "subcommunities",
+            "communication_preferences",
+            "app_communication_preferences",
+        ]
         labels = {"country": "What country do you currently reside in?"}
         help_texts = {"country": "We'll match this to a region behind the scenes."}
 
@@ -72,6 +86,28 @@ class OnboardingForm(forms.ModelForm):
         # accounts created outside onboarding); the onboarding step itself
         # asks it as one of the required questions.
         self.fields["country"].required = True
+
+
+class ProfileForm(OnboardingForm):
+    """Lets an existing member update their name and onboarding answers anytime
+    from the member area. For Leadership and above (see
+    `core.models.is_leadership_or_above`), also exposes the social links on
+    their account — pass `include_social=True` to show those fields.
+    """
+
+    class Meta(OnboardingForm.Meta):
+        fields = ["display_name", *OnboardingForm.Meta.fields, "twitter", "mastodon", "linkedin"]
+        labels = {**OnboardingForm.Meta.labels, "display_name": "Display name"}
+        help_texts = {
+            **OnboardingForm.Meta.help_texts,
+            "display_name": "Shown instead of your name where it's set.",
+        }
+
+    def __init__(self, *args, include_social=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not include_social:
+            for name in ("twitter", "mastodon", "linkedin"):
+                del self.fields[name]
 
 
 class CouncilProfileForm(forms.ModelForm):
