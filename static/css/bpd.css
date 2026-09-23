@@ -1277,15 +1277,29 @@ a[role="button"].contrast:hover,
   background: var(--bpd-text);
 }
 
+/* Semantic action colors — see the --bpd-danger/--bpd-update tokens in
+   pico.colors.min.css for what each means and why they're muted rather
+   than a vivid red/green. */
 a[role="button"].danger,
 .btn.danger {
   color: #fff;
-  background: #dc2626;
+  background: var(--bpd-danger);
   border: 2px solid transparent;
 }
 a[role="button"].danger:hover,
 .btn.danger:hover {
-  background: #b91c1c;
+  background: var(--bpd-danger-dim);
+}
+
+a[role="button"].update,
+.btn.update {
+  color: #fff;
+  background: var(--bpd-update);
+  border: 2px solid transparent;
+}
+a[role="button"].update:hover,
+.btn.update:hover {
+  background: var(--bpd-update-dim);
 }
 
 a[role="button"].outline,
