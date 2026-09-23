@@ -1,0 +1,17 @@
+{% load wagtailimages_tags %}
+<article class="leadership-card">
+  {% with leader=candidacy.user.leader_profile %}
+    {% if leader.photo %}
+      {% image leader.photo fill-200x200 class="leadership-photo" alt=candidacy.user.display_name %}
+    {% elif leader.photo_url %}
+      <img class="leadership-photo" src="{{ leader.photo_url }}" alt="photo of {{ candidacy.user }}" />
+    {% endif %}
+  {% endwith %}
+  <div>
+    <strong>{{ candidacy.user }}</strong><br />
+    {% if candidacy.user.leader_profile.affiliations %}
+      <small style="color: var(--bpd-muted);">{{ candidacy.user.leader_profile.affiliations }}</small><br />
+    {% endif %}
+    <p>{{ candidacy.statement|linebreaksbr }}</p>
+  </div>
+</article>

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Your candidacy statement{% endblock %}
+
+{% block content %}
+  <section class="auth-panel">
+    <h1>Your candidacy statement</h1>
+    <p class="auth-intro">
+      This is the only thing you need to add — your name, photo, and
+      affiliations come from your profile automatically.
+    </p>
+
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit" class="btn">Save statement</button>
+      <a role="button" class="secondary" href="{% url 'elections:detail' %}">Cancel</a>
+    </form>
+  </section>
+{% endblock %}

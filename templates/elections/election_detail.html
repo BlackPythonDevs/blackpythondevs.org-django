@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if election %}{{ election.year }} council election{% else %}Council election{% endif %}{% endblock %}
+
+{% block content %}
+  <section>
+    {% if election %}
+      <h1>{{ election.year }} Leadership Council election</h1>
+      {% if election.intro %}<p class="lead">{{ election.intro|linebreaksbr }}</p>{% endif %}
+
+      {% if next_deadline_label %}
+        <p class="lead">
+          {{ next_deadline_label }} in
+          <strong id="election-countdown" data-deadline="{{ next_deadline_iso }}">calculating&hellip;</strong>
+        </p>
+      {% elif election.phase == "closed" %}
+        <p class="lead">This election has closed.</p>
+      {% endif %}
+
+      {% if election.phase == "nominating" %}
+        <p><a role="button" class="btn" href="{% url 'elections:statement' %}">Write your candidacy statement</a></p>
+      {% endif %}
+
+      {% if years|length > 1 %}
+        <form method="get" class="card" style="margin-bottom: 2rem;">
+          <label for="year">Cycle</label>
+          <select name="year" id="year">
+            {% for year in years %}
+              <option value="{{ year }}" {% if year == election.year %}selected{% endif %}>{{ year }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn">Show</button>
+        </form>
+      {% endif %}
+
+      {% if candidacies %}
+        <h2>Candidates</h2>
+        <div class="grid" style="margin: auto;">
+          {% for candidacy in candidacies %}{% include "includes/candidacy_card.html" %}{% endfor %}
+        </div>
+      {% else %}
+        <p>No candidacy statements yet.</p>
+      {% endif %}
+    {% else %}
+      <h1>Council election</h1>
+      <p>There's no election scheduled right now.</p>
+    {% endif %}
+  </section>
+{% endblock %}
+
+{% block extra_js %}
+  {% if next_deadline_iso %}
+    <script src="{% static 'js/election-timer.js' %}"></script>
+  {% endif %}
+{% endblock %}
