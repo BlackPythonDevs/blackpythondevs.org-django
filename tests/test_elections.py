@@ -16,7 +16,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.utils import timezone
 
-from core.models import COUNCIL_GROUP_NAME
+from core.models import COUNCIL_GROUP_NAME, Leader
 from elections.forms import ElectionAdminForm
 from elections.models import Candidacy, Election, closes_instant, default_election_year, opens_instant
 
@@ -155,6 +155,26 @@ class TestElectionDetailView:
         html = client.get("/elections/?year=nonsense").content.decode()
         assert "Vote for me." in html
 
+    def test_candidate_card_shows_region_affiliations_and_social_links(self, client, council_member):
+        # Set directly, not via `country`: User.save() re-derives `region`
+        # from `country` whenever one's set, which would overwrite this.
+        council_member.region = "North America"
+        council_member.twitter = "https://x.com/example"
+        council_member.mastodon = "https://mastodon.social/@example"
+        council_member.linkedin = "https://www.linkedin.com/in/example"
+        council_member.save()
+        Leader.objects.create(name=str(council_member), user=council_member, affiliations="PyLadies ATL")
+
+        election = make_election()
+        Candidacy.objects.create(election=election, user=council_member, statement="Vote for me.")
+        html = client.get("/elections/").content.decode()
+
+        assert "North America" in html
+        assert "PyLadies ATL" in html
+        assert "https://x.com/example" in html
+        assert "https://mastodon.social/@example" in html
+        assert "https://www.linkedin.com/in/example" in html
+
 
 class TestCandidacyStatement:
     def test_anonymous_is_redirected_to_login(self, client):
@@ -198,6 +218,34 @@ class TestCandidacyStatement:
         admin = get_user_model().objects.create_superuser(username="root", email="root@example.com", password="pw")
         client.force_login(admin)
         assert client.get("/elections/statement/").status_code == 200
+
+
+class TestMemberAreaElectionsPanel:
+    def test_council_member_sees_write_statement_while_nominating(self, client, council_member):
+        make_election(phase="nominating")
+        client.force_login(council_member)
+        html = client.get("/members/").content.decode()
+        assert "Council election" in html
+        assert "Write your statement" in html
+
+    def test_council_member_sees_view_only_outside_the_nomination_window(self, client, council_member):
+        make_election(phase="voting")
+        client.force_login(council_member)
+        html = client.get("/members/").content.decode()
+        assert "Council election" in html
+        assert "Write your statement" not in html
+        assert "See the election page" in html
+
+    def test_no_election_yet_still_shows_the_panel_without_a_write_cta(self, client, council_member):
+        client.force_login(council_member)
+        html = client.get("/members/").content.decode()
+        assert "Council election" in html
+        assert "Write your statement" not in html
+
+    def test_plain_member_does_not_see_the_election_panel(self, client, plain_member):
+        make_election(phase="nominating")
+        client.force_login(plain_member)
+        assert "Council election" not in client.get("/members/").content.decode()
 
 
 class TestElectionYearAndTable:
