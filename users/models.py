@@ -23,6 +23,13 @@ def _invite_expiry():
     return timezone.now() + timedelta(days=INVITE_LINK_EXPIRY_DAYS)
 
 
+def _all_communication_preferences():
+    """Default for `app_communication_preferences`: app notifications start on
+    for every topic, unlike email which starts opted-out (see User.communication_preferences).
+    """
+    return [key for key, _ in User.COMMUNICATION_PREFERENCE_CHOICES]
+
+
 class User(AbstractUser):
     """Custom user, swapped in from day one so it can grow later.
 
@@ -78,9 +85,24 @@ class User(AbstractUser):
         models.CharField(max_length=40, choices=COMMUNICATION_PREFERENCE_CHOICES),
         blank=True,
         default=list,
-        help_text="What you'd like to hear about.",
+        help_text="What you'd like emailed to you.",
+    )
+    # Same topics as communication_preferences, but for in-app notifications
+    # rather than email. Starts with everything on (opt-out), while email
+    # starts opted-out, since app notifications are lower-friction.
+    app_communication_preferences = ArrayField(
+        models.CharField(max_length=40, choices=COMMUNICATION_PREFERENCE_CHOICES),
+        blank=True,
+        default=_all_communication_preferences,
+        help_text="What you'd like as app notifications.",
     )
     onboarding_completed_at = models.DateTimeField(null=True, blank=True, editable=False)
+
+    # Editable from the member profile page, but only for Leadership and
+    # above — see core.models.is_leadership_or_above.
+    twitter = models.URLField("Twitter/X", blank=True)
+    mastodon = models.URLField(blank=True)
+    linkedin = models.URLField(blank=True)
 
     def __str__(self):
         return self.display_name or self.get_full_name() or self.email

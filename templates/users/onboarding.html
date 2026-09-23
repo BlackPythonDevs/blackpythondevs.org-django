@@ -157,18 +157,31 @@
         {{ form.subcommunities.errors }}
       </section>
 
-      <section class="onboarding-step" data-title="What to hear about" hidden>
-        <h2>Do you want to hear about the following?</h2>
+      <section class="onboarding-step" data-title="Notification preferences" hidden>
+        <h2>What do you want to hear about, and how?</h2>
         <p class="onboarding-explainer">
-          <strong>Why we ask:</strong> so we only email you about what's actually useful
-          to you, instead of everything we send out.
+          <strong>Why we ask:</strong> so we only notify you about what's actually
+          useful to you, instead of everything we send out. Email and app
+          notifications are separate — pick each independently.
         </p>
+
+        <h3>{{ form.communication_preferences.label }}</h3>
+        <p class="onboarding-explainer">{{ form.communication_preferences.help_text }}</p>
         <div class="onboarding-select-toggle">
           <button type="button" class="select-all">Select all</button>
           <button type="button" class="select-none">Select none</button>
         </div>
         <fieldset>{{ form.communication_preferences }}</fieldset>
         {{ form.communication_preferences.errors }}
+
+        <h3>{{ form.app_communication_preferences.label }}</h3>
+        <p class="onboarding-explainer">{{ form.app_communication_preferences.help_text }}</p>
+        <div class="onboarding-select-toggle">
+          <button type="button" class="select-all">Select all</button>
+          <button type="button" class="select-none">Select none</button>
+        </div>
+        <fieldset>{{ form.app_communication_preferences }}</fieldset>
+        {{ form.app_communication_preferences.errors }}
       </section>
 
       {% if council_form %}
@@ -244,7 +257,7 @@
       });
 
       Array.prototype.slice.call(form.querySelectorAll(".onboarding-select-toggle")).forEach(function (toggle) {
-        var checkboxes = toggle.closest(".onboarding-step").querySelectorAll('input[type="checkbox"]');
+        var checkboxes = toggle.nextElementSibling.querySelectorAll('input[type="checkbox"]');
         toggle.querySelector(".select-all").addEventListener("click", function () {
           checkboxes.forEach(function (box) { box.checked = true; });
         });

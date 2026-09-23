@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Edit your profile{% endblock %}
+
+{% block extra_css %}
+  <style>
+    .profile-select-toggle {
+      margin: -0.5rem 0 1rem;
+    }
+
+    .profile-select-toggle button {
+      background: none;
+      border: none;
+      padding: 0;
+      color: var(--bpd-cyan);
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .profile-select-toggle button:not(:last-child)::after {
+      content: "·";
+      margin: 0 0.5rem;
+      color: var(--bpd-muted);
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <section class="auth-panel">
+    <h1>Edit your profile</h1>
+    <p class="auth-intro">
+      Update your name and onboarding answers anytime.
+      {% if form.twitter %}As a member of leadership, you can also set the social links on your account.{% endif %}
+    </p>
+
+    <form method="post" id="profile-form">
+      {% csrf_token %}
+      {% for field in form %}
+        {% if field.name != "communication_preferences" and field.name != "app_communication_preferences" %}
+          <p>
+            {{ field.label_tag }}
+            {{ field }}
+            {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+            {{ field.errors }}
+          </p>
+        {% endif %}
+      {% endfor %}
+
+      <h3>{{ form.communication_preferences.label }}</h3>
+      <p><small>{{ form.communication_preferences.help_text }}</small></p>
+      <div class="profile-select-toggle">
+        <button type="button" class="select-all">Select all</button>
+        <button type="button" class="select-none">Select none</button>
+      </div>
+      <fieldset>{{ form.communication_preferences }}</fieldset>
+      {{ form.communication_preferences.errors }}
+
+      <h3>{{ form.app_communication_preferences.label }}</h3>
+      <p><small>{{ form.app_communication_preferences.help_text }}</small></p>
+      <div class="profile-select-toggle">
+        <button type="button" class="select-all">Select all</button>
+        <button type="button" class="select-none">Select none</button>
+      </div>
+      <fieldset>{{ form.app_communication_preferences }}</fieldset>
+      {{ form.app_communication_preferences.errors }}
+
+      <button type="submit" class="btn">Save changes</button>
+      <a role="button" class="secondary" href="{% url 'members' %}">Cancel</a>
+    </form>
+  </section>
+
+  <script>
+    (function () {
+      var form = document.getElementById("profile-form");
+      Array.prototype.slice.call(form.querySelectorAll(".profile-select-toggle")).forEach(function (toggle) {
+        var checkboxes = toggle.nextElementSibling.querySelectorAll('input[type="checkbox"]');
+        toggle.querySelector(".select-all").addEventListener("click", function () {
+          checkboxes.forEach(function (box) { box.checked = true; });
+        });
+        toggle.querySelector(".select-none").addEventListener("click", function () {
+          checkboxes.forEach(function (box) { box.checked = false; });
+        });
+      });
+    })();
+  </script>
+{% endblock %}
