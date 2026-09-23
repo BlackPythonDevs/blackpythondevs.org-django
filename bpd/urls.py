@@ -31,7 +31,7 @@ urlpatterns = [
     path("student-ambassadors/", include("ambassadors.urls")),
     # Leadership-only: nominating people for the Leadership Council.
     path("council/nominations/", include("nominations.urls")),
-    # Public election page + council-member self-service candidacy statements.
+    # Public Executorship Election page + council-member self-service candidacy statements.
     path("elections/", include("elections.urls")),
     # Staff/Executor/Sponsor/Community Partner: broadcasting member announcements.
     path("notifications/", include("notifications.urls")),

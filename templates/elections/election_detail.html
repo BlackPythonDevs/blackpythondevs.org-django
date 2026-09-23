@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{% if election %}{{ election.year }} council election{% else %}Council election{% endif %}{% endblock %}
+{% block title %}{% if election %}{{ election.year }} Executorship Election{% else %}Executorship Election{% endif %}{% endblock %}
 
 {% block content %}
   <section>
     {% if election %}
-      <h1>{{ election.year }} Leadership Council election</h1>
+      <h1>{{ election.year }} Executorship Election</h1>
       {% if election.intro %}<div class="lead">{{ election.intro_html|safe }}</div>{% endif %}
 
       {% if next_deadline_label %}
@@ -50,7 +50,7 @@
         <p>No candidacy statements yet.</p>
       {% endif %}
     {% else %}
-      <h1>Council election</h1>
+      <h1>Executorship Election</h1>
       <p>There's no election scheduled right now.</p>
     {% endif %}
   </section>

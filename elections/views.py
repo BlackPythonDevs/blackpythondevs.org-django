@@ -1,5 +1,5 @@
-"""The election page (public) and the self-service candidacy statement form
-(gated to council members — see `core.models.is_council_member`).
+"""The Executorship Election page (public) and the self-service candidacy
+statement form (gated to council members — see `core.models.is_council_member`).
 """
 
 from django.contrib import messages

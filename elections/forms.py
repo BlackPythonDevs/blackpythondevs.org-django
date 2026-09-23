@@ -14,7 +14,7 @@ class CandidacyForm(forms.ModelForm):
         # election and user are set server-side (see CandidacyEditView), so
         # this form only ever exposes the one thing a candidate writes.
         fields = ["statement"]
-        labels = {"statement": "Why are you running for the council?"}
+        labels = {"statement": "Why are you running to be Executor?"}
         widgets = {"statement": forms.Textarea(attrs={"rows": 8})}
 
 

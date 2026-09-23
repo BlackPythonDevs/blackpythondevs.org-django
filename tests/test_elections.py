@@ -1,4 +1,4 @@
-"""Council elections: the public page + council-only candidacy statements.
+"""The Executorship Election: the public page + council-only candidacy statements.
 
 Access to `elections:statement` is gated on membership of the "Leadership
 Council" group, same as `nominations` — not on model permissions, since that
@@ -305,27 +305,27 @@ class TestMemberAreaElectionsPanel:
         make_election(phase="nominating")
         client.force_login(council_member)
         html = client.get("/members/").content.decode()
-        assert "Council election" in html
+        assert "Executorship Election" in html
         assert "Write your statement" in html
 
     def test_council_member_sees_view_only_outside_the_nomination_window(self, client, council_member):
         make_election(phase="voting")
         client.force_login(council_member)
         html = client.get("/members/").content.decode()
-        assert "Council election" in html
+        assert "Executorship Election" in html
         assert "Write your statement" not in html
         assert "See the election page" in html
 
     def test_no_election_yet_still_shows_the_panel_without_a_write_cta(self, client, council_member):
         client.force_login(council_member)
         html = client.get("/members/").content.decode()
-        assert "Council election" in html
+        assert "Executorship Election" in html
         assert "Write your statement" not in html
 
     def test_plain_member_does_not_see_the_election_panel(self, client, plain_member):
         make_election(phase="nominating")
         client.force_login(plain_member)
-        assert "Council election" not in client.get("/members/").content.decode()
+        assert "Executorship Election" not in client.get("/members/").content.decode()
 
 
 class TestElectionYearAndTable:

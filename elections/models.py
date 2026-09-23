@@ -1,11 +1,12 @@
-"""Council elections: the info page and self-service nomination statements.
+"""The Executorship Election: the info page and self-service nomination
+statements for whoever the council will choose as the next Executor.
 
 This is the mirror image of `nominations` — instead of leadership nominating
 someone else for a council seat, a sitting council member (see
-`core.models.is_council_member`) writes their own candidacy statement for the
-election. Everything else about them (name, photo, affiliations) already
-lives on their `core.models.Leader` profile, so `Candidacy` only stores the
-statement itself.
+`core.models.is_council_member`) writes their own candidacy statement to
+become Executor. Everything else about them (name, photo, affiliations)
+already lives on their `core.models.Leader` profile, so `Candidacy` only
+stores the statement itself.
 
 Voting isn't built yet — `Election` carries the voting window fields so that
 a future `Vote` model can slot in without another migration to this model,
@@ -127,7 +128,7 @@ class Election(models.Model):
         ordering = ["-year"]
 
     def __str__(self):
-        return f"{self.year} council election"
+        return f"{self.year} Executorship Election"
 
     @property
     def intro_html(self):
@@ -171,7 +172,7 @@ class Election(models.Model):
 
 
 class Candidacy(models.Model):
-    """One council member's statement for one election."""
+    """One council member's candidacy statement for the Executorship Election."""
 
     election = models.ForeignKey(Election, on_delete=models.CASCADE, related_name="candidacies")
     user = models.ForeignKey(
@@ -179,7 +180,7 @@ class Candidacy(models.Model):
         on_delete=models.CASCADE,
         related_name="candidacies",
     )
-    statement = models.TextField(help_text="Why you're running for the council.")
+    statement = models.TextField(help_text="Why you're running to be Executor.")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
