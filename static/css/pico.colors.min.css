@@ -19,6 +19,16 @@
   --bpd-gold-dim: #c48a20;
   --bpd-gold-wash: rgba(232, 168, 56, 0.1);
 
+  /* Semantic action colors: danger for destructive actions (delete/remove),
+     update for edits to something that already exists — amber/orange, the
+     classic "edit pencil" color — as opposed to the cyan primary, which is
+     for creating something new. Muted rather than vivid, to match the
+     desaturated tone the rest of this palette uses in dark mode. */
+  --bpd-danger: #c97b78;
+  --bpd-danger-dim: #ad615e;
+  --bpd-update: #d99a5b;
+  --bpd-update-dim: #bd7f42;
+
   --bpd-violet: #7c3aed;
   --bpd-violet-hi: #9061f0;
   --bpd-azure: #0c7ec2;
@@ -57,6 +67,11 @@
     --bpd-gold-dim: #6e4b08;
     --bpd-gold-wash: rgba(138, 94, 9, 0.08);
 
+    --bpd-danger: #9c3a37;
+    --bpd-danger-dim: #7d2e2b;
+    --bpd-update: #96560f;
+    --bpd-update-dim: #7a4409;
+
     --bpd-violet: #6d28d9;
     --bpd-violet-hi: #7c3aed;
     --bpd-azure: #0369a1;
@@ -92,6 +107,10 @@
   --bpd-gold: #8a5e09;
   --bpd-gold-dim: #6e4b08;
   --bpd-gold-wash: rgba(138, 94, 9, 0.08);
+  --bpd-danger: #9c3a37;
+  --bpd-danger-dim: #7d2e2b;
+  --bpd-update: #96560f;
+  --bpd-update-dim: #7a4409;
   --bpd-violet: #6d28d9;
   --bpd-violet-hi: #7c3aed;
   --bpd-azure: #0369a1;
@@ -123,6 +142,10 @@
   --bpd-gold: #e8a838;
   --bpd-gold-dim: #c48a20;
   --bpd-gold-wash: rgba(232, 168, 56, 0.1);
+  --bpd-danger: #c97b78;
+  --bpd-danger-dim: #ad615e;
+  --bpd-update: #d99a5b;
+  --bpd-update-dim: #bd7f42;
   --bpd-violet: #7c3aed;
   --bpd-violet-hi: #9061f0;
   --bpd-azure: #0c7ec2;

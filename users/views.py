@@ -11,6 +11,7 @@ from ambassadors.models import StudentAmbassador
 from communities.models import can_manage_community
 from community_messages.models import is_leadership
 from core.models import CustomImage, Leader, is_council_member, is_leadership_or_above
+from elections.models import Election
 from nominations.models import can_nominate
 from notifications.models import can_send_notifications
 
@@ -24,6 +25,10 @@ def members(request):
     """The member area: profile summary and Discord connection status."""
     if request.user.needs_onboarding:
         return redirect("onboarding")
+
+    # The latest election cycle, if one's been set up — drives the Council
+    # election panel below (see elections.management.commands.create_election).
+    election = Election.objects.order_by("-year").first()
 
     return render(
         request,
@@ -39,6 +44,10 @@ def members(request):
             "ambassador_application": StudentAmbassador.objects.filter(user=request.user).first(),
             # Council/Leadership members get the nominations panel.
             "can_nominate": can_nominate(request.user),
+            # Council members get the election panel; only they can be candidates.
+            "is_council_member": is_council_member(request.user),
+            "current_election": election,
+            "can_write_candidacy_statement": election is not None and election.phase == Election.NOMINATING,
             # Staff, Executors, Sponsors, and Community Partners get the notifications panel.
             "can_send_notifications": can_send_notifications(request.user),
             # Community admins get a link to their console + compose form.

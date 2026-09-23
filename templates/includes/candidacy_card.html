@@ -1,0 +1,45 @@
+{% load wagtailimages_tags %}
+<article class="leadership-card candidacy-card">
+  {% with leader=candidacy.user.leader_profile %}
+    {% if leader.photo %}
+      {% image leader.photo fill-200x200 class="leadership-photo" alt=candidacy.user.display_name %}
+    {% elif leader.photo_url %}
+      <img class="leadership-photo" src="{{ leader.photo_url }}" alt="photo of {{ candidacy.user }}" />
+    {% endif %}
+  {% endwith %}
+  <div>
+    <strong>{{ candidacy.user }}</strong><br />
+    {% if candidacy.user.region %}
+      <small style="color: var(--bpd-muted);">{{ candidacy.user.region }}</small><br />
+    {% endif %}
+    {% if candidacy.user.leader_profile.affiliations %}
+      <small style="color: var(--bpd-muted);">{{ candidacy.user.leader_profile.affiliations }}</small><br />
+    {% endif %}
+    {% if candidacy.user.linkedin or candidacy.user.twitter or candidacy.user.mastodon %}
+      <ul class="social-links">
+        {% if candidacy.user.linkedin %}
+          <li>
+            <a href="{{ candidacy.user.linkedin }}" target="_blank" rel="me noopener" title="LinkedIn">
+              <i class="iconoir-linkedin" aria-hidden="true"></i>
+            </a>
+          </li>
+        {% endif %}
+        {% if candidacy.user.twitter %}
+          <li>
+            <a href="{{ candidacy.user.twitter }}" target="_blank" rel="me noopener" title="Twitter/X">
+              <i class="iconoir-x" aria-hidden="true"></i>
+            </a>
+          </li>
+        {% endif %}
+        {% if candidacy.user.mastodon %}
+          <li>
+            <a href="{{ candidacy.user.mastodon }}" target="_blank" rel="me noopener" title="Mastodon">
+              <i class="iconoir-mastodon" aria-hidden="true"></i>
+            </a>
+          </li>
+        {% endif %}
+      </ul>
+    {% endif %}
+    <p>{{ candidacy.statement|linebreaksbr }}</p>
+  </div>
+</article>
