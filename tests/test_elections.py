@@ -7,6 +7,7 @@ isn't on the council gets a 403, not a login redirect.
 """
 
 import datetime
+import io
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -17,7 +18,7 @@ from django.utils import timezone
 
 from core.models import COUNCIL_GROUP_NAME
 from elections.forms import ElectionAdminForm
-from elections.models import Candidacy, Election, aoe_instant, default_election_year
+from elections.models import Candidacy, Election, closes_instant, default_election_year, opens_instant
 
 pytestmark = pytest.mark.django_db
 
@@ -207,17 +208,17 @@ class TestElectionYearAndTable:
         assert Election._meta.db_table == "executor_elections"
 
 
-class TestAOEInstant:
-    def test_midnight_aoe_is_noon_utc_the_same_date(self):
-        # AOE is UTC-12, so its midnight lags UTC's by 12 hours: local 00:00
-        # on a date arrives at 12:00 UTC that same date.
-        when = aoe_instant(datetime.date(2027, 3, 10))
-        assert when.isoformat() == "2027-03-10T12:00:00+00:00"
+class TestOpensAndClosesInstant:
+    def test_opens_at_the_earliest_instant_the_date_exists_anywhere(self):
+        # UTC+14 (the first timezone to reach a new date) hits midnight 14
+        # hours before UTC does.
+        when = opens_instant(datetime.date(2027, 3, 10))
+        assert when.isoformat() == "2027-03-09T10:00:00+00:00"
 
-    def test_a_window_closing_on_a_date_uses_the_next_dates_aoe_midnight(self):
-        # "Closes on March 10" means the window stays open through all of
-        # March 10 AOE, i.e. until March 11 begins, AOE.
-        when = aoe_instant(datetime.date(2027, 3, 10) + datetime.timedelta(days=1))
+    def test_closes_at_the_latest_instant_the_date_is_still_going_anywhere(self):
+        # AOE (UTC-12, the last timezone still on that date) doesn't roll
+        # over to the next date until 12 hours after UTC does.
+        when = closes_instant(datetime.date(2027, 3, 10))
         assert when.isoformat() == "2027-03-11T12:00:00+00:00"
 
 
@@ -237,7 +238,7 @@ class TestCreateElectionCommand:
         )
         assert Election.objects.count() == 1
         election = Election.objects.get(year=2030)
-        assert election.nomination_closes_at == aoe_instant(datetime.date(2030, 1, 16))
+        assert election.nomination_closes_at == closes_instant(datetime.date(2030, 1, 15))
 
         call_command(
             "create_election",
@@ -253,7 +254,7 @@ class TestCreateElectionCommand:
         )
         assert Election.objects.count() == 1
         election.refresh_from_db()
-        assert election.nomination_closes_at == aoe_instant(datetime.date(2030, 1, 21))
+        assert election.nomination_closes_at == closes_instant(datetime.date(2030, 1, 20))
 
     def test_defaults_to_next_calendar_year_when_year_is_omitted(self):
         call_command(
@@ -285,21 +286,25 @@ class TestCreateElectionCommand:
             )
         assert Election.objects.count() == 0
 
-    def test_rejects_voting_opening_before_nominations_close(self):
-        with pytest.raises(CommandError):
-            call_command(
-                "create_election",
-                "2032",
-                "--nomination-opens",
-                "2032-01-01",
-                "--nomination-closes",
-                "2032-01-20",
-                "--voting-opens",
-                "2032-01-10",
-                "--voting-closes",
-                "2032-02-01",
-            )
-        assert Election.objects.count() == 0
+    def test_warns_but_allows_overlapping_windows(self):
+        # Opens use the earliest timezone and closes use the latest, so this
+        # is an expected consequence of the design, not an error to reject.
+        out = io.StringIO()
+        call_command(
+            "create_election",
+            "2032",
+            "--nomination-opens",
+            "2032-01-01",
+            "--nomination-closes",
+            "2032-01-20",
+            "--voting-opens",
+            "2032-01-10",
+            "--voting-closes",
+            "2032-02-01",
+            stdout=out,
+        )
+        assert Election.objects.count() == 1
+        assert "overlap" in out.getvalue()
 
 
 VALID_ADMIN_FORM_DATA = {
@@ -317,28 +322,32 @@ class TestElectionAdminForm:
         form = ElectionAdminForm(data=VALID_ADMIN_FORM_DATA)
         assert form.is_valid(), form.errors
         election = form.save()
-        assert election.nomination_opens_at == aoe_instant(datetime.date(2033, 1, 1))
-        assert election.nomination_closes_at == aoe_instant(datetime.date(2033, 1, 16))
-        assert election.voting_opens_at == aoe_instant(datetime.date(2033, 1, 20))
-        assert election.voting_closes_at == aoe_instant(datetime.date(2033, 2, 4))
+        assert election.nomination_opens_at == opens_instant(datetime.date(2033, 1, 1))
+        assert election.nomination_closes_at == closes_instant(datetime.date(2033, 1, 15))
+        assert election.voting_opens_at == opens_instant(datetime.date(2033, 1, 20))
+        assert election.voting_closes_at == closes_instant(datetime.date(2033, 2, 3))
 
-    def test_voting_opening_before_nominations_close_is_a_field_error(self):
+    def test_overlapping_windows_are_allowed_not_an_error(self):
+        # Opens use the earliest timezone and closes use the latest, so
+        # adjacent/overlapping dates are an expected trade-off, not a mistake
+        # the form should block.
         data = VALID_ADMIN_FORM_DATA | {"voting_opens": "2033-01-05"}
         form = ElectionAdminForm(data=data)
-        assert not form.is_valid()
-        assert "voting_opens" in form.errors
-        assert Election.objects.count() == 0
+        assert form.is_valid(), form.errors
+        election = form.save()
+        assert election.voting_opens_at < election.nomination_closes_at
 
     def test_editing_an_existing_election_prefills_the_original_dates(self):
-        # Built directly from aoe_instant (not make_election's now-relative
-        # windows, which aren't AOE-aligned) so pre-filling and resubmitting
-        # is expected to reproduce these exact instants.
+        # Built directly from opens_instant/closes_instant (not
+        # make_election's now-relative windows, which aren't aligned to
+        # either) so pre-filling and resubmitting is expected to reproduce
+        # these exact instants.
         election = Election.objects.create(
             year=2034,
-            nomination_opens_at=aoe_instant(datetime.date(2034, 1, 1)),
-            nomination_closes_at=aoe_instant(datetime.date(2034, 1, 16)),
-            voting_opens_at=aoe_instant(datetime.date(2034, 1, 20)),
-            voting_closes_at=aoe_instant(datetime.date(2034, 2, 4)),
+            nomination_opens_at=opens_instant(datetime.date(2034, 1, 1)),
+            nomination_closes_at=closes_instant(datetime.date(2034, 1, 15)),
+            voting_opens_at=opens_instant(datetime.date(2034, 1, 20)),
+            voting_closes_at=closes_instant(datetime.date(2034, 2, 3)),
         )
         form = ElectionAdminForm(instance=election)
         assert form.fields["nomination_opens"].initial == datetime.date(2034, 1, 1)

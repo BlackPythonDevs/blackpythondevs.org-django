@@ -31,12 +31,22 @@ from notifications.models import MARKDOWN_EXTENSIONS
 ALLOWED_INTRO_HTML_TAGS = ["p", "br", "strong", "em", "a", "code", "ul", "ol", "li", "blockquote"]
 ALLOWED_INTRO_HTML_ATTRIBUTES = {"a": ["href", "title"]}
 
-# "Anywhere on Earth" (AOE, UTC-12): the standard convention for a deadline
-# that isn't over until it's over for literally everyone, since UTC-12 is the
-# last timezone still on any given date. `create_election` anchors *every*
-# window boundary — both opens and closes — to AOE, so a window never opens
-# before its date has begun everywhere, and never closes before its date has
-# ended everywhere.
+# Being fair to every timezone means each boundary has to look at whichever
+# zone is most generous in *that* direction — and the two directions are not
+# the same zone:
+#
+# - Opening: the window should open as soon as its date has begun ANYWHERE —
+#   the *first* zone to reach it, UTC+14 (Kiritimati / Line Islands) — so
+#   nobody's local "it's not that date yet" makes them miss an early start.
+# - Closing: the window should stay open as long as its date is still going
+#   ANYWHERE — the *last* zone to leave it, UTC-12 (Baker/Howland Islands).
+#   This is "AOE" ("Anywhere on Earth"), the standard deadline convention —
+#   so nobody's local "it's already the next date" cuts them off early.
+#
+# Anchoring both to the same zone would make one of the two directions mean
+# "everywhere" instead of "anywhere" — e.g. opening on AOE (UTC-12) would
+# open only once the date has begun *everywhere*, the opposite of generous.
+EARLIEST_TZ = dt.timezone(dt.timedelta(hours=14))
 AOE = dt.timezone(dt.timedelta(hours=-12))
 
 
@@ -45,19 +55,25 @@ def default_election_year():
     return timezone.now().year + 1
 
 
-def aoe_instant(date):
-    """The UTC instant local midnight (00:00) arrives on `date`, AOE.
+def _local_midnight(date, tz):
+    return dt.datetime.combine(date, dt.time.min, tzinfo=tz).astimezone(dt.UTC)
 
-    A window that *opens* on `date` opens at `aoe_instant(date)`. A window
-    that *closes* on `date` closes at `aoe_instant(date + one day)` — the
-    start of the next date, AOE, i.e. the moment `date` has fully ended.
-    """
-    local_midnight = dt.datetime.combine(date, dt.time.min, tzinfo=AOE)
-    return local_midnight.astimezone(dt.UTC)
+
+def opens_instant(date):
+    """The UTC instant `date` begins ANYWHERE on Earth. A window that opens
+    on `date` opens at this instant."""
+    return _local_midnight(date, EARLIEST_TZ)
+
+
+def closes_instant(date):
+    """The UTC instant `date` has ended ANYWHERE on Earth (AOE). A window
+    that closes on `date` closes at this instant — the moment AOE reaches
+    the day after `date`."""
+    return _local_midnight(date + dt.timedelta(days=1), AOE)
 
 
 def election_window_instants(nomination_opens, nomination_closes, voting_opens, voting_closes):
-    """Turn the four AOE dates a person actually enters (in the admin, or via
+    """Turn the four dates a person actually enters (in the admin, or via
     `create_election`) into the four UTC instants `Election` stores,
     validating their order along the way.
 
@@ -65,20 +81,25 @@ def election_window_instants(nomination_opens, nomination_closes, voting_opens, 
     the two can't drift into checking different things. Returns
     `(instants, errors)` — `errors` maps a date's name to what's wrong with
     it; `instants` is only complete/correct once `errors` is empty.
+
+    Note: because opens and closes use different zones, a voting window
+    that opens on the date right after (or the same date as) nominations
+    close will overlap with it by up to a bit over a day — that's the
+    unavoidable price of being maximally generous in both directions at
+    once, not a mistake, so it's left to the caller to warn about rather
+    than treated as an error here.
     """
     instants = {
-        "nomination_opens": aoe_instant(nomination_opens),
-        "nomination_closes": aoe_instant(nomination_closes + dt.timedelta(days=1)),
-        "voting_opens": aoe_instant(voting_opens),
-        "voting_closes": aoe_instant(voting_closes + dt.timedelta(days=1)),
+        "nomination_opens": opens_instant(nomination_opens),
+        "nomination_closes": closes_instant(nomination_closes),
+        "voting_opens": opens_instant(voting_opens),
+        "voting_closes": closes_instant(voting_closes),
     }
     errors = {}
     if instants["nomination_opens"] >= instants["nomination_closes"]:
         errors["nomination_closes"] = "Must be after the date nominations open."
     if instants["voting_opens"] >= instants["voting_closes"]:
         errors["voting_closes"] = "Must be after the date voting opens."
-    if instants["voting_opens"] < instants["nomination_closes"]:
-        errors["voting_opens"] = "Must be on or after the date nominations close."
     return instants, errors
 
 
