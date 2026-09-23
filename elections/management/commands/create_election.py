@@ -10,7 +10,10 @@ Windows are given as plain dates, not datetimes — see
 closes) is anchored to AOE ("Anywhere on Earth", UTC-12), the standard
 deadline convention. A window opens once its date has begun everywhere on
 Earth and closes once its date has ended everywhere on Earth, so nobody's
-local clock excludes them for being "too early" or "too late".
+local clock excludes them for being "too early" or "too late". The Django
+admin's "add election" form (`elections.forms.ElectionAdminForm`) takes the
+same four dates and validates them the same way, via
+`elections.models.election_window_instants`.
 """
 
 import datetime
@@ -18,10 +21,9 @@ import datetime
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from elections.models import Election, aoe_instant, default_election_year
+from elections.models import Election, default_election_year, election_window_instants
 
 WINDOW_ARGS = ["nomination_opens", "nomination_closes", "voting_opens", "voting_closes"]
-ONE_DAY = datetime.timedelta(days=1)
 
 
 def _parse_date(name, raw):
@@ -47,21 +49,9 @@ class Command(BaseCommand):
         year = options["year"] if options["year"] is not None else default_election_year()
         dates = {name: _parse_date(name, options[name]) for name in WINDOW_ARGS}
 
-        # Opens: the instant that date begins, AOE. Closes: the instant the
-        # *next* date begins, AOE — i.e. the moment that date has ended.
-        instants = {
-            "nomination_opens": aoe_instant(dates["nomination_opens"]),
-            "nomination_closes": aoe_instant(dates["nomination_closes"] + ONE_DAY),
-            "voting_opens": aoe_instant(dates["voting_opens"]),
-            "voting_closes": aoe_instant(dates["voting_closes"] + ONE_DAY),
-        }
-
-        if instants["nomination_opens"] >= instants["nomination_closes"]:
-            raise CommandError("--nomination-opens must be before --nomination-closes.")
-        if instants["voting_opens"] >= instants["voting_closes"]:
-            raise CommandError("--voting-opens must be before --voting-closes.")
-        if instants["voting_opens"] < instants["nomination_closes"]:
-            raise CommandError("--voting-opens must be on or after --nomination-closes.")
+        instants, errors = election_window_instants(*(dates[name] for name in WINDOW_ARGS))
+        if errors:
+            raise CommandError(" ".join(f"--{name.replace('_', '-')}: {message}" for name, message in errors.items()))
 
         election, created = Election.objects.update_or_create(
             year=year,

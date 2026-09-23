@@ -1,10 +1,12 @@
 from django.contrib import admin
 
+from .forms import ElectionAdminForm
 from .models import Candidacy, Election
 
 
 @admin.register(Election)
 class ElectionAdmin(admin.ModelAdmin):
+    form = ElectionAdminForm
     list_display = (
         "year",
         "phase",
@@ -16,8 +18,8 @@ class ElectionAdmin(admin.ModelAdmin):
     ordering = ("-year",)
     fieldsets = (
         (None, {"fields": ("year", "intro")}),
-        ("Nomination window", {"fields": ("nomination_opens_at", "nomination_closes_at")}),
-        ("Voting window", {"fields": ("voting_opens_at", "voting_closes_at")}),
+        ("Nomination window", {"fields": ("nomination_opens", "nomination_closes")}),
+        ("Voting window", {"fields": ("voting_opens", "voting_closes")}),
     )
 
 

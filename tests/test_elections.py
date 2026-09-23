@@ -16,6 +16,7 @@ from django.core.management.base import CommandError
 from django.utils import timezone
 
 from core.models import COUNCIL_GROUP_NAME
+from elections.forms import ElectionAdminForm
 from elections.models import Candidacy, Election, aoe_instant, default_election_year
 
 pytestmark = pytest.mark.django_db
@@ -299,3 +300,66 @@ class TestCreateElectionCommand:
                 "2032-02-01",
             )
         assert Election.objects.count() == 0
+
+
+VALID_ADMIN_FORM_DATA = {
+    "year": "2033",
+    "intro": "",
+    "nomination_opens": "2033-01-01",
+    "nomination_closes": "2033-01-15",
+    "voting_opens": "2033-01-20",
+    "voting_closes": "2033-02-03",
+}
+
+
+class TestElectionAdminForm:
+    def test_valid_dates_produce_the_same_instants_as_the_command(self):
+        form = ElectionAdminForm(data=VALID_ADMIN_FORM_DATA)
+        assert form.is_valid(), form.errors
+        election = form.save()
+        assert election.nomination_opens_at == aoe_instant(datetime.date(2033, 1, 1))
+        assert election.nomination_closes_at == aoe_instant(datetime.date(2033, 1, 16))
+        assert election.voting_opens_at == aoe_instant(datetime.date(2033, 1, 20))
+        assert election.voting_closes_at == aoe_instant(datetime.date(2033, 2, 4))
+
+    def test_voting_opening_before_nominations_close_is_a_field_error(self):
+        data = VALID_ADMIN_FORM_DATA | {"voting_opens": "2033-01-05"}
+        form = ElectionAdminForm(data=data)
+        assert not form.is_valid()
+        assert "voting_opens" in form.errors
+        assert Election.objects.count() == 0
+
+    def test_editing_an_existing_election_prefills_the_original_dates(self):
+        # Built directly from aoe_instant (not make_election's now-relative
+        # windows, which aren't AOE-aligned) so pre-filling and resubmitting
+        # is expected to reproduce these exact instants.
+        election = Election.objects.create(
+            year=2034,
+            nomination_opens_at=aoe_instant(datetime.date(2034, 1, 1)),
+            nomination_closes_at=aoe_instant(datetime.date(2034, 1, 16)),
+            voting_opens_at=aoe_instant(datetime.date(2034, 1, 20)),
+            voting_closes_at=aoe_instant(datetime.date(2034, 2, 4)),
+        )
+        form = ElectionAdminForm(instance=election)
+        assert form.fields["nomination_opens"].initial == datetime.date(2034, 1, 1)
+        assert form.fields["nomination_closes"].initial == datetime.date(2034, 1, 15)
+        assert form.fields["voting_opens"].initial == datetime.date(2034, 1, 20)
+        assert form.fields["voting_closes"].initial == datetime.date(2034, 2, 3)
+
+        recomputed = ElectionAdminForm(
+            data={
+                "year": election.year,
+                "intro": election.intro,
+                "nomination_opens": form.fields["nomination_opens"].initial,
+                "nomination_closes": form.fields["nomination_closes"].initial,
+                "voting_opens": form.fields["voting_opens"].initial,
+                "voting_closes": form.fields["voting_closes"].initial,
+            },
+            instance=election,
+        )
+        assert recomputed.is_valid(), recomputed.errors
+        saved = recomputed.save()
+        assert saved.nomination_opens_at == election.nomination_opens_at
+        assert saved.nomination_closes_at == election.nomination_closes_at
+        assert saved.voting_opens_at == election.voting_opens_at
+        assert saved.voting_closes_at == election.voting_closes_at

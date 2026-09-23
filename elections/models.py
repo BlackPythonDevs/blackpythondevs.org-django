@@ -56,6 +56,32 @@ def aoe_instant(date):
     return local_midnight.astimezone(dt.UTC)
 
 
+def election_window_instants(nomination_opens, nomination_closes, voting_opens, voting_closes):
+    """Turn the four AOE dates a person actually enters (in the admin, or via
+    `create_election`) into the four UTC instants `Election` stores,
+    validating their order along the way.
+
+    Shared by `elections.forms.ElectionAdminForm` and `create_election` so
+    the two can't drift into checking different things. Returns
+    `(instants, errors)` — `errors` maps a date's name to what's wrong with
+    it; `instants` is only complete/correct once `errors` is empty.
+    """
+    instants = {
+        "nomination_opens": aoe_instant(nomination_opens),
+        "nomination_closes": aoe_instant(nomination_closes + dt.timedelta(days=1)),
+        "voting_opens": aoe_instant(voting_opens),
+        "voting_closes": aoe_instant(voting_closes + dt.timedelta(days=1)),
+    }
+    errors = {}
+    if instants["nomination_opens"] >= instants["nomination_closes"]:
+        errors["nomination_closes"] = "Must be after the date nominations open."
+    if instants["voting_opens"] >= instants["voting_closes"]:
+        errors["voting_closes"] = "Must be after the date voting opens."
+    if instants["voting_opens"] < instants["nomination_closes"]:
+        errors["voting_opens"] = "Must be on or after the date nominations close."
+    return instants, errors
+
+
 class Election(models.Model):
     """One election cycle: a nomination window followed by a voting window."""
 
