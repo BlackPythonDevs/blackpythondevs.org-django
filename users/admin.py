@@ -1,7 +1,22 @@
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin
+from django.utils.html import format_html
 
 from .models import InviteLink, User
+
+
+def _copy_widget(path):
+    """A readonly text input plus "Copy to clipboard" button for `path`.
+
+    `path` is relative — static/js/admin_invite_copy.js joins it against
+    window.location.origin at click time, so this doesn't need a request to
+    build an absolute URL.
+    """
+    return format_html(
+        '<input type="text" value="{}" readonly class="vTextField" style="width: 24em;">'
+        '<button type="button" class="button invite-copy-button">Copy to clipboard</button>',
+        path,
+    )
 
 
 @admin.register(User)
@@ -44,6 +59,9 @@ class InviteLinkAdmin(admin.ModelAdmin):
     filter_horizontal = ("groups",)
     readonly_fields = ("token", "invite_url", "accepted_by", "used_at", "created_at")
 
+    class Media:
+        js = ("js/admin_invite_copy.js",)
+
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("created_by").prefetch_related("groups")
 
@@ -63,7 +81,7 @@ class InviteLinkAdmin(admin.ModelAdmin):
     def invite_url(self, obj):
         if not obj.pk:
             return "Save to generate the link."
-        return obj.get_absolute_url()
+        return _copy_widget(obj.get_absolute_url())
 
     def get_fields(self, request, obj=None):
         if obj is None:
@@ -81,7 +99,7 @@ class InviteLinkAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
     def response_add(self, request, obj, post_url_continue=None):
-        messages.info(request, f"Invite link: {request.build_absolute_uri(obj.get_absolute_url())}")
+        messages.info(request, format_html("Invite link: {}", _copy_widget(obj.get_absolute_url())))
         return super().response_add(request, obj, post_url_continue)
 
     # Gate on is_staff rather than Django's per-model permission system: "any
