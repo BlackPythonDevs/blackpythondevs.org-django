@@ -6,6 +6,7 @@
 # uv is not otherwise installed on the host; `mise install` provides it, and uv
 # manages the Python interpreter itself from pyproject.toml's requires-python.
 [tools]
+gitleaks = "latest"
 uv = "latest"
 
 # ── Development ───────────────────────────────────────────────────────────
