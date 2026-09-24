@@ -1,0 +1,170 @@
+# Task shortcuts for the commands in the README. `mise tasks` lists them,
+# `mise run <name>` runs one. Nothing here is required — every task is a
+# one-line wrapper around the docker compose / uv command it documents.
+
+# uv is not otherwise installed on the host; `mise install` provides it, and uv
+# manages the Python interpreter itself from pyproject.toml's requires-python.
+[tools]
+uv = "latest"
+
+# Every task below targets the PRODUCTION stack (compose.prod.yaml), via
+# `fnox exec --` since compose reads secrets from env vars at exec/logs/down
+# time too, not just `up`. There is no separate dev-targeting equivalent for
+# these names any more — see the dedicated prod-* tasks below for the ones
+# that only ever made sense against prod.
+[tasks.up]
+description = "Start the production stack (db, valkey, web, caddy, tailscale) in the background"
+run = "fnox exec -- docker compose -f compose.prod.yaml up -d"
+
+[tasks.down]
+description = "Stop the production stack, keeping volumes"
+run = "fnox exec -- docker compose -f compose.prod.yaml down"
+
+[tasks.logs]
+description = "Follow the production web container's logs"
+run = "fnox exec -- docker compose -f compose.prod.yaml logs -f web"
+
+[tasks.shell]
+description = "Open a shell in the production web container"
+run = "fnox exec -- docker compose -f compose.prod.yaml exec web bash"
+
+[tasks.restart]
+description = "Restart the production web container (settings change, or a wedged worker) — causes brief downtime"
+run = "fnox exec -- docker compose -f compose.prod.yaml restart web"
+
+[tasks.rebuild]
+description = "Rebuild and restart production web — needed after pyproject.toml / uv.lock changes"
+run = "fnox exec -- docker compose -f compose.prod.yaml up -d --build web"
+
+[tasks.migrate]
+description = "Apply migrations against the production database"
+run = "fnox exec -- docker compose -f compose.prod.yaml exec web python manage.py migrate"
+
+[tasks.makemigrations]
+description = "Generate migrations — runs inside the prod image, which has no source bind-mount, so any generated file is lost on restart. Run this in dev and commit the result instead."
+run = "fnox exec -- docker compose -f compose.prod.yaml exec web python manage.py makemigrations"
+
+[tasks.bootstrap]
+description = "Create the page tree, site settings, and snippets in production (idempotent)"
+run = "fnox exec -- docker compose -f compose.prod.yaml exec web python manage.py bootstrap_site"
+
+[tasks.superuser]
+description = "Create a CMS superuser in production"
+run = "fnox exec -- docker compose -f compose.prod.yaml exec web python manage.py createsuperuser"
+
+[tasks.manage]
+description = "Run any manage.py command in the production web container, e.g. mise run manage -- shell"
+run = "fnox exec -- docker compose -f compose.prod.yaml exec web python manage.py"
+
+[tasks.test]
+description = "Run pytest on the host against the containerised db and valkey"
+env = { DATABASE_URL = "postgres://bpd:bpd@localhost:5432/bpd", VALKEY_URL = "redis://localhost:6379/0" }
+run = ["docker compose up -d db valkey", "uv run pytest"]
+
+[tasks.lint]
+description = "Ruff check and format --check"
+run = ["uv run ruff check .", "uv run ruff format --check ."]
+
+# ── Production ────────────────────────────────────────────────────────────
+# Every compose subcommand needs the `fnox exec --` prefix: the required
+# variables are checked on exec and logs, not just up.
+
+[tasks.deploy]
+description = "Rebuild and restart the production stack, then migrate"
+run = [
+  "fnox exec -- docker compose -f compose.prod.yaml up -d --build",
+  "fnox exec -- docker compose -f compose.prod.yaml exec web python manage.py migrate",
+]
+
+[tasks.prod-config]
+description = "Show what compose resolved for production — fails loudly on a missing variable"
+run = "fnox exec -- docker compose -f compose.prod.yaml config"
+
+[tasks.prod-logs]
+description = "Follow the production web logs"
+run = "fnox exec -- docker compose -f compose.prod.yaml logs -f web"
+
+[tasks.prod-check]
+description = "Django's deployment security checklist against the running stack"
+run = "fnox exec -- docker compose -f compose.prod.yaml exec web python manage.py check --deploy"
+
+[tasks.caddy-reload]
+description = "Reload the Caddyfile in place — it is bind-mounted, so no rebuild"
+run = "fnox exec -- docker compose -f compose.prod.yaml exec caddy caddy reload --config /etc/caddy/Caddyfile"
+
+[tasks.gunicorn-reload]
+description = "Gracefully restart gunicorn workers (env change, no new code)"
+run = "fnox exec -- docker compose -f compose.prod.yaml kill -s HUP web"
+
+# ── Swarm (prepared, not cut over yet) ──────────────────────────────────────
+# compose.prod.yaml is still what's actually running. These tasks target
+# compose.swarm.yaml, which adds `deploy: update_config: order: start-first`
+# so a rebuild starts the new web task, waits for its healthcheck, and only
+# then kills the old one — no downtime. See compose.swarm.yaml's header
+# comment for the one-time cutover steps (docker swarm init, then bring the
+# compose stack down before deploying the swarm stack under the *same* stack
+# name, so it reuses the existing named volumes instead of creating empty
+# ones).
+#
+# Stack name is fixed at `blackpythondevs-prod` to match compose.prod.yaml's
+# project name — do not deploy this under a different stack name, or the
+# named volumes (postgres_data, media_data, ...) won't line up with the data
+# the current stack already created.
+
+[tasks.swarm-init]
+description = "One-time: put this host into swarm mode (no-op if already active)"
+run = "docker swarm init"
+
+[tasks.swarm-build]
+description = "Build the production web image, tagged with the current git commit"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+IMG="bpd-web:$(git rev-parse --short HEAD)"
+docker build --target production -t "$IMG" -t bpd-web:latest .
+echo "Built $IMG"
+'''
+
+[tasks.swarm-deploy]
+description = "Build web and roll it out with zero downtime (start-first, gated on the healthcheck)"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+IMG="bpd-web:$(git rev-parse --short HEAD)"
+docker build --target production -t "$IMG" -t bpd-web:latest .
+fnox exec -- env WEB_IMAGE="$IMG" docker stack deploy -c compose.swarm.yaml blackpythondevs-prod
+'''
+
+[tasks.swarm-init-deploy]
+description = "First-ever deploy of the swarm stack (run once, during the cutover from compose.prod.yaml)"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+IMG="bpd-web:$(git rev-parse --short HEAD)"
+docker build --target production -t "$IMG" -t bpd-web:latest .
+fnox exec -- env WEB_IMAGE="$IMG" docker stack deploy -c compose.swarm.yaml blackpythondevs-prod
+'''
+
+[tasks.swarm-status]
+description = "Show the swarm stack's services and rollout status"
+run = "docker stack ps blackpythondevs-prod --no-trunc"
+
+[tasks.swarm-logs]
+description = "Follow the swarm-managed web service's logs"
+run = "docker service logs -f blackpythondevs-prod_web"
+
+[tasks.swarm-rollback]
+description = "Roll the web service back to its previous image (also start-first, zero downtime)"
+run = "fnox exec -- docker service rollback blackpythondevs-prod_web"
+
+[tasks.swarm-shell]
+description = "Open a shell in the currently running web task"
+run = "docker exec -it $(docker ps -q -f name=blackpythondevs-prod_web | head -1) bash"
+
+[tasks.swarm-migrate]
+description = "Apply migrations against the production database (swarm stack)"
+run = "docker exec $(docker ps -q -f name=blackpythondevs-prod_web | head -1) python manage.py migrate"
+
+[tasks.swarm-down]
+description = "Tear down the swarm stack (keeps named volumes)"
+run = "docker stack rm blackpythondevs-prod"
