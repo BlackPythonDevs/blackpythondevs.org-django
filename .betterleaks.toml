@@ -1,0 +1,11 @@
+title = "blackpythondevs.org-django betterleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fixture credentials in tests and example env values, not real secrets"
+paths = [
+  '''(^|/)tests/''',
+  '''(^|/)\.env\.example$''',
+]

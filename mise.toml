@@ -67,7 +67,7 @@ run = ["uv run ruff check .", "uv run ruff format --check ."]
 
 [tasks.scan-secrets]
 description = "Scan the full git history for secrets with betterleaks"
-run = "betterleaks git --verbose --redact ."
+run = "betterleaks git --verbose --redact --confidence medium ."
 
 [tasks.install-hooks]
 description = "Point git at .githooks so the betterleaks pre-commit check runs locally"
