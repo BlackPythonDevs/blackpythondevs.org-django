@@ -7,6 +7,7 @@
 # manages the Python interpreter itself from pyproject.toml's requires-python.
 [tools]
 gitleaks = "latest"
+pinact = "latest"
 uv = "latest"
 
 # ── Development ───────────────────────────────────────────────────────────
@@ -63,6 +64,14 @@ run = ["docker compose up -d db valkey", "uv run pytest"]
 [tasks.lint]
 description = "Ruff check and format --check"
 run = ["uv run ruff check .", "uv run ruff format --check ."]
+
+[tasks.scan-secrets]
+description = "Scan the full git history for secrets with gitleaks"
+run = "gitleaks detect --source . --verbose --redact"
+
+[tasks.install-hooks]
+description = "Point git at .githooks so the gitleaks pre-commit check runs locally"
+run = "git config core.hooksPath .githooks && chmod +x .githooks/pre-commit"
 
 # ── Production (Docker Swarm) ─────────────────────────────────────────────
 # compose.swarm.yaml rolls `web` out start-first: the new task must pass its
