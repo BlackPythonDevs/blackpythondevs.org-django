@@ -49,13 +49,13 @@ The rest:
 | New migrations | `docker compose exec web python manage.py migrate` | `mise run migrate` |
 
 Production bakes the code into the image, so there is no live reload — a change
-to Python, templates, or static files means a rebuild (`mise run deploy`, see
+to Python, templates, or static files means a rebuild (`mise run prod-deploy`, see
 [Redeploying](#redeploying)). Two things reload without one:
 
-| Change | Command | Task |
-| --- | --- | --- |
-| `Caddyfile` (bind-mounted read-only) | `fnox exec -- docker compose -f compose.prod.yaml exec caddy caddy reload --config /etc/caddy/Caddyfile` | `mise run caddy-reload` |
-| Environment only, no new code | `fnox exec -- docker compose -f compose.prod.yaml kill -s HUP web` | `mise run gunicorn-reload` |
+| Change | Task |
+| --- | --- |
+| `Caddyfile` (bind-mounted read-only) | `mise run prod-caddy-reload` |
+| Environment only, no new code | `mise run prod-gunicorn-reload` |
 
 ### Running outside Docker
 
@@ -329,11 +329,16 @@ real backup of the volume.
 
 ```bash
 git pull
-fnox exec -- docker compose -f compose.prod.yaml up -d --build
-fnox exec -- docker compose -f compose.prod.yaml exec web python manage.py migrate
+mise run prod-deploy
+mise run prod-migrate
 ```
 
-Or `mise run deploy`, which is the two commands above.
+Production runs as a Docker Swarm stack (`compose.swarm.yaml`). `prod-deploy`
+builds the image, tags it with the git commit, and rolls `web` out start-first:
+the new container must pass its healthcheck before the old one stops, so the
+site stays up. It does not migrate — run `prod-migrate` afterwards, and keep
+schema changes backward-compatible, since the new code runs briefly against the
+old schema. `mise run prod-rollback` reverts to the previous image.
 
 Static files are collected into the image at build time, so a rebuild is all
 that ships new CSS. The `caddy_data` volume holds issued certificates — keep it

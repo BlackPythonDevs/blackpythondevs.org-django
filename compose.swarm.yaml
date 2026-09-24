@@ -3,21 +3,17 @@
 # starts the new task, waits for its healthcheck to pass, and only then stops
 # the old one (deploy.update_config.order: start-first).
 #
-# This file is NOT in use yet. compose.prod.yaml is still what's running.
-# One-time cutover, when you're ready:
-#
-#   1. docker swarm init
-#   2. fnox exec -- docker compose -f compose.prod.yaml down
-#   3. mise run swarm-init-deploy
+#   mise run prod-init      # once per host: docker swarm init
+#   mise run prod-deploy    # first deploy and every rebuild after
 #
 # The stack name MUST be `blackpythondevs-prod` (matching compose.prod.yaml's
 # `name:`) so the named volumes below (postgres_data, media_data, etc.)
-# resolve to the exact volumes the current compose stack already created —
-# otherwise Swarm creates fresh, empty ones and you lose the database.
+# resolve to the volumes the earlier compose stack created — otherwise Swarm
+# creates fresh, empty ones and the database appears to be gone.
 #
 # Differences from compose.prod.yaml, and why:
 #   - No `build:` — `docker stack deploy` ignores it. The web image is built
-#     separately and passed in via ${WEB_IMAGE}; see the swarm-* mise tasks.
+#     separately and passed in via ${WEB_IMAGE}; see the prod-* mise tasks.
 #   - `depends_on` conditions are dropped — Swarm's stack deploy doesn't
 #     support the long `condition: service_healthy` form, only a plain list,
 #     and even that is advisory only (no start-order guarantee in swarm mode).
@@ -91,7 +87,7 @@ services:
         condition: any
 
   web:
-    # Built and tagged by `mise run swarm-build`; passed in here rather than
+    # Built and tagged by `mise run prod-deploy`; passed in here rather than
     # built inline because `docker stack deploy` has no build step.
     image: ${WEB_IMAGE:-bpd-web:latest}
     environment:
