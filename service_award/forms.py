@@ -1,6 +1,6 @@
 from django import forms
 
-from core.models import is_leadership_or_above
+from core.models import EXECUTOR_GROUP_NAME
 
 from .models import ServiceAwardNomination, ServiceAwardRecipient
 
@@ -46,15 +46,15 @@ class ServiceAwardNominationForm(forms.ModelForm):
         The unique constraint only covers (nominator, nominee_email,
         award_year), and two of those three are filled in by the view, so the
         form has to be told about them to raise a readable error instead of
-        an IntegrityError. The leadership and past-recipient exclusions have
+        an IntegrityError. The Executor and past-recipient exclusions have
         no database constraint behind them at all — they're checked here.
         """
         cleaned = super().clean()
         email = cleaned.get("nominee_email")
         nominee_user = cleaned.get("nominee_user")
 
-        if nominee_user is not None and is_leadership_or_above(nominee_user):
-            self.add_error("nominee_user", "Leadership team members aren't eligible for this award.")
+        if nominee_user is not None and nominee_user.groups.filter(name=EXECUTOR_GROUP_NAME).exists():
+            self.add_error("nominee_user", "Executors aren't eligible for this award.")
 
         if email:
             already_won = ServiceAwardRecipient.objects.filter(recipient_email__iexact=email)

@@ -13,8 +13,9 @@ doc's "the leadership team manages nominations and voting" language. This is
 deliberately broader than `nominations.can_nominate`, which only checks the
 Council group: Executors run the award too.
 
-The award excludes leadership team members and past recipients. Past winners
-are tracked in `ServiceAwardRecipient` rather than as a nomination status, so
+The award excludes Executors and past recipients — Council members (who
+aren't running the award day-to-day) remain eligible. Past winners are
+tracked in `ServiceAwardRecipient` rather than as a nomination status, so
 the exclusion survives even if the nomination that led to a win is later
 edited or withdrawn, and so a recipient can be recorded without a nomination
 ever having existed (e.g. backfilling past years).

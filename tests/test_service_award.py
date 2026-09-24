@@ -125,15 +125,25 @@ class TestNominate:
         assert response.status_code == 302
         assert ServiceAwardNomination.objects.filter(nominee_email="nia@example.com").count() == 2
 
-    def test_leadership_member_is_not_eligible(self, client, executor, council_member):
+    def test_executor_is_not_eligible(self, client, executor):
+        other_executor = make_user("other-executor", EXECUTOR_GROUP_NAME, display_name="Other Executor")
+        client.force_login(executor)
+        response = client.post(
+            "/leadership/service-award/new/",
+            FORM_DATA | {"nominee_user": other_executor.pk},
+        )
+        assert response.status_code == 200
+        assert "eligible for this award" in response.content.decode()
+        assert ServiceAwardNomination.objects.count() == 0
+
+    def test_council_member_is_eligible(self, client, executor, council_member):
         client.force_login(executor)
         response = client.post(
             "/leadership/service-award/new/",
             FORM_DATA | {"nominee_user": council_member.pk},
         )
-        assert response.status_code == 200
-        assert "eligible for this award" in response.content.decode()
-        assert ServiceAwardNomination.objects.count() == 0
+        assert response.status_code == 302
+        assert ServiceAwardNomination.objects.get().nominee_user == council_member
 
     def test_previous_recipient_is_not_eligible(self, client, executor):
         ServiceAwardRecipient.objects.create(
