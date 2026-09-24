@@ -180,6 +180,19 @@ class TestListView:
         html = client.get("/leadership/service-award/?year=nonsense").content.decode()
         assert "This Year" in html
 
+    def test_withdrawn_nominations_are_hidden(self, client, executor):
+        make_nomination(executor, nominee_name="Still In It")
+        make_nomination(
+            executor,
+            nominee_name="Withdrawn One",
+            nominee_email="withdrawn@example.com",
+            status=ServiceAwardNomination.WITHDRAWN,
+        )
+        client.force_login(executor)
+        html = client.get("/leadership/service-award/").content.decode()
+        assert "Still In It" in html
+        assert "Withdrawn One" not in html
+
 
 class TestEditAndWithdraw:
     def test_nominator_can_edit_their_own_open_nomination(self, client, executor):

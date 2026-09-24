@@ -51,8 +51,11 @@ class NominationListView(LeadershipRequiredMixin, ListView):
             return current_award_year()
 
     def get_queryset(self):
+        # Withdrawn nominations keep their record (see NominationWithdrawView)
+        # but shouldn't clutter the list leadership works from day to day.
         return (
             ServiceAwardNomination.objects.filter(award_year=self.get_award_year())
+            .exclude(status=ServiceAwardNomination.WITHDRAWN)
             .select_related("nominator", "nominee_user")
             .order_by("-created_at")
         )
