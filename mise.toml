@@ -6,7 +6,7 @@
 # uv is not otherwise installed on the host; `mise install` provides it, and uv
 # manages the Python interpreter itself from pyproject.toml's requires-python.
 [tools]
-gitleaks = "latest"
+betterleaks = "latest"
 pinact = "latest"
 uv = "latest"
 
@@ -66,11 +66,11 @@ description = "Ruff check and format --check"
 run = ["uv run ruff check .", "uv run ruff format --check ."]
 
 [tasks.scan-secrets]
-description = "Scan the full git history for secrets with gitleaks"
-run = "gitleaks detect --source . --verbose --redact"
+description = "Scan the full git history for secrets with betterleaks"
+run = "betterleaks git --verbose --redact ."
 
 [tasks.install-hooks]
-description = "Point git at .githooks so the gitleaks pre-commit check runs locally"
+description = "Point git at .githooks so the betterleaks pre-commit check runs locally"
 run = "git config core.hooksPath .githooks && chmod +x .githooks/pre-commit"
 
 # ── Production (Docker Swarm) ─────────────────────────────────────────────
