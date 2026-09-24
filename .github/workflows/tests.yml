@@ -1,0 +1,46 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: bpd
+          POSTGRES_PASSWORD: bpd
+          POSTGRES_DB: bpd
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bpd -d bpd"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      valkey:
+        image: valkey/valkey:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "valkey-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://bpd:bpd@localhost:5432/bpd
+      VALKEY_URL: redis://localhost:6379/0
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - run: uv sync
+      - run: uv run ruff check .
+      - run: uv run pytest
