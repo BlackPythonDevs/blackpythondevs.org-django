@@ -88,3 +88,19 @@ gitignored on purpose: `.env`, `.env.production`, `fnox.toml`, `*.dump`, and
 `bpd/settings/local.py`. If you need a new setting in production, add its name
 (with an empty value) to `.env.production.example` and tell a maintainer, who
 will add the real value with `fnox set`.
+
+### Secret scanning
+
+Pushes and PRs are scanned by [betterleaks](https://github.com/betterleaks/betterleaks)
+(`mise run scan-secrets`; enable it locally as a pre-commit hook with
+`mise run install-hooks`). It's configured in `.betterleaks.toml` and run with
+`--confidence medium`: the low-confidence tier flags anything that merely looks
+like a `key = value` pair, which lit up on fixture credentials in `tests/`,
+`.env.example`, the dev-only Postgres URL, and README prose that just mentions
+"secret" or "password". Medium+ confidence catches real secret formats
+(API keys, tokens, private keys) without that noise. `.betterleaks.toml` also
+allowlists `tests/` and `.env.example` directly, as a second line of defense
+if a rule's confidence tier changes upstream.
+
+If a scan flags something that genuinely isn't a secret, prefer widening the
+allowlist in `.betterleaks.toml` over dropping the confidence floor further.
