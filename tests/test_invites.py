@@ -1,10 +1,12 @@
-"""Staff-generated one-time invite links (users.models.InviteLink).
+"""Staff-generated invite links (users.models.InviteLink).
 
 Covers the admin's privilege-escalation guard (a non-superuser can only bake
 in groups they themselves belong to), the accept flow (find-or-create the
 account, apply groups, hand off to allauth's login-by-code — same handoff
-users.forms.SignupForm uses for an existing member), and that a link stops
-working once it's used or past its expiry.
+users.forms.SignupForm uses for an existing member), that a link stops working
+once it's exhausted or past its expiry, and the general-purpose signup-link
+variant (no fixed email, multiple uses) that hands off to the normal signup
+form instead.
 """
 
 from datetime import timedelta
@@ -13,6 +15,8 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core import mail
+from django.core.exceptions import ValidationError
+from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
 
@@ -65,10 +69,10 @@ def make_invite(email="invitee@example.com", groups=(), created_by=None, **kwarg
 
 
 class TestInviteLinkModel:
-    def test_valid_invite_is_neither_used_nor_expired(self, staff_user):
+    def test_valid_invite_is_neither_exhausted_nor_expired(self, staff_user):
         invite = make_invite(created_by=staff_user)
         assert invite.is_valid
-        assert not invite.is_used
+        assert not invite.is_exhausted
         assert not invite.is_expired
 
     def test_expired_invite_is_invalid(self, staff_user):
@@ -76,10 +80,24 @@ class TestInviteLinkModel:
         assert invite.is_expired
         assert not invite.is_valid
 
-    def test_used_invite_is_invalid(self, staff_user):
-        invite = make_invite(created_by=staff_user, used_at=timezone.now())
-        assert invite.is_used
+    def test_invite_at_its_use_limit_is_invalid(self, staff_user):
+        invite = make_invite(created_by=staff_user, max_uses=1, use_count=1)
+        assert invite.is_exhausted
         assert not invite.is_valid
+
+    def test_invite_below_its_use_limit_is_still_valid(self, staff_user):
+        invite = make_invite(created_by=staff_user, max_uses=3, use_count=2)
+        assert not invite.is_exhausted
+        assert invite.is_valid
+
+    def test_unlimited_uses_requires_an_expiry_date(self, staff_user):
+        invite = make_invite(created_by=staff_user, max_uses=None, expires_at=None)
+        with pytest.raises(ValidationError):
+            invite.full_clean()
+
+    def test_unlimited_uses_is_fine_with_an_expiry_date(self, staff_user):
+        invite = make_invite(created_by=staff_user, max_uses=None)
+        invite.full_clean()
 
     def test_accept_creates_a_new_account_with_groups_applied(self, staff_user, executor_group, rf):
         invite = make_invite(created_by=staff_user, groups=[executor_group])
@@ -134,19 +152,94 @@ class TestInviteAcceptView:
         assert user.groups.filter(name="Executor").exists()
         assert "code" in mail.outbox[-1].body.lower()
 
-    def test_link_is_single_use(self, client, site, staff_user):
+    def test_link_is_single_use_by_default(self, client, site, staff_user):
         invite = make_invite(created_by=staff_user)
         client.post(invite.get_absolute_url())
 
         response = client.get(invite.get_absolute_url())
 
         assert response.status_code == 200
-        assert "already been used" in response.content.decode()
+        assert "reached its limit" in response.content.decode()
 
         second_attempt = client.post(invite.get_absolute_url())
-        # A used invite must not be accepted twice.
+        # An exhausted invite must not be accepted twice.
         assert second_attempt.status_code == 200
         assert User.objects.filter(email=invite.email).count() == 1
+
+
+class TestSignupLink:
+    """A signup link has no fixed email and can be used more than once — it hands
+    off to the normal signup form (users.forms.SignupForm), which applies the
+    invite's groups once an account is found or created.
+    """
+
+    def make_signup_link(self, created_by, groups=(), **kwargs):
+        kwargs.setdefault("max_uses", None)
+        return make_invite(email="", created_by=created_by, groups=groups, **kwargs)
+
+    def test_visiting_redirects_to_the_signup_form_and_stashes_the_token(self, client, site, staff_user):
+        invite = self.make_signup_link(staff_user)
+
+        response = client.get(invite.get_absolute_url())
+
+        assert response.status_code == 302
+        assert response.url == "/accounts/signup/"
+        assert client.session["pending_invite_token"] == invite.token
+
+    def test_signing_up_through_the_link_creates_an_account_with_groups_applied(
+        self, client, site, staff_user, executor_group
+    ):
+        invite = self.make_signup_link(staff_user, groups=[executor_group])
+        client.get(invite.get_absolute_url())
+
+        client.post("/accounts/signup/", {"email": "newperson@example.com"})
+
+        user = User.objects.get(email="newperson@example.com")
+        assert user.groups.filter(name="Executor").exists()
+        invite.refresh_from_db()
+        assert invite.use_count == 1
+        assert "pending_invite_token" not in client.session
+
+    def test_link_can_be_used_by_more_than_one_person(self, site, staff_user, executor_group):
+        # Two different browsers/sessions, same shared link.
+        invite = self.make_signup_link(staff_user, groups=[executor_group])
+        first_client, second_client = Client(), Client()
+
+        first_client.get(invite.get_absolute_url())
+        first_client.post("/accounts/signup/", {"email": "first@example.com"})
+
+        second_client.get(invite.get_absolute_url())
+        second_client.post("/accounts/signup/", {"email": "second@example.com"})
+
+        invite.refresh_from_db()
+        assert invite.use_count == 2
+        assert User.objects.get(email="first@example.com").groups.filter(name="Executor").exists()
+        assert User.objects.get(email="second@example.com").groups.filter(name="Executor").exists()
+
+    def test_signing_up_with_an_existing_email_applies_groups_to_that_account(
+        self, client, site, staff_user, executor_group
+    ):
+        existing = make_user("already-here")
+        invite = self.make_signup_link(staff_user, groups=[executor_group])
+        client.get(invite.get_absolute_url())
+
+        client.post("/accounts/signup/", {"email": existing.email})
+
+        existing.refresh_from_db()
+        assert existing.groups.filter(name="Executor").exists()
+        invite.refresh_from_db()
+        assert invite.use_count == 1
+
+    def test_link_stops_working_once_its_use_limit_is_reached(self, client, site, staff_user, executor_group):
+        invite = self.make_signup_link(staff_user, groups=[executor_group], max_uses=1)
+
+        client.get(invite.get_absolute_url())
+        client.post("/accounts/signup/", {"email": "first@example.com"})
+
+        response = client.get(invite.get_absolute_url())
+
+        assert response.status_code == 200
+        assert "reached its limit" in response.content.decode()
 
 
 class TestInviteLinkAdminGroupRestriction:
@@ -158,7 +251,7 @@ class TestInviteLinkAdminGroupRestriction:
 
         client.post(
             "/django-admin/users/invitelink/add/",
-            {"email": "new@example.com", "groups": [executor_group.pk, other_group.pk]},
+            {"email": "new@example.com", "groups": [executor_group.pk, other_group.pk], "max_uses": "1"},
             follow=True,
         )
 
@@ -192,7 +285,9 @@ class TestInviteLinkAdminCopyButton:
         client.force_login(staff_user)
 
         response = client.post(
-            "/django-admin/users/invitelink/add/", {"email": "copyme@example.com", "groups": []}, follow=True
+            "/django-admin/users/invitelink/add/",
+            {"email": "copyme@example.com", "groups": [], "max_uses": "1"},
+            follow=True,
         )
 
         invite = InviteLink.objects.get(email="copyme@example.com")

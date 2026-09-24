@@ -52,12 +52,12 @@ class InviteLinkAdmin(admin.ModelAdmin):
     hand out access the inviter doesn't already have.
     """
 
-    list_display = ("email", "group_list", "status", "created_by", "created_at", "expires_at")
+    list_display = ("email", "group_list", "uses", "status", "created_by", "created_at", "expires_at")
     list_filter = ("groups",)
     search_fields = ("email", "created_by__email", "created_by__display_name")
     autocomplete_fields = ("created_by",)
     filter_horizontal = ("groups",)
-    readonly_fields = ("token", "invite_url", "accepted_by", "used_at", "created_at")
+    readonly_fields = ("token", "invite_url", "use_count", "accepted_by", "used_at", "created_at")
 
     class Media:
         js = ("js/admin_invite_copy.js",)
@@ -69,10 +69,14 @@ class InviteLinkAdmin(admin.ModelAdmin):
     def group_list(self, obj):
         return ", ".join(obj.groups.values_list("name", flat=True)) or "—"
 
+    @admin.display(description="Uses")
+    def uses(self, obj):
+        return f"{obj.use_count}/{obj.max_uses}" if obj.max_uses is not None else f"{obj.use_count}/∞"
+
     @admin.display(description="Status")
     def status(self, obj):
-        if obj.is_used:
-            return "Used"
+        if obj.is_exhausted:
+            return "Used" if obj.max_uses == 1 else "Exhausted"
         if obj.is_expired:
             return "Expired"
         return "Pending"
@@ -85,8 +89,19 @@ class InviteLinkAdmin(admin.ModelAdmin):
 
     def get_fields(self, request, obj=None):
         if obj is None:
-            return ("email", "groups")
-        return ("email", "groups", "invite_url", "token", "accepted_by", "used_at", "created_at", "expires_at")
+            return ("email", "groups", "max_uses", "expires_at")
+        return (
+            "email",
+            "groups",
+            "max_uses",
+            "expires_at",
+            "invite_url",
+            "token",
+            "use_count",
+            "accepted_by",
+            "used_at",
+            "created_at",
+        )
 
     def formfield_for_manytomany(self, db_field, request, **kwargs):
         if db_field.name == "groups" and not request.user.is_superuser:

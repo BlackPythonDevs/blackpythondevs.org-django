@@ -22,7 +22,7 @@ from django import forms
 
 from core.models import Leader
 
-from .models import User
+from .models import InviteLink, User
 
 
 class SignupForm(AllauthSignupForm):
@@ -31,11 +31,16 @@ class SignupForm(AllauthSignupForm):
             email = self.cleaned_data.get("email")
             users = filter_users_by_email(email, prefer_verified=True)
             if users:
-                LoginCodeVerificationProcess.initiate(
-                    request=request, user=users[0], email=email
-                )
+                # A pending signup link (users.views.invite_accept) applies its
+                # groups to the existing account too, not just brand-new ones.
+                InviteLink.consume_pending(request, users[0])
+                LoginCodeVerificationProcess.initiate(request=request, user=users[0], email=email)
                 return None, headed_redirect_response("account_confirm_login_code")
-        return super().try_save(request)
+
+        user, response = super().try_save(request)
+        if user is not None:
+            InviteLink.consume_pending(request, user)
+        return user, response
 
 
 class OnboardingForm(forms.ModelForm):
