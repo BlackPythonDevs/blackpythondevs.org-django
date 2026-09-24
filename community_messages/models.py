@@ -24,7 +24,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from communities.models import Community
-from core.models import LEADERSHIP_GROUP_NAME
+from core.models import COUNCIL_GROUP_NAME
 from notifications.models import MARKDOWN_EXTENSIONS
 from users.models import User
 
@@ -68,7 +68,7 @@ ALLOWED_MESSAGE_HTML_ATTRIBUTES = {
 
 def is_leadership(user):
     """Whether `user` is a plain (non-staff) recipient of these messages."""
-    return user.is_authenticated and user.groups.filter(name=LEADERSHIP_GROUP_NAME).exists()
+    return user.is_authenticated and user.groups.filter(name=COUNCIL_GROUP_NAME).exists()
 
 
 def messages_for_leader(user):
@@ -142,7 +142,7 @@ class CommunityMessage(models.Model):
         whichever admin happens to be logged in. Online communities reach
         leadership in every region instead of being filtered to one.
         """
-        qs = User.objects.filter(is_active=True, groups__name=LEADERSHIP_GROUP_NAME).exclude(email="")
+        qs = User.objects.filter(is_active=True, groups__name=COUNCIL_GROUP_NAME).exclude(email="")
         if not self.community.is_online:
             qs = qs.filter(region=self.community.region)
         return qs.distinct()

@@ -58,19 +58,28 @@ def members(request):
     )
 
 
+def _leader_for_roster(user):
+    """Get-or-create the `Leader` roster entry for a Leadership-and-above
+    member, so they can set their own photo and affiliations. Council members
+    land on the roster as Council; Executor group members land as Executor.
+    """
+    if not is_leadership_or_above(user):
+        return None
+    role = Leader.COUNCIL if is_council_member(user) else Leader.EXECUTOR
+    leader, _ = Leader.objects.get_or_create(
+        user=user,
+        defaults={
+            "name": user.get_full_name() or user.display_name or user.email,
+            "role": role,
+        },
+    )
+    return leader
+
+
 @login_required
 def onboarding(request):
-    """One-time new-member survey. Council members also add a photo and affiliations."""
-    council_member = is_council_member(request.user)
-    leader = None
-    if council_member:
-        leader, _ = Leader.objects.get_or_create(
-            user=request.user,
-            defaults={
-                "name": request.user.get_full_name() or request.user.display_name or request.user.email,
-                "role": Leader.COUNCIL,
-            },
-        )
+    """One-time new-member survey. Leadership and above also add a photo and affiliations."""
+    leader = _leader_for_roster(request.user)
 
     if request.method == "POST":
         form = OnboardingForm(request.POST, instance=request.user)
@@ -101,20 +110,30 @@ def onboarding(request):
 def profile(request):
     """Lets a signed-in member update their name and onboarding answers anytime,
     not just on the one-time onboarding survey. Leadership and above also get
-    the social links fields here (see `core.models.is_leadership_or_above`).
+    the social links fields (see `core.models.is_leadership_or_above`) and, for
+    their spot on the public leadership roster, a photo and affiliations.
     """
     include_social = is_leadership_or_above(request.user)
+    leader = _leader_for_roster(request.user)
 
     if request.method == "POST":
         form = ProfileForm(request.POST, instance=request.user, include_social=include_social)
-        if form.is_valid():
+        council_form = CouncilProfileForm(request.POST, request.FILES, instance=leader) if leader else None
+        if form.is_valid() and (council_form is None or council_form.is_valid()):
             form.save()
+            if council_form is not None:
+                roster_leader = council_form.save(commit=False)
+                photo_file = council_form.cleaned_data.get("photo")
+                if photo_file:
+                    roster_leader.photo = CustomImage.objects.create(title=photo_file.name, file=photo_file)
+                roster_leader.save()
             messages.success(request, "Your profile has been updated.")
             return redirect("members")
     else:
         form = ProfileForm(instance=request.user, include_social=include_social)
+        council_form = CouncilProfileForm(instance=leader) if leader else None
 
-    return render(request, "users/profile.html", {"form": form})
+    return render(request, "users/profile.html", {"form": form, "council_form": council_form})
 
 
 def invite_accept(request, token):

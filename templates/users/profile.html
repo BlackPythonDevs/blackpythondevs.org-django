@@ -33,7 +33,7 @@
       {% if form.twitter %}As a member of leadership, you can also set the social links on your account.{% endif %}
     </p>
 
-    <form method="post" id="profile-form">
+    <form method="post" id="profile-form" enctype="multipart/form-data">
       {% csrf_token %}
       {% for field in form %}
         {% if field.name != "communication_preferences" and field.name != "app_communication_preferences" %}
@@ -45,6 +45,12 @@
           </p>
         {% endif %}
       {% endfor %}
+
+      {% if council_form %}
+        <h3>Leadership roster profile</h3>
+        <p><small>A photo and your affiliations for the public leadership roster — both optional.</small></p>
+        {{ council_form.as_p }}
+      {% endif %}
 
       <h3>{{ form.communication_preferences.label }}</h3>
       <p><small>{{ form.communication_preferences.help_text }}</small></p>

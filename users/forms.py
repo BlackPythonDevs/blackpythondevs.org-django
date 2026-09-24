@@ -116,7 +116,9 @@ class ProfileForm(OnboardingForm):
 
 
 class CouncilProfileForm(forms.ModelForm):
-    """The extra step shown to Leadership Council members: photo and affiliations.
+    """The extra fields shown to Leadership and above (see
+    `core.models.is_leadership_or_above`) for their spot on the public
+    leadership roster: photo and affiliations.
 
     `photo` is a plain upload, not the model's `photo` FK to a Wagtail image —
     the view turns an uploaded file into a `CustomImage` and assigns that FK
