@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Community Service Award nominations{% endblock %}
+
+{% block content %}
+  <section>
+    <h1>Community Service Award nominations</h1>
+    <p class="lead">
+      Leadership puts community members forward for the annual Community
+      Service Award. Showing the {{ award_year }} cycle.
+    </p>
+
+    <p><a role="button" class="btn" href="{% url 'service_award:nominate' %}">Nominate someone</a></p>
+
+    {% if years|length > 1 %}
+      <form method="get" class="card" style="margin-bottom: 2rem;">
+        <label for="year">Cycle</label>
+        <select name="year" id="year">
+          {% for year in years %}
+            <option value="{{ year }}" {% if year == award_year %}selected{% endif %}>{{ year }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn">Show</button>
+      </form>
+    {% endif %}
+
+    {% if nominations %}
+      <figure>
+        <table role="grid">
+          <thead>
+            <tr>
+              <th scope="col">Nominee</th>
+              <th scope="col">Nominated by</th>
+              <th scope="col">Status</th>
+              <th scope="col">Submitted</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for nomination in nominations %}
+              <tr>
+                <th scope="row">
+                  <a href="{% url 'service_award:detail' nomination.pk %}">{{ nomination.nominee_name }}</a>
+                </th>
+                <td>{{ nomination.nominator }}</td>
+                <td>{{ nomination.get_status_display }}</td>
+                <td>{{ nomination.created_at|date:"d M Y" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </figure>
+    {% else %}
+      <p>No nominations yet for {{ award_year }}. Be the first.</p>
+    {% endif %}
+  </section>
+
+  {% if is_paginated %}
+    <section>
+      <div class="pagination">
+        {% if page_obj.has_previous %}
+          <a href="?year={{ award_year }}&amp;page={{ page_obj.previous_page_number }}">Previous</a>
+        {% endif %}
+        <span class="current">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+          <a href="?year={{ award_year }}&amp;page={{ page_obj.next_page_number }}">Next</a>
+        {% endif %}
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

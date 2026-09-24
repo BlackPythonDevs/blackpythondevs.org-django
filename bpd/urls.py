@@ -33,6 +33,8 @@ urlpatterns = [
     path("council/nominations/", include("nominations.urls")),
     # Public Executorship Election page + council-member self-service candidacy statements.
     path("elections/", include("elections.urls")),
+    # Leadership-only: nominating people for the Community Service Award.
+    path("leadership/service-award/", include("service_award.urls")),
     # Staff/Executor/Sponsor/Community Partner: broadcasting member announcements.
     path("notifications/", include("notifications.urls")),
     # Community admins: messaging BPD leadership about their community.

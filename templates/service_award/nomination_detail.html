@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}{{ object.nominee_name }}{% endblock %}
+
+{% block content %}
+  <section>
+    <p><a href="{% url 'service_award:list' %}">&larr; All Community Service Award nominations</a></p>
+
+    <h1>{{ object.nominee_name }}</h1>
+    <p class="lead">
+      Nominated for the {{ object.award_year }} Community Service Award by
+      {{ object.nominator }} — {{ object.get_status_display }}.
+    </p>
+
+    <div class="card">
+      <dl>
+        <dt>Email</dt>
+        <dd><a href="mailto:{{ object.nominee_email }}">{{ object.nominee_email }}</a></dd>
+
+        <dt>Site account</dt>
+        <dd>{{ object.nominee_user|default:"— not linked" }}</dd>
+
+        <dt>Link</dt>
+        <dd>{% if object.nominee_url %}<a href="{{ object.nominee_url }}" rel="noopener">{{ object.nominee_url }}</a>{% else %}—{% endif %}</dd>
+
+        <dt>Why they deserve it</dt>
+        <dd>{{ object.statement|linebreaksbr }}</dd>
+
+        <dt>Contributions</dt>
+        <dd>{{ object.contributions|linebreaksbr|default:"—" }}</dd>
+
+        <dt>Submitted</dt>
+        <dd>{{ object.created_at|date:"d M Y H:i" }}, last updated {{ object.updated_at|date:"d M Y H:i" }}</dd>
+      </dl>
+    </div>
+
+    {% if can_edit %}
+      <p>
+        <a role="button" class="btn" href="{% url 'service_award:edit' object.pk %}">Edit</a>
+      </p>
+      <form method="post" action="{% url 'service_award:withdraw' object.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="secondary">Withdraw this nomination</button>
+      </form>
+    {% endif %}
+  </section>
+{% endblock %}

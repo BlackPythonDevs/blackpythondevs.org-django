@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Edit nomination{% else %}Nominate someone for the Community Service Award{% endif %}{% endblock %}
+
+{% block content %}
+  <section class="auth-panel">
+    <h1>{% if object %}Edit nomination{% else %}Nominate someone for the Community Service Award{% endif %}</h1>
+    <p class="auth-intro">
+      The Community Service Award recognizes a community member's outstanding
+      contributions to Black Python Devs. Tell leadership who you think should
+      be recognized and why. Nominations stay internal to leadership.
+    </p>
+
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit" class="btn">
+        {% if object %}Save changes{% else %}Submit nomination{% endif %}
+      </button>
+      <a role="button" class="secondary" href="{% url 'service_award:list' %}">Cancel</a>
+    </form>
+  </section>
+{% endblock %}
