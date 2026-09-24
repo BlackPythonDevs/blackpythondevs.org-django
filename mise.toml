@@ -1,0 +1,156 @@
+# Task shortcuts. `mise tasks` lists them, `mise run <name>` runs one.
+#
+#   (no prefix)  development — compose.yaml, source bind-mounted, no secrets needed
+#   prod-*       production  — the Docker Swarm stack in compose.swarm.yaml
+
+# uv is not otherwise installed on the host; `mise install` provides it, and uv
+# manages the Python interpreter itself from pyproject.toml's requires-python.
+[tools]
+uv = "latest"
+
+# ── Development ───────────────────────────────────────────────────────────
+
+[tasks.up]
+description = "Start the dev stack (db, valkey, web with live reload) in the background"
+run = "docker compose up -d"
+
+[tasks.down]
+description = "Stop the dev stack, keeping volumes"
+run = "docker compose down"
+
+[tasks.logs]
+description = "Follow the dev web container's logs"
+run = "docker compose logs -f web"
+
+[tasks.shell]
+description = "Open a shell in the dev web container"
+run = "docker compose exec web bash"
+
+[tasks.restart]
+description = "Restart the dev web container (settings change, or a wedged worker)"
+run = "docker compose restart web"
+
+[tasks.rebuild]
+description = "Rebuild and restart dev web — needed after pyproject.toml / uv.lock changes"
+run = "docker compose up -d --build web"
+
+[tasks.migrate]
+description = "Apply migrations to the dev database"
+run = "docker compose exec web python manage.py migrate"
+
+[tasks.makemigrations]
+description = "Generate migrations in dev (the source is bind-mounted, so the files land in your checkout — commit them)"
+run = "docker compose exec web python manage.py makemigrations"
+
+[tasks.bootstrap]
+description = "Create the page tree, site settings, and snippets in dev (idempotent)"
+run = "docker compose exec web python manage.py bootstrap_site"
+
+[tasks.superuser]
+description = "Create a CMS superuser in dev"
+run = "docker compose exec web python manage.py createsuperuser"
+
+[tasks.manage]
+description = "Run any manage.py command in the dev web container, e.g. mise run manage -- shell"
+run = "docker compose exec web python manage.py"
+
+[tasks.test]
+description = "Run pytest on the host against the containerised db and valkey"
+env = { DATABASE_URL = "postgres://bpd:bpd@localhost:5432/bpd", VALKEY_URL = "redis://localhost:6379/0" }
+run = ["docker compose up -d db valkey", "uv run pytest"]
+
+[tasks.lint]
+description = "Ruff check and format --check"
+run = ["uv run ruff check .", "uv run ruff format --check ."]
+
+# ── Production (Docker Swarm) ─────────────────────────────────────────────
+# compose.swarm.yaml rolls `web` out start-first: the new task must pass its
+# healthcheck before the old one is stopped, so a deploy causes no downtime.
+#
+# The stack name is fixed at `blackpythondevs-prod`. Do not deploy under a
+# different name, or the named volumes (postgres_data, media_data, ...) won't
+# line up with the existing data.
+#
+# Only tasks that create or update the stack need `fnox exec --`, because
+# compose interpolates secrets from env vars at deploy time. Tasks that exec
+# into a running container don't: the container already has its environment.
+
+[tasks.prod-init]
+description = "One-time: put this host into swarm mode"
+run = "docker swarm init"
+
+[tasks.prod-build]
+description = "Build the production web image, tagged with the current git commit"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+IMG="bpd-web:$(git rev-parse --short HEAD)"
+docker build --target production -t "$IMG" -t bpd-web:latest .
+echo "Built $IMG"
+'''
+
+[tasks.prod-deploy]
+description = "Build web and roll it out with zero downtime. Does not migrate — run prod-migrate after."
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+IMG="bpd-web:$(git rev-parse --short HEAD)"
+docker build --target production -t "$IMG" -t bpd-web:latest .
+fnox exec -- env WEB_IMAGE="$IMG" docker stack deploy -c compose.swarm.yaml blackpythondevs-prod
+'''
+
+[tasks.prod-rollback]
+description = "Roll web back to its previous image (also start-first, zero downtime)"
+run = "docker service rollback blackpythondevs-prod_web"
+
+[tasks.prod-restart]
+description = "Rolling restart of web with the same image (e.g. after changing a secret) — zero downtime"
+run = "docker service update --force blackpythondevs-prod_web"
+
+[tasks.prod-status]
+description = "Show every task in the stack, including past failures"
+run = "docker stack ps blackpythondevs-prod --no-trunc"
+
+[tasks.prod-config]
+description = "Show what the stack file resolves to — fails loudly on a missing variable"
+run = "fnox exec -- docker stack config -c compose.swarm.yaml"
+
+[tasks.prod-logs]
+description = "Follow the production web logs"
+run = "docker service logs -f blackpythondevs-prod_web"
+
+[tasks.prod-shell]
+description = "Open a shell in the running production web container"
+run = "docker exec -it $(docker ps -q -f name=blackpythondevs-prod_web | head -1) bash"
+
+[tasks.prod-migrate]
+description = "Apply migrations against the production database"
+run = "docker exec $(docker ps -q -f name=blackpythondevs-prod_web | head -1) python manage.py migrate"
+
+[tasks.prod-bootstrap]
+description = "Create the page tree, site settings, and snippets in production (idempotent)"
+run = "docker exec $(docker ps -q -f name=blackpythondevs-prod_web | head -1) python manage.py bootstrap_site"
+
+[tasks.prod-superuser]
+description = "Create a CMS superuser in production"
+run = "docker exec -it $(docker ps -q -f name=blackpythondevs-prod_web | head -1) python manage.py createsuperuser"
+
+[tasks.prod-manage]
+description = "Run any manage.py command in production, e.g. mise run prod-manage -- shell"
+run = "docker exec -it $(docker ps -q -f name=blackpythondevs-prod_web | head -1) python manage.py"
+
+[tasks.prod-check]
+description = "Django's deployment security checklist against the running stack"
+run = "docker exec $(docker ps -q -f name=blackpythondevs-prod_web | head -1) python manage.py check --deploy"
+
+[tasks.prod-caddy-reload]
+description = "Reload the Caddyfile in place — it is bind-mounted, so no redeploy"
+run = "docker exec $(docker ps -q -f name=blackpythondevs-prod_caddy | head -1) caddy reload --config /etc/caddy/Caddyfile"
+
+[tasks.prod-gunicorn-reload]
+description = "Gracefully restart gunicorn workers in place (env change, no new code)"
+run = "docker kill -s HUP $(docker ps -q -f name=blackpythondevs-prod_web | head -1)"
+
+[tasks.prod-down]
+description = "Tear down the production stack (keeps named volumes)"
+run = "docker stack rm blackpythondevs-prod"

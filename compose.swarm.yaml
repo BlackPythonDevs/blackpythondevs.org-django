@@ -1,0 +1,193 @@
+# Docker Swarm stack: same production topology as compose.prod.yaml, but with
+# `deploy:` blocks so a rebuild replaces `web` with zero downtime — Swarm
+# starts the new task, waits for its healthcheck to pass, and only then stops
+# the old one (deploy.update_config.order: start-first).
+#
+#   mise run prod-init      # once per host: docker swarm init
+#   mise run prod-deploy    # first deploy and every rebuild after
+#
+# The stack name MUST be `blackpythondevs-prod` (matching compose.prod.yaml's
+# `name:`) so the named volumes below (postgres_data, media_data, etc.)
+# resolve to the volumes the earlier compose stack created — otherwise Swarm
+# creates fresh, empty ones and the database appears to be gone.
+#
+# Differences from compose.prod.yaml, and why:
+#   - No `build:` — `docker stack deploy` ignores it. The web image is built
+#     separately and passed in via ${WEB_IMAGE}; see the prod-* mise tasks.
+#   - `depends_on` conditions are dropped — Swarm's stack deploy doesn't
+#     support the long `condition: service_healthy` form, only a plain list,
+#     and even that is advisory only (no start-order guarantee in swarm mode).
+#     The web healthcheck is what actually gates the rolling update, not
+#     depends_on.
+#   - Caddy's ports use `mode: host` to bypass the swarm routing mesh. With a
+#     single node there's nothing for the mesh to route to besides this node,
+#     and going straight to host networking avoids known quirks with the
+#     mesh's UDP handling (needed here for HTTP/3 on 443/udp).
+#   - Secrets are still plain env vars via fnox, same as compose.prod.yaml —
+#     not converted to `docker secret`s. That would be a real security
+#     improvement (env vars are readable via `docker inspect`/`/proc`) but is
+#     a separate, larger change; left as-is here to keep this migration
+#     low-risk and behavior-equivalent.
+#   - No top-level `name:` — `docker stack deploy` rejects it; the stack name
+#     comes from the CLI argument instead.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      DOMAIN: ${DOMAIN:-blackpythondevs.org}
+      ACME_EMAIL: ${ACME_EMAIL:-contact@blackpythondevs.org}
+      CADDY_TLS_INTERNAL: ${CADDY_TLS_INTERNAL:-}
+    ports:
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: host
+      - target: 443
+        published: 443
+        protocol: tcp
+        mode: host
+      - target: 443
+        published: 443
+        protocol: udp
+        mode: host
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - media_data:/srv/media:ro
+    depends_on:
+      - web
+    deploy:
+      replicas: 1
+      update_config:
+        order: start-first
+        delay: 5s
+      restart_policy:
+        condition: any
+
+  tailscale:
+    image: tailscale/tailscale:stable
+    hostname: ${TS_HOSTNAME:-bpd}
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:?set TS_AUTHKEY}
+      TS_HOSTNAME: ${TS_HOSTNAME:-bpd}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/serve.json
+      TS_USERSPACE: "true"
+      TS_EXTRA_ARGS: ${TS_EXTRA_ARGS:---advertise-tags=tag:server}
+    volumes:
+      - tailscale_state:/var/lib/tailscale
+      - ./tailscale/serve.json:/config/serve.json:ro
+    depends_on:
+      - caddy
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+  web:
+    # Built and tagged by `mise run prod-deploy`; passed in here rather than
+    # built inline because `docker stack deploy` has no build step.
+    image: ${WEB_IMAGE:-bpd-web:latest}
+    environment:
+      DJANGO_SETTINGS_MODULE: bpd.settings.production
+      DATABASE_URL: postgres://${POSTGRES_USER:-bpd}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-bpd}
+      VALKEY_URL: redis://valkey:6379/0
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY}
+      ALLOWED_HOSTS: ${DOMAIN:-blackpythondevs.org},www.${DOMAIN:-blackpythondevs.org},${TS_FQDN:-tailnet.invalid}
+      CSRF_TRUSTED_ORIGINS: https://${DOMAIN:-blackpythondevs.org},https://www.${DOMAIN:-blackpythondevs.org},https://${TS_FQDN:-tailnet.invalid}
+      WAGTAILADMIN_BASE_URL: https://${DOMAIN:-blackpythondevs.org}
+      CARTO_API_KEY: ${CARTO_API_KEY:-}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@blackpythondevs.org}
+      EMAIL_HOST: ${EMAIL_HOST:?set EMAIL_HOST}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:?set EMAIL_HOST_USER}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:?set EMAIL_HOST_PASSWORD}
+      AWS_STORAGE_BUCKET_NAME: ${AWS_STORAGE_BUCKET_NAME:-}
+      AWS_S3_ACCESS_KEY_ID: ${AWS_S3_ACCESS_KEY_ID:-}
+      AWS_S3_SECRET_ACCESS_KEY: ${AWS_S3_SECRET_ACCESS_KEY:-}
+      AWS_S3_REGION_NAME: ${AWS_S3_REGION_NAME:-us-east-1}
+      AWS_S3_ENDPOINT_URL: ${AWS_S3_ENDPOINT_URL:-}
+      AWS_S3_CUSTOM_DOMAIN: ${AWS_S3_CUSTOM_DOMAIN:-}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:-}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
+      DISCORD_MEMBER_ROLE_ID: ${DISCORD_MEMBER_ROLE_ID:-}
+      DISCORD_INVITE_URL: ${DISCORD_INVITE_URL:-https://discord.gg/XUc3tFqCT3}
+    volumes:
+      - media_data:/app/media
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import os, urllib.request
+          host = os.environ["ALLOWED_HOSTS"].split(",")[0]
+          req = urllib.request.Request(
+              "http://127.0.0.1:8000/",
+              headers={"Host": host, "X-Forwarded-Proto": "https"},
+          )
+          urllib.request.urlopen(req, timeout=5)
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      - db
+      - valkey
+    deploy:
+      replicas: 1
+      update_config:
+        order: start-first    # start the new task, wait for it to pass its
+        delay: 10s             # healthcheck, only then stop the old one
+        monitor: 30s
+        failure_action: rollback
+      rollback_config:
+        order: start-first
+      restart_policy:
+        condition: any
+        delay: 5s
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bpd}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-bpd}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bpd} -d ${POSTGRES_DB:-bpd}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    command: valkey-server --save 60 1 --loglevel warning
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+volumes:
+  postgres_data:
+  valkey_data:
+  media_data:
+  caddy_data:
+  caddy_config:
+  tailscale_state:
