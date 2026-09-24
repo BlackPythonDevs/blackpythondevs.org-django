@@ -32,10 +32,12 @@ docker compose exec web python manage.py import_content --source ../blackpythond
 
 ### Task shortcuts and reloading
 
-Every command in this README is also a [mise](https://mise.jdx.dev) task —
-`mise tasks` lists them, `mise run <name>` runs one, and `mise install` provides
-`uv` if it is not already on the host. The tasks are thin wrappers; nothing here
-depends on mise.
+Common commands are [mise](https://mise.jdx.dev) tasks — `mise tasks` lists
+them, `mise run <name>` runs one, and `mise install` provides `uv` if it is not
+already on the host. **Unprefixed tasks act on development; `prod-*` tasks act
+on production.** See [Tooling and environments](#tooling-and-environments) for
+how the two differ. The dev tasks are thin wrappers around `docker compose`;
+nothing about development depends on mise.
 
 In development the source is bind-mounted and `runserver` autoreloads, so **most
 changes need no command at all** — Python, templates, and `static/` (WhiteNoise
@@ -69,6 +71,64 @@ export VALKEY_URL=redis://localhost:6379/0
 uv run python manage.py migrate && uv run python manage.py bootstrap_site
 uv run python manage.py runserver
 ```
+
+## Tooling and environments
+
+Two tools sit in front of Docker:
+
+- **[mise](https://mise.jdx.dev)** is the task runner. Every task is defined in
+  `mise.toml`, so `mise tasks` is the canonical list of what you can run.
+- **[fnox](https://fnox.jdx.dev)** holds production secrets. They are
+  age-encrypted in `fnox.toml` and injected as environment variables by
+  `fnox exec --`, which is where the stack file's `${VAR}` interpolation reads
+  them from. You only need it to deploy; development never touches it.
+
+| | Development | Production |
+| --- | --- | --- |
+| Where it runs | your machine | the server |
+| Stack file | `compose.yaml` (Docker Compose) | `compose.swarm.yaml` (Docker Swarm stack `blackpythondevs-prod`) |
+| mise tasks | unprefixed: `mise run up`, `migrate`, `test` | `prod-` prefixed: `mise run prod-deploy`, `prod-migrate` |
+| Django settings | `bpd.settings.dev` | `bpd.settings.production` |
+| Configuration | `.env`, copied from `.env.example`; compose reads it automatically | `fnox.toml`, injected by `fnox exec`; `.env.production.example` lists every variable name |
+| Secrets | none real — the dev defaults are public | age-encrypted in `fnox.toml`, never committed |
+| `DEBUG` | on | hardcoded off in `production.py` |
+| Code | bind-mounted, `runserver` autoreloads | baked into an image tagged with the git commit |
+| Web server | `runserver` on <http://localhost:8000> | gunicorn behind Caddy, TLS from Let's Encrypt |
+| Published ports | web 8000, Postgres 5432, Valkey 6379 | Caddy 80 and 443 only |
+| Admin surfaces | `/cms` and `/django-admin` on localhost | tailnet only, via the Tailscale sidecar |
+| Email | printed to the console | SMTP through Forward Email |
+| Media | local filesystem | `media_data` volume, or S3-compatible storage |
+| Static files | WhiteNoise, autorefreshing | collected into the image at build time |
+
+### Development environment
+
+```bash
+cp .env.example .env    # dev-only defaults; edit for Discord or CARTO keys
+mise run up
+mise run migrate
+```
+
+`.env` is gitignored. Its `SECRET_KEY` and database password are deliberately
+throwaway values, so nothing in it needs protecting.
+
+### Production environment
+
+Production configuration lives in `fnox.toml`, which is gitignored and
+per-host. It is decrypted with the age identity under `~/.config/fnox/` on the
+machine that deploys; contributors without that key cannot read it, and do not
+need to.
+
+```bash
+fnox list                          # which secrets are defined
+fnox set POSTGRES_PASSWORD         # add or change one (prompts, hidden input)
+mise run prod-config               # resolve the stack file; fails on anything missing
+```
+
+Keys in `fnox.toml` must match the variable names `compose.swarm.yaml` expects,
+character for character. `SECRET_KEY`, `POSTGRES_PASSWORD`, `EMAIL_HOST`,
+`EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, and `TS_AUTHKEY` are required; the
+rest have defaults. Only `prod-deploy` and `prod-config` need fnox, because the
+other `prod-*` tasks exec into a container that already has its environment.
 
 ## Management commands
 
@@ -187,6 +247,10 @@ certbot, no renewal cron. A Tailscale sidecar puts the admin surfaces on a
 private tailnet. Only Caddy publishes ports; Postgres, Valkey, and Tailscale
 stay on the internal Docker network.
 
+It runs as a single-node Docker Swarm stack, which is what lets a redeploy
+replace `web` without downtime. The host needs `mise run prod-init` once
+(`docker swarm init`); after that, `mise run prod-deploy` does everything.
+
 ```
           :80/:443                         tailnet (no published port)
   Caddy ──────────── public site           Tailscale ── bpd.<tailnet>.ts.net
@@ -204,31 +268,30 @@ stay on the internal Docker network.
 renewals use it too.
 
 Secrets live in `fnox.toml` and are injected as environment variables by
-`fnox exec`, which is where compose's `${VAR}` interpolation reads them from.
-Because fnox maps each secret to an env var of the same name, the keys in
-`fnox.toml` must match the names compose expects exactly. `.env.production` is
-the fallback for hosts without fnox; don't maintain both.
+`fnox exec`, which is where the stack file's `${VAR}` interpolation reads them
+from — see [Production environment](#production-environment).
+`.env.production.example` documents every variable name; `docker stack deploy`
+has no `--env-file`, so fnox is the supported way to supply them.
 
 Outbound mail goes through [Forward Email](https://forwardemail.net). The only
 secret to fill in is `EMAIL_HOST_PASSWORD` — generate it per alias from the
 Forward Email dashboard ("Generate Password"), and note that it is shown once.
 `EMAIL_HOST_USER` is the full alias address, not a bare username. Sign-in codes
 ride this path, so `EMAIL_HOST`, `EMAIL_HOST_USER`, and `EMAIL_HOST_PASSWORD`
-are required rather than defaulted: compose aborts at `up` if any is missing,
+are required rather than defaulted: the deploy aborts if any is missing,
 because the alternative is a stack that passes its healthcheck while no one can
 log in.
 
 ```bash
-fnox exec -- docker compose -f compose.prod.yaml up -d --build
-fnox exec -- docker compose -f compose.prod.yaml exec web python manage.py migrate
+mise run prod-deploy
+mise run prod-migrate
 ```
 
-Every compose subcommand needs the same `fnox exec --` prefix — the required
-variables are checked on `exec` and `logs`, not just `up`. Verify what compose
-resolved before deploying, which fails loudly on anything missing:
+Verify what the stack file resolves to before deploying, which fails loudly on
+anything missing:
 
 ```bash
-fnox exec -- docker compose -f compose.prod.yaml config
+mise run prod-config
 ```
 
 `DOMAIN` is the single source of truth: it sets the certificate hostname,
@@ -236,13 +299,13 @@ fnox exec -- docker compose -f compose.prod.yaml config
 defaults to `blackpythondevs.org`, so a missing or half-filled env file can't
 quietly fall back to `localhost` and 400 every request; override it to deploy a
 staging host. `SECRET_KEY` and `POSTGRES_PASSWORD` have no defaults on purpose —
-compose refuses to start without them. There is no `DEBUG` setting to get
+the deploy refuses to proceed without them. There is no `DEBUG` setting to get
 wrong: `production.py` hardcodes `DEBUG = False`.
 
 Verify the security posture at any time with:
 
 ```bash
-fnox exec -- docker compose -f compose.prod.yaml exec web python manage.py check --deploy
+mise run prod-check
 ```
 
 ### Admin access over Tailscale
@@ -273,8 +336,8 @@ appended to `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` — a mismatch shows up a
 a 400 rather than anything more obvious.
 
 ```bash
-fnox exec -- docker compose -f compose.prod.yaml logs tailscale
-fnox exec -- docker compose -f compose.prod.yaml exec tailscale tailscale status
+docker service logs blackpythondevs-prod_tailscale
+docker exec $(docker ps -q -f name=blackpythondevs-prod_tailscale | head -1) tailscale status
 ```
 
 The auth key is only used to register. Once the node is in the `tailscale_state`
@@ -292,8 +355,7 @@ domain does not point at would otherwise count against a rate limit of five per
 hour for the domain.
 
 ```bash
-CADDY_TLS_INTERNAL="tls internal" \
-  fnox exec -- docker compose -f compose.prod.yaml up -d --build
+CADDY_TLS_INTERNAL="tls internal" mise run prod-deploy
 curl -k --resolve blackpythondevs.org:443:127.0.0.1 https://blackpythondevs.org/
 ```
 
@@ -305,7 +367,7 @@ the variable unset on the server; production issues real certificates.
 `pg_dump` custom-format dumps (`.dump`) restore with `pg_restore`, not `psql`:
 
 ```bash
-fnox exec -- docker compose -f compose.prod.yaml exec -T db pg_restore -U bpd -d bpd --no-owner --no-privileges --clean --if-exists < bpd.dump
+docker exec -i $(docker ps -q -f name=blackpythondevs-prod_db | head -1) pg_restore -U bpd -d bpd --no-owner --no-privileges --clean --if-exists < bpd.dump
 ```
 
 The dump carries the `CustomImage` rows but not the uploaded files, so on a
@@ -314,8 +376,8 @@ fresh `media_data` volume every blog and event header image points at a
 `static/images/`, so restoring them needs no backup:
 
 ```bash
-fnox exec -- docker compose -f compose.prod.yaml exec web python manage.py restore_media --dry-run   # report, change nothing
-fnox exec -- docker compose -f compose.prod.yaml exec web python manage.py restore_media
+mise run prod-manage -- restore_media --dry-run   # report, change nothing
+mise run prod-manage -- restore_media
 ```
 
 It copies each file back under the exact name the database already records — no
