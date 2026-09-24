@@ -60,6 +60,30 @@ def test_every_choice_is_reachable():
     reachable = {name for name, _ in REGION_CHOICES}
     produced = {
         region_for_country(code)
-        for code in ["NG", "KE", "CM", "ZA", "EG", "JM", "MX", "BR", "US", "KZ", "JP", "VN", "IN", "TR", "RU", "GB", "ES", "DE", "AU", "FJ", "GU", "WS", "AQ"]
+        for code in [
+            "NG",
+            "KE",
+            "CM",
+            "ZA",
+            "EG",
+            "JM",
+            "MX",
+            "BR",
+            "US",
+            "KZ",
+            "JP",
+            "VN",
+            "IN",
+            "TR",
+            "RU",
+            "GB",
+            "ES",
+            "DE",
+            "AU",
+            "FJ",
+            "GU",
+            "WS",
+            "AQ",
+        ]
     }
     assert produced <= reachable
