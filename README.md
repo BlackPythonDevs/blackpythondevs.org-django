@@ -95,7 +95,7 @@ Two tools sit in front of Docker:
 | Code | bind-mounted, `runserver` autoreloads | baked into an image tagged with the git commit |
 | Web server | `runserver` on <http://localhost:8000> | gunicorn behind Caddy, TLS from Let's Encrypt |
 | Published ports | web 8000, Postgres 5432, Valkey 6379 | Caddy 80 and 443 only |
-| Admin surfaces | `/cms` and `/django-admin` on localhost | tailnet only, via the Tailscale sidecar |
+| Admin surfaces | `/cms` and `/django-admin` on localhost | `/cms` and `/django-admin` on the public domain |
 | Email | printed to the console | SMTP through Forward Email |
 | Media | local filesystem | `media_data` volume, or S3-compatible storage |
 | Static files | WhiteNoise, autorefreshing | collected into the image at build time |
@@ -243,20 +243,16 @@ production falls back to the local filesystem — Caddy serves that volume at
 
 Production runs the same four services behind [Caddy](https://caddyserver.com),
 which terminates TLS and gets Let's Encrypt certificates automatically — no
-certbot, no renewal cron. A Tailscale sidecar puts the admin surfaces on a
-private tailnet. Only Caddy publishes ports; Postgres, Valkey, and Tailscale
-stay on the internal Docker network.
+certbot, no renewal cron. Only Caddy publishes ports; Postgres and Valkey stay on the
+internal Docker network.
 
 It runs as a single-node Docker Swarm stack, which is what lets a redeploy
 replace `web` without downtime. The host needs `mise run prod-init` once
 (`docker swarm init`); after that, `mise run prod-deploy` does everything.
 
 ```
-          :80/:443                         tailnet (no published port)
-  Caddy ──────────── public site           Tailscale ── bpd.<tailnet>.ts.net
-    │                /cms, /django-admin → 404   │
-    │                                            │
-    └────────────── caddy:8080 ──────────────────┘  everything, admins included
+          :80/:443
+  Caddy ──── public site, /cms and /django-admin included
     │
   web   gunicorn, bpd.settings.production (DEBUG = False)
     ├── db      postgres:17
@@ -307,45 +303,6 @@ Verify the security posture at any time with:
 ```bash
 mise run prod-check
 ```
-
-### Admin access over Tailscale
-
-The Wagtail admin (`/cms`) and the Django admin (`/django-admin`) return 404 on
-the public domain. They are served only through the `tailscale` sidecar, at
-`https://<TS_HOSTNAME>.<your-tailnet>.ts.net/cms/`. Sign-in is unchanged once
-you are there — being on the tailnet is a gate in front of the login, not a
-replacement for it.
-
-The sidecar runs in userspace networking mode, so it needs no `NET_ADMIN`
-capability, no `/dev/net/tun`, and no access to the host's network namespace: it
-can reach the compose network and nothing else on the box. It does not advertise
-a subnet route or an exit node either, so joining the tailnet grants access to
-this stack alone.
-
-Set up, in the Tailscale admin console:
-
-1. **DNS** → enable MagicDNS *and* HTTPS Certificates. Without both, the sidecar
-   cannot get a certificate for its `ts.net` name and will serve nothing.
-2. **Access controls** → define `tag:server` with an owner.
-3. **Settings → Keys** → generate a *reusable*, *pre-approved* auth key tagged
-   `tag:server`.
-
-Then set `TS_AUTHKEY`, `TS_HOSTNAME`, and `TS_FQDN` in `fnox.toml`.
-`TS_FQDN` is the full MagicDNS name (`<TS_HOSTNAME>.<tailnet>.ts.net`) and gets
-appended to `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` — a mismatch shows up as
-a 400 rather than anything more obvious.
-
-```bash
-docker service logs blackpythondevs-prod_tailscale
-docker exec $(docker ps -q -f name=blackpythondevs-prod_tailscale | head -1) tailscale status
-```
-
-The auth key is only used to register. Once the node is in the `tailscale_state`
-volume it authenticates with its own key, so keep that volume across deploys —
-losing it re-registers the node under a new identity and needs a fresh key.
-
-To add someone, invite them to the tailnet; to cut access, remove them there.
-Nothing about it touches Django's own permissions.
 
 ### Trying it locally under the real hostname
 

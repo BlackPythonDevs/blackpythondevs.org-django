@@ -42,8 +42,7 @@ unless you are working on those features.
 Production is a different environment, not a bigger version of yours:
 
 - It runs `compose.swarm.yaml` as a Docker Swarm stack with
-  `bpd.settings.production` (DEBUG hardcoded off), gunicorn behind Caddy, and
-  admin access only over Tailscale.
+  `bpd.settings.production` (DEBUG hardcoded off), and gunicorn behind Caddy.
 - Its configuration is in `fnox.toml`, which is age-encrypted, **gitignored**,
   and specific to the deploying host. Contributors don't have the key and don't
   need one.

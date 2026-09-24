@@ -33,32 +33,6 @@ services:
     depends_on:
       - web
 
-  # Joins the tailnet and serves the site at https://${TS_HOSTNAME}.<tailnet>.ts.net,
-  # which is the only route to /cms and /django-admin. Userspace networking, so
-  # it needs no NET_ADMIN, no /dev/net/tun, and no host-network access — it can
-  # reach the compose network and nothing else on the box.
-  #
-  # Requires MagicDNS and HTTPS certificates enabled for the tailnet
-  # (Tailscale admin console → DNS), or the serve config below cannot get a cert.
-  tailscale:
-    image: tailscale/tailscale:stable
-    restart: unless-stopped
-    hostname: ${TS_HOSTNAME:-bpd}
-    environment:
-      TS_AUTHKEY: ${TS_AUTHKEY:?set TS_AUTHKEY}
-      TS_HOSTNAME: ${TS_HOSTNAME:-bpd}
-      TS_STATE_DIR: /var/lib/tailscale
-      TS_SERVE_CONFIG: /config/serve.json
-      TS_USERSPACE: "true"
-      # --advertise-tags pins the node to an ACL tag so the key can be reusable
-      # and the node never expires. Drop it if the tag is not in your ACLs.
-      TS_EXTRA_ARGS: ${TS_EXTRA_ARGS:---advertise-tags=tag:server}
-    volumes:
-      - tailscale_state:/var/lib/tailscale
-      - ./tailscale/serve.json:/config/serve.json:ro
-    depends_on:
-      - caddy
-
   web:
     build:
       context: .
@@ -69,9 +43,8 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-bpd}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-bpd}
       VALKEY_URL: redis://valkey:6379/0
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY}
-      # TS_FQDN is last so the healthcheck below still picks the public host.
-      ALLOWED_HOSTS: ${DOMAIN:-blackpythondevs.org},www.${DOMAIN:-blackpythondevs.org},${TS_FQDN:-tailnet.invalid}
-      CSRF_TRUSTED_ORIGINS: https://${DOMAIN:-blackpythondevs.org},https://www.${DOMAIN:-blackpythondevs.org},https://${TS_FQDN:-tailnet.invalid}
+      ALLOWED_HOSTS: ${DOMAIN:-blackpythondevs.org},www.${DOMAIN:-blackpythondevs.org}
+      CSRF_TRUSTED_ORIGINS: https://${DOMAIN:-blackpythondevs.org},https://www.${DOMAIN:-blackpythondevs.org}
       WAGTAILADMIN_BASE_URL: https://${DOMAIN:-blackpythondevs.org}
       CARTO_API_KEY: ${CARTO_API_KEY:-}
       DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@blackpythondevs.org}
@@ -156,4 +129,3 @@ volumes:
   media_data:
   caddy_data:
   caddy_config:
-  tailscale_state:  # node identity — losing it re-registers the node
