@@ -23,6 +23,12 @@ class CustomImage(AbstractImage):
 
     admin_form_fields = Image.admin_form_fields + ("caption",)
 
+    class Meta(AbstractImage.Meta):
+        # Wagtail's own Image declares this; a custom model has to as well, or
+        # non-superusers can never open the image chooser (its check is
+        # `choose_<model_name>`).
+        permissions = [("choose_customimage", "Can choose image")]
+
 
 class CustomRendition(AbstractRendition):
     image = models.ForeignKey(CustomImage, on_delete=models.CASCADE, related_name="renditions")
