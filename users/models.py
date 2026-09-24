@@ -109,6 +109,7 @@ class User(AbstractUser):
     twitter = models.URLField("Twitter/X", blank=True)
     mastodon = models.URLField(blank=True)
     linkedin = models.URLField(blank=True)
+    website = models.URLField("Personal website", blank=True)
 
     def __str__(self):
         return self.display_name or self.get_full_name() or self.email
