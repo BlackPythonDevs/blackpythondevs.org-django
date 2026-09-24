@@ -17,7 +17,7 @@ from django.utils import timezone
 
 from communities.models import COMMUNITY_ADMIN_GROUP_NAME, Community, CommunityAdmin
 from community_messages.models import CommunityMessage
-from core.models import LEADERSHIP_GROUP_NAME
+from core.models import COUNCIL_GROUP_NAME
 
 # A 1x1 transparent PNG, for the image-upload test.
 ONE_PIXEL_PNG = base64.b64decode(
@@ -29,7 +29,7 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture(autouse=True)
 def required_groups(db):
-    for name in (COMMUNITY_ADMIN_GROUP_NAME, LEADERSHIP_GROUP_NAME):
+    for name in (COMMUNITY_ADMIN_GROUP_NAME, COUNCIL_GROUP_NAME):
         Group.objects.get_or_create(name=name)
 
 
@@ -41,11 +41,11 @@ def make_user(username, **kwargs):
 
 
 def make_leader(username, country):
-    """A user in the Leadership group, with `region` naturally derived from
-    `country` (never set directly — it must go through the same derivation
-    Community.region does, so the two are comparable)."""
+    """A user in the Leadership Council group, with `region` naturally derived
+    from `country` (never set directly — it must go through the same
+    derivation Community.region does, so the two are comparable)."""
     user = make_user(username, country=country)
-    user.groups.add(Group.objects.get(name=LEADERSHIP_GROUP_NAME))
+    user.groups.add(Group.objects.get(name=COUNCIL_GROUP_NAME))
     return user
 
 

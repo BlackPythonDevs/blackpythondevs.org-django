@@ -18,10 +18,15 @@ EXECUTOR_GROUP_NAME = "Executor"
 
 @pytest.mark.parametrize(
     "name",
-    [AMBASSADORS_GROUP_NAME, COUNCIL_GROUP_NAME, LEADERSHIP_GROUP_NAME, EXECUTOR_GROUP_NAME],
+    [AMBASSADORS_GROUP_NAME, COUNCIL_GROUP_NAME, EXECUTOR_GROUP_NAME],
 )
 def test_group_exists(name):
     assert Group.objects.filter(name=name).exists(), f"missing auth group {name!r}"
+
+
+def test_leadership_group_was_consolidated_into_council():
+    """Migration 0009 folds "Leadership" into "Leadership Council" and removes it."""
+    assert not Group.objects.filter(name=LEADERSHIP_GROUP_NAME).exists()
 
 
 def test_ambassadors_group_carries_no_permissions():
@@ -29,7 +34,7 @@ def test_ambassadors_group_carries_no_permissions():
     assert not Group.objects.get(name=AMBASSADORS_GROUP_NAME).permissions.exists()
 
 
-CMS_GROUP_NAMES = [COUNCIL_GROUP_NAME, LEADERSHIP_GROUP_NAME, EXECUTOR_GROUP_NAME]
+CMS_GROUP_NAMES = [COUNCIL_GROUP_NAME, EXECUTOR_GROUP_NAME]
 
 
 @pytest.mark.parametrize("name", CMS_GROUP_NAMES)
@@ -59,7 +64,7 @@ def test_leadership_member_reaches_the_cms(client):
     from django.contrib.auth import get_user_model
 
     user = get_user_model().objects.create_user("lead", password="x")
-    user.groups.add(Group.objects.get(name=LEADERSHIP_GROUP_NAME))
+    user.groups.add(Group.objects.get(name=COUNCIL_GROUP_NAME))
     client.force_login(user)
     assert client.get("/cms/").status_code == 200
 

@@ -182,8 +182,14 @@ class Partner(models.Model):
 # these carry no permissions of their own — they record who someone is, so
 # views and templates can gate on membership and permissions can be attached
 # later without a rename. A data migration provisions them.
+#
+# LEADERSHIP_GROUP_NAME is retired: it never carried any distinction from
+# Leadership Council, so migration 0009 folded its members into Council and
+# deleted it. The constant stays only because migrations 0003 and 0008
+# import it by name and migrations are not rewritten after the fact.
 COUNCIL_GROUP_NAME = "Leadership Council"
 LEADERSHIP_GROUP_NAME = "Leadership"
+EXECUTOR_GROUP_NAME = "Executor"
 
 
 def is_council_member(user):
@@ -199,9 +205,9 @@ def is_council_member(user):
 
 
 def is_leadership_or_above(user):
-    """Whether `user` is Leadership or Leadership Council (i.e. "leadership and
-    above"). Mirrors `nominations.models.can_nominate`'s group check, which
-    gates the same tier for a different feature.
+    """Whether `user` is on the Leadership Council or Executor (i.e.
+    "leadership and above"). Mirrors `nominations.models.can_nominate`'s group
+    check, which gates the same tier for a different feature.
 
     Superusers pass so a site admin is never locked out of their own console.
     """
@@ -209,7 +215,7 @@ def is_leadership_or_above(user):
         return False
     if user.is_superuser:
         return True
-    return user.groups.filter(name__in=(LEADERSHIP_GROUP_NAME, COUNCIL_GROUP_NAME)).exists()
+    return user.groups.filter(name__in=(COUNCIL_GROUP_NAME, EXECUTOR_GROUP_NAME)).exists()
 
 
 @register_snippet

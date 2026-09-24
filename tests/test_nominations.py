@@ -1,7 +1,7 @@
 """Council nominations: who can nominate, and what a nominator can do after.
 
-Access is gated on membership of the "Leadership Council" / "Leadership" groups
-— not on model permissions, because those groups deliberately carry none (see
+Access is gated on membership of the "Leadership Council" group — not on
+model permissions, because that group deliberately carries none (see
 test_groups.py). A signed-in member who isn't in leadership gets a 403, not a
 login redirect.
 """
@@ -11,7 +11,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.utils import timezone
 
-from core.models import COUNCIL_GROUP_NAME, LEADERSHIP_GROUP_NAME
+from core.models import COUNCIL_GROUP_NAME
 from nominations.models import CouncilNomination, current_term_year
 
 pytestmark = pytest.mark.django_db
@@ -19,10 +19,9 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture(autouse=True)
 def leadership_groups(db):
-    # The data migration creates these in the real DB; ensure they exist for
+    # The data migration creates this in the real DB; ensure it exists for
     # the in-memory test DB too.
-    for name in (COUNCIL_GROUP_NAME, LEADERSHIP_GROUP_NAME):
-        Group.objects.get_or_create(name=name)
+    Group.objects.get_or_create(name=COUNCIL_GROUP_NAME)
 
 
 def make_user(username, group=None, **kwargs):
@@ -44,7 +43,7 @@ def council_member(db):
 
 @pytest.fixture
 def leader(db):
-    return make_user("leader", LEADERSHIP_GROUP_NAME, display_name="Lee Ader")
+    return make_user("leader", COUNCIL_GROUP_NAME, display_name="Lee Ader")
 
 
 @pytest.fixture

@@ -7,9 +7,9 @@ accepted or declined. A nominator can withdraw their own nomination while it is
 still open.
 
 Nominating is restricted to the people already in leadership: members of the
-"Leadership Council" and "Leadership" groups (see `core.models`). Those are
-membership groups that deliberately carry no permissions, so the views gate on
-group membership rather than on Django model permissions.
+"Leadership Council" group (see `core.models`). That's a membership group that
+deliberately carries no permissions, so the views gate on group membership
+rather than on Django model permissions.
 
 The nominee is stored as a name and email rather than a `User` FK, because
 plenty of the people worth nominating have no account here yet. `nominee_user`
@@ -21,11 +21,7 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
-from core.models import COUNCIL_GROUP_NAME, LEADERSHIP_GROUP_NAME
-
-# Membership in either group is what earns the right to nominate. Kept here so
-# the views, templates, and tests share one source of truth.
-NOMINATOR_GROUP_NAMES = (COUNCIL_GROUP_NAME, LEADERSHIP_GROUP_NAME)
+from core.models import COUNCIL_GROUP_NAME
 
 
 def can_nominate(user):
@@ -37,7 +33,7 @@ def can_nominate(user):
         return False
     if user.is_superuser:
         return True
-    return user.groups.filter(name__in=NOMINATOR_GROUP_NAMES).exists()
+    return user.groups.filter(name=COUNCIL_GROUP_NAME).exists()
 
 
 def current_term_year():
