@@ -304,6 +304,15 @@ Verify the security posture at any time with:
 mise run prod-check
 ```
 
+### Admin access
+
+Both admins are public for now. `/cms` (Wagtail) is open to members of
+Leadership Council, Leadership and Executor, who can add and edit pages and
+manage images and documents but not publish; superusers publish. Grant it by
+adding someone to one of those groups. `/django-admin` needs `is_staff`, and
+restricting it to the tailnet is tracked in
+[#50](https://github.com/BlackPythonDevs/blackpythondevs.org-django/issues/50).
+
 ### Trying it locally under the real hostname
 
 Set `CADDY_TLS_INTERNAL="tls internal"` and Caddy signs with its own local CA
