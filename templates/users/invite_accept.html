@@ -9,8 +9,8 @@
 
   <section class="auth-panel">
     {% if invalid %}
-      {% if invite.is_used %}
-        <p>This invite link has already been used.</p>
+      {% if invite.is_exhausted %}
+        <p>This invite link has reached its limit and can no longer be used.</p>
       {% else %}
         <p>This invite link has expired. Ask whoever sent it to send you a new one.</p>
       {% endif %}

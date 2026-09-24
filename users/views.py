@@ -16,7 +16,7 @@ from notifications.models import can_send_notifications
 
 from .discord import is_configured, login_available
 from .forms import CouncilProfileForm, OnboardingForm, ProfileForm
-from .models import InviteLink
+from .models import INVITE_SESSION_KEY, InviteLink
 
 
 @login_required
@@ -109,16 +109,26 @@ def profile(request):
 
 
 def invite_accept(request, token):
-    """Landing page for a one-time invite link.
+    """Landing page for an invite link.
 
-    Confirming applies the invite's groups to the (found-or-created) account for
-    its email, then hands off to allauth's own login-by-code flow — same as an
-    existing member signing up again in users.forms.SignupForm.
+    An email-locked invite is confirmed directly here: accepting applies its groups
+    to the (found-or-created) account for that email, then hands off to allauth's
+    own login-by-code flow — same as an existing member signing up again in
+    users.forms.SignupForm.
+
+    A general-purpose signup link (no fixed email) instead hands off to the normal
+    signup form, stashing its token in the session — SignupForm applies this
+    invite's groups once that form finds or creates an account, whichever email
+    the visitor enters.
     """
     invite = get_object_or_404(InviteLink, token=token)
 
     if not invite.is_valid:
         return render(request, "users/invite_accept.html", {"invite": invite, "invalid": True})
+
+    if not invite.email:
+        request.session[INVITE_SESSION_KEY] = invite.token
+        return redirect("account_signup")
 
     if request.method == "POST":
         user = invite.accept(request)
