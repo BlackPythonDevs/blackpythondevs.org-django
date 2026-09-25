@@ -15,6 +15,12 @@ from home.models import AboutPage, StandardPage, SupportPage
 pytestmark = pytest.mark.django_db
 
 
+@pytest.fixture
+def site(bootstrapped_site):
+    """This whole file is about what `bootstrap_site` seeds, so it needs the real thing."""
+    return bootstrapped_site
+
+
 def test_bootstrap_creates_page_tree(site):
     assert site.slug == "home"
     assert AboutPage.objects.count() == 1

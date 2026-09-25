@@ -13,7 +13,10 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def events_index(site):
-    return EventIndexPage.objects.get()
+    page = EventIndexPage(title="Events", slug="events")
+    site.add_child(instance=page)
+    page.save_revision().publish()
+    return page
 
 
 def make(index, name, **kwargs):
@@ -79,6 +82,11 @@ SUMMIT_SLUG = "black-python-devs-leadership-summit-2027-at-pytexas"
 
 class TestSummit2027:
     """The 2027 PyTexas summit is seeded as a LeadershipSummitPage, not a stub."""
+
+    @pytest.fixture
+    def events_index(self, bootstrapped_site):
+        """Needs the real seeded summit, not just a bare events index."""
+        return EventIndexPage.objects.get()
 
     @pytest.fixture
     def summit(self, events_index):

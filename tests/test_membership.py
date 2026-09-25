@@ -70,6 +70,15 @@ class TestPasswordlessSignup:
 
 
 class TestMembershipPage:
+    @pytest.fixture
+    def site(self, site):
+        from home.models import MembershipPage
+
+        page = MembershipPage(title="Become a Member", slug="become-a-member")
+        site.add_child(instance=page)
+        page.save_revision().publish()
+        return site
+
     def test_page_renders_with_signup_form(self, client, site):
         html = client.get("/become-a-member/").content.decode()
         assert 'action="/accounts/signup/"' in html
