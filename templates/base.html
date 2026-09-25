@@ -11,7 +11,7 @@
     {% endcomment %}
     <meta name="description" content="{% block meta_description %}{% firstof page.description page.search_description "Helping build communities for Black Pythonistas around the world." %}{% endblock %}" />
     <meta name="theme-color" content="#060910" />
-    <title>{% block title %}{% if page.seo_title %}{{ page.seo_title }}{% elif page.title %}{{ page.title }}{% endif %}{% endblock %}{% block title_suffix %}{% if page.title and not page.is_root %} | {{ SITE_TITLE }}{% else %}{{ SITE_TITLE }}{% endif %}{% endblock %}</title>
+    <title>{% block title %}{% if page.seo_title %}{{ page.seo_title }}{% elif page.title %}{{ page.title }}{% endif %}{% endblock %}{% block title_suffix %} | {{ SITE_TITLE }}{% endblock %}</title>
 
     {% block social_meta %}
       <meta property="og:site_name" content="{{ SITE_TITLE }}" />
