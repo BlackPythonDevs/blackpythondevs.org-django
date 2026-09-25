@@ -282,7 +282,6 @@ class Leader(models.Model):
         return f"{self.name} ({self.get_role_display()})"
 
 
-@register_snippet
 class FoundationalSupport(models.Model):
     """One person's foundational support ($200+) in one year.
 
@@ -314,13 +313,6 @@ class FoundationalSupport(models.Model):
         help_text="Only 'Listed publicly' appears on the support page.",
     )
     note = models.CharField(max_length=200, blank=True)
-
-    panels = [
-        FieldPanel("user"),
-        FieldPanel("year"),
-        FieldPanel("status"),
-        FieldPanel("note"),
-    ]
 
     class Meta:
         ordering = ["-year", "user__display_name"]
