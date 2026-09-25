@@ -141,6 +141,36 @@ class ServiceAwardNomination(models.Model):
         return self.is_open and (user.is_superuser or self.nominator_id == user.pk)
 
 
+def group_by_nominee(nominations):
+    """Group nominations by nominee email (case-insensitively), the same way
+    `nominations.CouncilNomination`'s docstring describes seconding: a second
+    leader nominating the same person is separate support for one nominee,
+    not a separate candidate. Leadership needs to see that combined support
+    rather than one indistinguishable row per nomination.
+
+    `nominations` should already be ordered newest-first, so each group's
+    first entry is the most recently submitted nomination for that person.
+
+    Returns a list of `{"nominee_name", "nominee_email", "nominations"}`
+    dicts, most-supported nominee first.
+    """
+    groups = {}
+    order = []
+    for nomination in nominations:
+        key = nomination.nominee_email.strip().lower()
+        group = groups.get(key)
+        if group is None:
+            group = {
+                "nominee_name": nomination.nominee_name,
+                "nominee_email": nomination.nominee_email,
+                "nominations": [],
+            }
+            groups[key] = group
+            order.append(key)
+        group["nominations"].append(nomination)
+    return sorted((groups[key] for key in order), key=lambda group: len(group["nominations"]), reverse=True)
+
+
 class ServiceAwardRecipient(models.Model):
     """The community member selected to receive the award in a given year.
 

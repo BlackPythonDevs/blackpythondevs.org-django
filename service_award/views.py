@@ -18,7 +18,7 @@ from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, DetailView, ListView, UpdateView, View
 
 from .forms import ServiceAwardNominationForm
-from .models import ServiceAwardNomination, can_nominate, current_award_year
+from .models import ServiceAwardNomination, can_nominate, current_award_year, group_by_nominee
 
 
 class LeadershipRequiredMixin(UserPassesTestMixin):
@@ -36,11 +36,15 @@ class LeadershipRequiredMixin(UserPassesTestMixin):
 
 
 class NominationListView(LeadershipRequiredMixin, ListView):
-    """Every nomination in one cycle, newest first."""
+    """One row per nominee in one cycle, most-supported first.
 
-    model = ServiceAwardNomination
+    Two leaders nominating the same person are two rows of support for one
+    nominee, not two unrelated nominations, so the list groups them by email
+    (see `group_by_nominee`) rather than listing every nomination record.
+    """
+
     template_name = "service_award/nomination_list.html"
-    context_object_name = "nominations"
+    context_object_name = "nominee_groups"
     paginate_by = 25
 
     def get_award_year(self):
@@ -53,12 +57,13 @@ class NominationListView(LeadershipRequiredMixin, ListView):
     def get_queryset(self):
         # Withdrawn nominations keep their record (see NominationWithdrawView)
         # but shouldn't clutter the list leadership works from day to day.
-        return (
+        nominations = (
             ServiceAwardNomination.objects.filter(award_year=self.get_award_year())
             .exclude(status=ServiceAwardNomination.WITHDRAWN)
             .select_related("nominator", "nominee_user")
             .order_by("-created_at")
         )
+        return group_by_nominee(nominations)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -102,6 +107,17 @@ class NominationDetailView(LeadershipRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         # `editable_by` takes an argument, so templates can't call it directly.
         context["can_edit"] = self.object.editable_by(self.request.user)
+        # Other leaders' support for the same nominee this cycle (see
+        # `group_by_nominee`) — this record's own nomination isn't repeated.
+        context["supporting_nominations"] = (
+            ServiceAwardNomination.objects.filter(
+                nominee_email__iexact=self.object.nominee_email,
+                award_year=self.object.award_year,
+            )
+            .exclude(pk=self.object.pk)
+            .exclude(status=ServiceAwardNomination.WITHDRAWN)
+            .select_related("nominator")
+        )
         return context
 
 

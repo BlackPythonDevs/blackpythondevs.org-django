@@ -43,5 +43,19 @@
         <button type="submit" class="secondary">Withdraw this nomination</button>
       </form>
     {% endif %}
+
+    {% if supporting_nominations %}
+      <div class="card">
+        <h2>Other nominations for {{ object.nominee_name }}</h2>
+        <ul>
+          {% for nomination in supporting_nominations %}
+            <li>
+              <a href="{% url 'service_award:detail' nomination.pk %}">{{ nomination.nominator }}</a>
+              — {{ nomination.get_status_display }}
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
   </section>
 {% endblock %}

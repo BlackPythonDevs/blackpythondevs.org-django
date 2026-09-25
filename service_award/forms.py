@@ -1,4 +1,5 @@
 from django import forms
+from django.contrib.auth import get_user_model
 
 from core.models import EXECUTOR_GROUP_NAME
 
@@ -8,12 +9,13 @@ from .models import ServiceAwardNomination, ServiceAwardRecipient
 class ServiceAwardNominationForm(forms.ModelForm):
     class Meta:
         model = ServiceAwardNomination
-        # nominator, award_year, status and notes are set server-side or
-        # managed by leadership, so they stay off the form.
+        # nominator, nominee_user, award_year, status and notes are set
+        # server-side or managed by leadership, so they stay off the form.
+        # nominee_user in particular is never picked from a member list —
+        # see clean() — it's only ever matched by email.
         fields = [
             "nominee_name",
             "nominee_email",
-            "nominee_user",
             "nominee_url",
             "statement",
             "contributions",
@@ -21,7 +23,6 @@ class ServiceAwardNominationForm(forms.ModelForm):
         labels = {
             "nominee_name": "Who are you nominating?",
             "nominee_email": "Their email",
-            "nominee_user": "Their site account (optional)",
             "nominee_url": "A link to their work (optional)",
             "statement": "Why do they deserve the Community Service Award?",
             "contributions": "What have they contributed so far?",
@@ -35,26 +36,31 @@ class ServiceAwardNominationForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.nominator = nominator
         self.award_year = award_year
-        # A large member list would make this select unusable, but the
-        # account link is optional — leaving it blank is always valid.
-        self.fields["nominee_user"].required = False
 
     def clean(self):
-        """Catch the eligibility rules and the duplicate before the database
-        constraint does.
+        """Match the nominee to a site account by email, and catch the
+        eligibility rules and the duplicate before the database constraint
+        does.
+
+        There's deliberately no field for picking a site account — a large
+        member list would make a select unusable, and it invites picking the
+        wrong "Jay Miller". Matching by email is the only way in, and it
+        happens here rather than as a form field so a nominator can't
+        override it.
 
         The unique constraint only covers (nominator, nominee_email,
         award_year), and two of those three are filled in by the view, so the
         form has to be told about them to raise a readable error instead of
-        an IntegrityError. The Executor and past-recipient exclusions have
-        no database constraint behind them at all — they're checked here.
+        an IntegrityError. The Executor and past-recipient exclusions have no
+        database constraint behind them at all — they're checked here too.
         """
         cleaned = super().clean()
         email = cleaned.get("nominee_email")
-        nominee_user = cleaned.get("nominee_user")
+        nominee_user = get_user_model().objects.filter(email__iexact=email).first() if email else None
+        self.matched_nominee_user = nominee_user
 
         if nominee_user is not None and nominee_user.groups.filter(name=EXECUTOR_GROUP_NAME).exists():
-            self.add_error("nominee_user", "Executors aren't eligible for this award.")
+            self.add_error("nominee_email", "Executors aren't eligible for this award.")
 
         if email:
             already_won = ServiceAwardRecipient.objects.filter(recipient_email__iexact=email)
@@ -75,3 +81,10 @@ class ServiceAwardNominationForm(forms.ModelForm):
                     "You've already nominated this person for this cycle.",
                 )
         return cleaned
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.nominee_user = self.matched_nominee_user
+        if commit:
+            instance.save()
+        return instance

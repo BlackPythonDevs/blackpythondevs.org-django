@@ -130,20 +130,26 @@ class TestNominate:
         client.force_login(executor)
         response = client.post(
             "/leadership/service-award/new/",
-            FORM_DATA | {"nominee_user": other_executor.pk},
+            FORM_DATA | {"nominee_email": other_executor.email},
         )
         assert response.status_code == 200
         assert "eligible for this award" in response.content.decode()
         assert ServiceAwardNomination.objects.count() == 0
 
-    def test_council_member_is_eligible(self, client, executor, council_member):
+    def test_council_member_is_eligible_and_gets_matched_by_email(self, client, executor, council_member):
         client.force_login(executor)
         response = client.post(
             "/leadership/service-award/new/",
-            FORM_DATA | {"nominee_user": council_member.pk},
+            FORM_DATA | {"nominee_email": council_member.email},
         )
         assert response.status_code == 302
         assert ServiceAwardNomination.objects.get().nominee_user == council_member
+
+    def test_nominee_user_field_is_not_on_the_form(self, client, executor):
+        client.force_login(executor)
+        html = client.get("/leadership/service-award/new/").content.decode()
+        assert "nominee_user" not in html
+        assert "Their site account" not in html
 
     def test_previous_recipient_is_not_eligible(self, client, executor):
         ServiceAwardRecipient.objects.create(
@@ -192,6 +198,18 @@ class TestListView:
         html = client.get("/leadership/service-award/").content.decode()
         assert "Still In It" in html
         assert "Withdrawn One" not in html
+
+    def test_nominations_for_the_same_email_are_grouped(self, client, executor, council_member):
+        make_nomination(executor, nominee_name="Nia Nominee", nominee_email="nia@example.com")
+        make_nomination(council_member, nominee_name="Nia Nominee", nominee_email="NIA@example.com")
+        make_nomination(executor, nominee_name="Other Person", nominee_email="other@example.com")
+        client.force_login(executor)
+
+        response = client.get("/leadership/service-award/")
+        groups = {group["nominee_email"].lower(): group for group in response.context["nominee_groups"]}
+        assert len(groups["nia@example.com"]["nominations"]) == 2
+        assert len(groups["other@example.com"]["nominations"]) == 1
+        assert "2 nominations" in response.content.decode()
 
 
 class TestEditAndWithdraw:
@@ -247,6 +265,15 @@ class TestDetailView:
             "Withdraw this nomination"
             not in client.get(f"/leadership/service-award/{nomination.pk}/").content.decode()
         )
+
+    def test_detail_page_lists_other_support_for_the_same_nominee(self, client, executor, council_member):
+        first = make_nomination(executor)
+        make_nomination(council_member)
+        client.force_login(executor)
+
+        html = client.get(f"/leadership/service-award/{first.pk}/").content.decode()
+        assert "Other nominations" in html
+        assert str(council_member) in html
 
 
 class TestMemberArea:
