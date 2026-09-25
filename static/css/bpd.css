@@ -195,6 +195,32 @@ a:focus-visible {
   border-radius: 3px;
 }
 
+/* A <button> that needs to be JS-clickable (so it can't just be an <a
+ * href="#...">) but should read as a plain underlined text link rather than
+ * compete visually with a real .btn — e.g. "Read statement" on a candidacy
+ * card. */
+.link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--bpd-cyan);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.15em;
+  cursor: pointer;
+  transition: color 0.4s ease;
+}
+.link-button:hover {
+  color: var(--bpd-white);
+}
+.link-button:focus-visible {
+  outline: 2px solid var(--bpd-cyan);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
 strong,
 b {
   color: var(--bpd-white);
