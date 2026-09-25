@@ -36,6 +36,13 @@ class ServiceAwardNominationForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.nominator = nominator
         self.award_year = award_year
+        # Set in clean() once we know which case we're in: a brand new
+        # nomination (neither), a genuine duplicate (blocked outright), or a
+        # withdrawn one the nominator is bringing back (set once they've
+        # confirmed via the "reinstate" button — see the template).
+        self.matched_nominee_user = None
+        self.reinstate_target = None
+        self.needs_reinstate_confirmation = False
 
     def clean(self):
         """Match the nominee to a site account by email, and catch the
@@ -53,6 +60,13 @@ class ServiceAwardNominationForm(forms.ModelForm):
         form has to be told about them to raise a readable error instead of
         an IntegrityError. The Executor and past-recipient exclusions have no
         database constraint behind them at all — they're checked here too.
+
+        A withdrawn nomination for the same person doesn't count as that
+        duplicate — resubmitting is presumably deliberate — but it isn't
+        silently reinstated either, since the nominator may have just
+        forgotten they'd already withdrawn. `needs_reinstate_confirmation`
+        tells the view/template to ask first; the "reinstate" button in the
+        template resubmits with that confirmation.
         """
         cleaned = super().clean()
         email = cleaned.get("nominee_email")
@@ -70,19 +84,42 @@ class ServiceAwardNominationForm(forms.ModelForm):
                 self.add_error("nominee_email", "This person has already received the Community Service Award.")
 
         if email and self.nominator is not None and self.award_year is not None:
-            duplicates = ServiceAwardNomination.objects.filter(
+            existing = ServiceAwardNomination.objects.filter(
                 nominator=self.nominator,
                 nominee_email__iexact=email,
                 award_year=self.award_year,
             ).exclude(pk=self.instance.pk)
-            if duplicates.exists():
+            if existing.exclude(status=ServiceAwardNomination.WITHDRAWN).exists():
                 self.add_error(
                     "nominee_email",
                     "You've already nominated this person for this cycle.",
                 )
+            else:
+                withdrawn = existing.filter(status=ServiceAwardNomination.WITHDRAWN).first()
+                if withdrawn is not None:
+                    if self.data.get("reinstate") == "true":
+                        self.reinstate_target = withdrawn
+                    else:
+                        self.needs_reinstate_confirmation = True
+                        self.add_error(
+                            "nominee_email",
+                            "You withdrew a nomination for this person earlier this cycle. "
+                            "Confirm below to reinstate it instead of starting a new one.",
+                        )
         return cleaned
 
     def save(self, commit=True):
+        if self.reinstate_target is not None:
+            nomination = self.reinstate_target
+            for field in ("nominee_name", "nominee_email", "nominee_url", "statement", "contributions"):
+                setattr(nomination, field, self.cleaned_data[field])
+            nomination.nominee_user = self.matched_nominee_user
+            nomination.status = ServiceAwardNomination.SUBMITTED
+            if commit:
+                nomination.save()
+            self.instance = nomination
+            return nomination
+
         instance = super().save(commit=False)
         instance.nominee_user = self.matched_nominee_user
         if commit:

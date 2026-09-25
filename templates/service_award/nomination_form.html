@@ -14,9 +14,15 @@
     <form method="post">
       {% csrf_token %}
       {{ form.as_p }}
-      <button type="submit" class="btn">
-        {% if object %}Save changes{% else %}Submit nomination{% endif %}
-      </button>
+      {% if form.needs_reinstate_confirmation %}
+        <button type="submit" name="reinstate" value="true" class="btn">
+          Yes, reinstate my nomination
+        </button>
+      {% else %}
+        <button type="submit" class="btn">
+          {% if object %}Save changes{% else %}Submit nomination{% endif %}
+        </button>
+      {% endif %}
       <a role="button" class="secondary" href="{% url 'service_award:list' %}">Cancel</a>
     </form>
   </section>

@@ -161,6 +161,33 @@ class TestNominate:
         assert "already received the Community Service Award" in response.content.decode()
         assert ServiceAwardNomination.objects.count() == 0
 
+    def test_resubmitting_a_withdrawn_nomination_asks_for_confirmation(self, client, executor):
+        withdrawn = make_nomination(executor, status=ServiceAwardNomination.WITHDRAWN)
+        client.force_login(executor)
+
+        response = client.post("/leadership/service-award/new/", FORM_DATA)
+        assert response.status_code == 200
+        assert "withdrew a nomination for this person earlier this cycle" in response.content.decode()
+        assert "Yes, reinstate my nomination" in response.content.decode()
+        # No new record, and the withdrawn one is untouched until confirmed.
+        assert ServiceAwardNomination.objects.count() == 1
+        withdrawn.refresh_from_db()
+        assert withdrawn.status == ServiceAwardNomination.WITHDRAWN
+
+    def test_confirming_reinstates_the_withdrawn_nomination_without_a_new_record(self, client, executor):
+        withdrawn = make_nomination(executor, status=ServiceAwardNomination.WITHDRAWN)
+        client.force_login(executor)
+
+        response = client.post(
+            "/leadership/service-award/new/",
+            FORM_DATA | {"statement": "Updated case.", "reinstate": "true"},
+        )
+        assert response.status_code == 302
+        assert ServiceAwardNomination.objects.count() == 1
+        withdrawn.refresh_from_db()
+        assert withdrawn.status == ServiceAwardNomination.SUBMITTED
+        assert withdrawn.statement == "Updated case."
+
 
 class TestListView:
     def test_list_shows_only_the_selected_cycle(self, client, executor):

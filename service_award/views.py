@@ -91,8 +91,12 @@ class NominateView(LeadershipRequiredMixin, CreateView):
     def form_valid(self, form):
         form.instance.nominator = self.request.user
         form.instance.award_year = current_award_year()
+        was_reinstated = form.reinstate_target is not None
         response = super().form_valid(form)
-        messages.success(self.request, f"Nomination submitted for {self.object.nominee_name}.")
+        if was_reinstated:
+            messages.success(self.request, f"Reinstated the nomination for {self.object.nominee_name}.")
+        else:
+            messages.success(self.request, f"Nomination submitted for {self.object.nominee_name}.")
         return response
 
 
