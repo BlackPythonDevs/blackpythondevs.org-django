@@ -80,11 +80,12 @@
       <h2>Withdrawn — {{ award_year }}</h2>
       <p>
         {% if request.user.is_superuser %}
-          Every withdrawn nomination this cycle. Reinstating brings it back
+          Every withdrawn nomination this cycle. Reinstating brings one back
           exactly as it was, without going through the nomination form.
         {% else %}
-          Nominations you withdrew this cycle. Reinstating brings one back
-          exactly as it was, without going through the nomination form.
+          Nominations you withdrew this cycle, plus withdrawn nominations for
+          anyone you're also currently nominating — only you (or the person
+          who withdrew it) can reinstate one.
         {% endif %}
       </p>
       <ul>
@@ -92,15 +93,17 @@
           <li>
             <a href="{% url 'service_award:detail' nomination.pk %}">{{ nomination.nominee_name }}</a>
             — nominated by {{ nomination.nominator }}
-            <form
-              method="post"
-              action="{% url 'service_award:reinstate' nomination.pk %}"
-              data-confirm-message="Reinstate the nomination for {{ nomination.nominee_name }}?"
-              style="display: inline;"
-            >
-              {% csrf_token %}
-              <button type="submit" class="btn secondary">Reinstate</button>
-            </form>
+            {% if nomination.pk in reinstatable_ids %}
+              <form
+                method="post"
+                action="{% url 'service_award:reinstate' nomination.pk %}"
+                data-confirm-message="Reinstate the nomination for {{ nomination.nominee_name }}?"
+                style="display: inline;"
+              >
+                {% csrf_token %}
+                <button type="submit" class="btn secondary">Reinstate</button>
+              </form>
+            {% endif %}
           </li>
         {% endfor %}
       </ul>

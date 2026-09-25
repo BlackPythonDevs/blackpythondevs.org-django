@@ -357,8 +357,30 @@ class TestReinstate:
 
         html = client.get("/leadership/service-award/").content.decode()
         assert "My Withdrawn Pick" in html
-        # Not a superuser: only their own withdrawn nominations show up.
+        # Not a superuser, and executor isn't nominating this person too, so
+        # an unrelated leader's withdrawal stays out of view.
         assert "Someone Elses Pick" not in html
+
+    def test_list_page_shows_a_collated_withdrawal_for_someone_youre_also_nominating(
+        self, client, executor, council_member
+    ):
+        # executor is actively backing "Nia Nominee"; council_member's
+        # withdrawn nomination for the same person should show up for
+        # executor too — it's the same nominee, collated by email — but
+        # without a Reinstate button, since it's not executor's to bring back.
+        make_nomination(executor, nominee_name="Nia Nominee", nominee_email="nia@example.com")
+        make_nomination(
+            council_member,
+            nominee_name="Nia Nominee",
+            nominee_email="NIA@example.com",
+            status=ServiceAwardNomination.WITHDRAWN,
+        )
+        client.force_login(executor)
+
+        html = client.get("/leadership/service-award/").content.decode()
+        assert "Withdrawn —" in html
+        assert "nominated by Cee Member" in html
+        assert "Reinstate</button>" not in html
 
     def test_list_page_withdrawn_section_shows_everyone_to_a_superuser(self, client, executor, db):
         make_nomination(executor, nominee_name="Someone Elses Pick", status=ServiceAwardNomination.WITHDRAWN)

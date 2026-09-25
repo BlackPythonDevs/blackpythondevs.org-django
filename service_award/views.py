@@ -81,8 +81,36 @@ class NominationListView(LeadershipRequiredMixin, ListView):
                 status=ServiceAwardNomination.WITHDRAWN,
             ).select_related("nominator")
             if not self.request.user.is_superuser:
-                withdrawn = withdrawn.filter(nominator=self.request.user)
-            context["withdrawn_nominations"] = withdrawn.order_by("-updated_at")
+                # A leader sees a withdrawn nomination here if they withdrew
+                # it themselves, or if they're currently backing that same
+                # nominee (see `group_by_nominee` — nominating alongside
+                # someone collates into one nominee, not separate entries),
+                # so they can see the full picture of support for someone
+                # they're also nominating. Not everyone else's withdrawals.
+                my_nominee_emails = {
+                    email.strip().lower()
+                    for email in ServiceAwardNomination.objects.filter(
+                        nominator=self.request.user,
+                        award_year=award_year,
+                    )
+                    .exclude(status=ServiceAwardNomination.WITHDRAWN)
+                    .values_list("nominee_email", flat=True)
+                }
+                withdrawn = [
+                    nomination
+                    for nomination in withdrawn
+                    if nomination.nominator_id == self.request.user.pk
+                    or nomination.nominee_email.strip().lower() in my_nominee_emails
+                ]
+            withdrawn = sorted(withdrawn, key=lambda nomination: nomination.updated_at, reverse=True)
+            context["withdrawn_nominations"] = withdrawn
+            # `reinstatable_by` takes an argument, so the template can't call
+            # it directly — someone else's withdrawn nomination for a
+            # nominee you're also backing shows up here for visibility, but
+            # you still can't be the one to bring it back.
+            context["reinstatable_ids"] = {
+                nomination.pk for nomination in withdrawn if nomination.reinstatable_by(self.request.user)
+            }
         return context
 
 
