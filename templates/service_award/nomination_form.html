@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}{% if object %}Edit nomination{% else %}Nominate someone for the Community Service Award{% endif %}{% endblock %}
 
@@ -11,19 +12,54 @@
       be recognized and why. Nominations stay internal to leadership.
     </p>
 
-    <form method="post">
+    <form
+      method="post"
+      id="service-award-form"
+      data-confirm-message="{% if object %}Save these changes to the nomination?{% else %}Submit this nomination? Leadership will be able to see it.{% endif %}"
+    >
       {% csrf_token %}
       {{ form.as_p }}
-      {% if form.needs_reinstate_confirmation %}
-        <button type="submit" name="reinstate" value="true" class="btn">
-          Yes, reinstate my nomination
-        </button>
-      {% else %}
-        <button type="submit" class="btn">
-          {% if object %}Save changes{% else %}Submit nomination{% endif %}
-        </button>
-      {% endif %}
+      <input type="hidden" name="reinstate" id="reinstate-field" value="" />
+      <button type="submit" class="btn">
+        {% if object %}Save changes{% else %}Submit nomination{% endif %}
+      </button>
       <a role="button" class="secondary" href="{% url 'service_award:list' %}">Cancel</a>
     </form>
   </section>
+
+  <dialog id="confirm-submit-modal">
+    <div class="card">
+      <p><strong>Confirm</strong></p>
+      <p id="confirm-submit-message"></p>
+      <footer>
+        <button class="btn secondary" type="button" data-close-modal>Cancel</button>
+        <button class="btn" type="button" id="confirm-submit-proceed">Yes, continue</button>
+      </footer>
+    </div>
+  </dialog>
+
+  {% if form.needs_reinstate_confirmation %}
+    <dialog id="reinstate-modal" open>
+      <div class="card">
+        <p><strong>Reinstate your nomination?</strong></p>
+        <p>
+          You withdrew a nomination for this person earlier this cycle.
+          Continuing will reinstate that nomination — with the details
+          you've just entered — instead of starting a new one.
+        </p>
+        <footer>
+          <button class="btn secondary" type="button" data-close-modal>Cancel</button>
+          <button class="btn" type="button" id="reinstate-confirm">Yes, reinstate my nomination</button>
+        </footer>
+      </div>
+    </dialog>
+  {% endif %}
+{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/service-award.css' %}" />
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/service-award-form.js' %}"></script>
 {% endblock %}
