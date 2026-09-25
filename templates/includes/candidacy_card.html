@@ -40,6 +40,26 @@
         {% endif %}
       </ul>
     {% endif %}
-    <p>{{ candidacy.statement|linebreaksbr }}</p>
+    <p>
+      <button type="button" class="link-button" data-open-modal="statement-modal-{{ candidacy.pk }}">
+        Read statement
+      </button>
+    </p>
   </div>
 </article>
+
+<dialog id="statement-modal-{{ candidacy.pk }}" class="statement-modal">
+  <div class="card">
+    <p><strong>{{ candidacy.user }}</strong></p>
+    {% if candidacy.user.region %}
+      <p><small style="color: var(--bpd-muted);">{{ candidacy.user.region }}</small></p>
+    {% endif %}
+    {% if candidacy.user.leader_profile.affiliations %}
+      <p><small style="color: var(--bpd-muted);">{{ candidacy.user.leader_profile.affiliations }}</small></p>
+    {% endif %}
+    <p>{{ candidacy.statement|linebreaksbr }}</p>
+    <div class="modal-actions">
+      <button class="btn secondary" type="button" data-close-modal>Close</button>
+    </div>
+  </div>
+</dialog>

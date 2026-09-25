@@ -56,7 +56,16 @@
   </section>
 {% endblock %}
 
+{% block extra_css %}
+  {% if candidacies %}
+    <link rel="stylesheet" href="{% static 'css/elections.css' %}" />
+  {% endif %}
+{% endblock %}
+
 {% block extra_js %}
+  {% if candidacies %}
+    <script src="{% static 'js/statement-modal.js' %}"></script>
+  {% endif %}
   {% if next_deadline_iso %}
     <script src="{% static 'js/election-timer.js' %}"></script>
   {% endif %}

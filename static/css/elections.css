@@ -1,0 +1,45 @@
+/* Candidacy statement popups (election_detail.html): clicking "Read
+ * statement" on a candidacy card opens that candidate's full statement in a
+ * modal instead of the grid having to make room for it inline. Same
+ * hand-rolled overlay as the Community Service Award modals
+ * (service-award.css) — Pico's own dialog component isn't loaded on this
+ * site. */
+
+html.modal-is-open {
+  overflow: hidden;
+}
+
+dialog.statement-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.6);
+  border: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  z-index: 999;
+  overflow-y: auto;
+}
+
+dialog.statement-modal[open] {
+  display: flex;
+}
+
+dialog.statement-modal .card {
+  max-width: 36rem;
+  width: 100%;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
+dialog.statement-modal .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
