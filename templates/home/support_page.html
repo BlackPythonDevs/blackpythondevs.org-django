@@ -42,6 +42,13 @@
             </header>
             <h3><a href="{{ partner.url }}">{{ partner.name }}</a></h3>
             {{ partner.description|richtext }}
+            {% if partner.promo_code %}
+              {% if user.is_authenticated %}
+                <p>Promo code: <strong>{{ partner.promo_code }}</strong></p>
+              {% else %}
+                <p><a href="{% url 'account_login' %}">Log in</a> to see this partner's promo code.</p>
+              {% endif %}
+            {% endif %}
           </article>
         {% endfor %}
       </div>

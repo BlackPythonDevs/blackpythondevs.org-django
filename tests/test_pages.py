@@ -144,6 +144,27 @@ class TestFoundationalSupport:
         assert "Private Person" not in html
 
 
+class TestPartnerPromoCodes:
+    """Partnerships are public, but the promo code is a member perk."""
+
+    def test_anonymous_visitors_do_not_see_promo_codes(self, client, site):
+        html = client.get("/support/").content.decode()
+        assert "bpd-20pc-1c1da" not in html
+        assert "BLACKPYTHONDEVS" not in html
+        assert "Log in" in html
+
+    def test_logged_in_members_see_promo_codes(self, client, site):
+        User = get_user_model()
+        user = User.objects.create_user(
+            username="member", email="member@example.com", password="password123"
+        )
+        client.force_login(user)
+
+        html = client.get("/support/").content.decode()
+        assert "bpd-20pc-1c1da" in html
+        assert "BLACKPYTHONDEVS" in html
+
+
 class TestSupporterImport:
     """The roster is re-uploaded wholesale; emails make accounts claimable."""
 
