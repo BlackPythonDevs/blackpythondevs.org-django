@@ -1710,6 +1710,27 @@ section {
   margin-bottom: 5rem;
 }
 
+/* Wagtail's default StreamField block wrapper divs (class="w-block-<type>
+   block-<type>") have no spacing of their own, so consecutive blocks in a
+   page body (heading, paragraph, image, html, ...) run into each other.
+   Listed explicitly (rather than an attribute selector) so every block type
+   in core.blocks.BodyStreamBlock is accounted for. */
+section .w-block-heading,
+section .w-block-paragraph,
+section .w-block-image,
+section .w-block-quote,
+section .w-block-embed,
+section .w-block-iframe,
+section .w-block-callout,
+section .w-block-card_grid,
+section .w-block-ambassador_apply,
+section .w-block-html {
+  margin-bottom: 2.5rem;
+}
+section [class*="w-block-"]:last-child {
+  margin-bottom: 0;
+}
+
 /* ── 25. Responsive ───────────────────────────────────────── */
 
 @media (max-width: 768px) {
