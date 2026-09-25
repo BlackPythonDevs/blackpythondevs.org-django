@@ -599,6 +599,28 @@ main.container {
   }
 }
 
+.supporters-list {
+  column-count: 3;
+  column-gap: 2rem;
+  padding-left: 1.5rem;
+}
+
+.supporters-list li {
+  break-inside: avoid;
+}
+
+@media (max-width: 900px) {
+  .supporters-list {
+    column-count: 2;
+  }
+}
+
+@media (max-width: 600px) {
+  .supporters-list {
+    column-count: 1;
+  }
+}
+
 /* ── 10. Site Header ──────────────────────────────────────── */
 
 .site-header {

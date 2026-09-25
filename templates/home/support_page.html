@@ -56,7 +56,7 @@
       {% for year, names in supporters_by_year %}
         <details {% if year == current_year %}open{% endif %}>
           <summary>{{ year }}</summary>
-          <ul>{% for name in names %}<li>{{ name }}</li>{% endfor %}</ul>
+          <ul class="supporters-list">{% for name in names %}<li>{{ name }}</li>{% endfor %}</ul>
         </details>
       {% endfor %}
       <p>* <sub>Those who marked their desire to remain anonymous have not been included.</sub></p>
