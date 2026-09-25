@@ -151,7 +151,18 @@
     <form method="post" enctype="multipart/form-data" id="onboarding-form" novalidate>
       {% csrf_token %}
 
-      <section class="onboarding-step" data-title="BPD member or ally">
+      <section class="onboarding-step" data-title="Your name">
+        <h2>What name should we use for you?</h2>
+        <p class="onboarding-explainer">
+          <strong>Why we ask:</strong> this is how people will know and refer to you,
+          including on the website for things like speaking and leadership roles.
+          You can leave this blank to use the name on your account.
+        </p>
+        {{ form.display_name }}
+        {{ form.display_name.errors }}
+      </section>
+
+      <section class="onboarding-step" data-title="BPD member or ally" hidden>
         <h2>Are you a BPD Member or a Friend/Supporter/Ally?</h2>
         <p class="onboarding-explainer">
           <strong>Why we ask:</strong> knowing who's part of the core membership versus
