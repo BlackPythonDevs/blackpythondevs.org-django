@@ -174,6 +174,18 @@ class TestNominate:
         withdrawn.refresh_from_db()
         assert withdrawn.status == ServiceAwardNomination.WITHDRAWN
 
+    def test_resubmitting_shows_other_active_nominators_for_the_same_person(
+        self, client, executor, council_member
+    ):
+        make_nomination(executor, status=ServiceAwardNomination.WITHDRAWN)
+        make_nomination(council_member)
+        client.force_login(executor)
+
+        response = client.post("/leadership/service-award/new/", FORM_DATA)
+        assert response.status_code == 200
+        assert "Also nominated by" in response.content.decode()
+        assert str(council_member) in response.content.decode()
+
     def test_confirming_reinstates_the_withdrawn_nomination_without_a_new_record(self, client, executor):
         withdrawn = make_nomination(executor, status=ServiceAwardNomination.WITHDRAWN)
         client.force_login(executor)

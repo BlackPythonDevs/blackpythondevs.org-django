@@ -12,11 +12,7 @@
       be recognized and why. Nominations stay internal to leadership.
     </p>
 
-    <form
-      method="post"
-      id="service-award-form"
-      data-confirm-message="{% if object %}Save these changes to the nomination?{% else %}Submit this nomination? Leadership will be able to see it.{% endif %}"
-    >
+    <form method="post" id="service-award-form">
       {% csrf_token %}
       {{ form.as_p }}
       <input type="hidden" name="reinstate" id="reinstate-field" value="" />
@@ -27,17 +23,6 @@
     </form>
   </section>
 
-  <dialog id="confirm-submit-modal">
-    <div class="card">
-      <p><strong>Confirm</strong></p>
-      <p id="confirm-submit-message"></p>
-      <footer>
-        <button class="btn secondary" type="button" data-close-modal>Cancel</button>
-        <button class="btn" type="button" id="confirm-submit-proceed">Yes, continue</button>
-      </footer>
-    </div>
-  </dialog>
-
   {% if form.needs_reinstate_confirmation %}
     <dialog id="reinstate-modal" open>
       <div class="card">
@@ -47,10 +32,16 @@
           Continuing will reinstate that nomination — with the details
           you've just entered — instead of starting a new one.
         </p>
-        <footer>
+        {% if form.other_nominators %}
+          <p>
+            Also nominated by:
+            {% for nominator in form.other_nominators %}{{ nominator }}{% if not forloop.last %}, {% endif %}{% endfor %}.
+          </p>
+        {% endif %}
+        <div class="modal-actions">
           <button class="btn secondary" type="button" data-close-modal>Cancel</button>
           <button class="btn" type="button" id="reinstate-confirm">Yes, reinstate my nomination</button>
-        </footer>
+        </div>
       </div>
     </dialog>
   {% endif %}

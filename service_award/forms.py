@@ -43,6 +43,10 @@ class ServiceAwardNominationForm(forms.ModelForm):
         self.matched_nominee_user = None
         self.reinstate_target = None
         self.needs_reinstate_confirmation = False
+        # Other leaders currently backing this nominee (active nominations,
+        # not this nominator's own) — shown alongside the reinstate prompt so
+        # a nominator can see who else is behind this person before deciding.
+        self.other_nominators = []
 
     def clean(self):
         """Match the nominee to a site account by email, and catch the
@@ -101,6 +105,16 @@ class ServiceAwardNominationForm(forms.ModelForm):
                         self.reinstate_target = withdrawn
                     else:
                         self.needs_reinstate_confirmation = True
+                        self.other_nominators = [
+                            nomination.nominator
+                            for nomination in ServiceAwardNomination.objects.filter(
+                                nominee_email__iexact=email,
+                                award_year=self.award_year,
+                            )
+                            .exclude(status=ServiceAwardNomination.WITHDRAWN)
+                            .exclude(nominator=self.nominator)
+                            .select_related("nominator")
+                        ]
                         self.add_error(
                             "nominee_email",
                             "You withdrew a nomination for this person earlier this cycle. "

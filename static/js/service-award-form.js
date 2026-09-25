@@ -1,7 +1,12 @@
 /**
- * Community Service Award nomination pages: a confirmation modal before any
- * state-changing submit (creating/editing a nomination, withdrawing one),
- * plus a dedicated modal for reinstating a withdrawn nomination.
+ * Community Service Award nomination pages: a confirmation modal before
+ * withdrawing a nomination (nomination_detail.html), and a dedicated modal
+ * for reinstating a withdrawn one (nomination_form.html). Creating or
+ * editing a nomination doesn't get a confirmation step — it's a reversible,
+ * low-stakes action (see nominations.can_nominate's docstring on
+ * withdrawing keeping the record), so a "yes, submit?" prompt in front of
+ * it would just be friction, and would also double up with the reinstate
+ * prompt when that's the actual case that needs confirming.
  *
  * Both modals are native Pico-style <dialog> elements toggled by the `open`
  * attribute (see https://picocss.com/docs/modal) rather than
@@ -16,6 +21,16 @@
  * confirmation step in front of that, it doesn't replace it.
  */
 (function () {
+  // `<main class="container">` (bpd.css) runs a `both`-fill-mode entrance
+  // animation, which — even once finished at its identity transform — keeps
+  // the element a containing block for `position: fixed` descendants. Left
+  // in place, these dialogs would be "fixed" to the scrolling container
+  // instead of the viewport. Move them to be direct children of <body> so
+  // they're fixed to the viewport like the rest of the page expects.
+  document.querySelectorAll("dialog#confirm-submit-modal, dialog#reinstate-modal").forEach(function (dialog) {
+    document.body.appendChild(dialog);
+  });
+
   function openModal(dialog) {
     document.documentElement.classList.add("modal-is-open");
     dialog.setAttribute("open", "");

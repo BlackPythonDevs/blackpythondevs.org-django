@@ -37,8 +37,10 @@ html.modal-is-open {
   width: 100%;
 }
 
-#confirm-submit-modal .card footer,
-#reinstate-modal .card footer {
+/* A plain div, not <footer> — the site's global `footer` selector (its own
+ * page footer background/padding/border) would otherwise bleed into it. */
+#confirm-submit-modal .modal-actions,
+#reinstate-modal .modal-actions {
   display: flex;
   gap: 0.75rem;
   justify-content: flex-end;
