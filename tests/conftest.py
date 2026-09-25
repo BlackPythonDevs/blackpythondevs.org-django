@@ -45,7 +45,55 @@ def _discord_unconfigured(settings):
 
 @pytest.fixture
 def site(db):
-    """A bootstrapped site: page tree, settings, and seeded snippets."""
+    """A minimal, routable site: just a home page as the site root.
+
+    Most tests only need a page tree to hang pages off and route URLs
+    through — not the full production tree, settings, and seeded snippets.
+    Running `bootstrap_site` for every test made it the dominant cost of the
+    suite (roughly 1s/test, on almost every test). Tests that exercise
+    `bootstrap_site` itself, or rely on specific pages/snippets/accounts it
+    seeds, should request `bootstrapped_site` instead (or override this
+    fixture locally, as test_membership.py's TestMembershipPage does for the
+    one page it needs beyond Home).
+    """
+    from wagtail.models import Page, Site
+
+    from home.models import HomePage
+
+    root = Page.objects.get(depth=1)
+    wagtail_site = Site.objects.filter(is_default_site=True).first()
+
+    # Retire Wagtail's stub page the same way bootstrap_site does, so a home
+    # page can take its slot.
+    stub = Page.objects.filter(depth=2, slug="home").first()
+    if stub and wagtail_site and wagtail_site.root_page_id == stub.pk:
+        wagtail_site.root_page = root
+        wagtail_site.save()
+    if stub:
+        stub.delete()
+
+    home = HomePage(title="Black Python Devs", slug="home")
+    root.add_child(instance=home)
+    home.save_revision().publish()
+
+    if wagtail_site:
+        wagtail_site.root_page = home
+        wagtail_site.hostname = wagtail_site.hostname or "localhost"
+        wagtail_site.save()
+    else:
+        Site.objects.create(hostname="localhost", port=80, root_page=home, is_default_site=True)
+
+    return home
+
+
+@pytest.fixture
+def bootstrapped_site(db):
+    """The real, fully-seeded site: page tree, settings, and seeded snippets.
+
+    For tests that exercise `bootstrap_site` itself, or depend on specific
+    pages, snippets, or accounts that only it seeds (foundational supporters,
+    leaders, sponsors, the 2027 summit, ...).
+    """
     call_command("bootstrap_site", verbosity=0)
     from home.models import HomePage
 

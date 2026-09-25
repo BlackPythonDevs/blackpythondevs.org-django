@@ -113,6 +113,11 @@ class TestApplyView:
 class TestApplyBlock:
     """The Wagtail block renders a button pointing at the native apply form."""
 
+    @pytest.fixture
+    def site(self, bootstrapped_site):
+        """Needs the real StandardPage bootstrap_site seeds at this slug."""
+        return bootstrapped_site
+
     def test_block_renders_apply_link(self, client, site):
         from home.models import StandardPage
 
