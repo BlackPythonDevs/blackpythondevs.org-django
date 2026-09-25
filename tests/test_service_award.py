@@ -225,7 +225,7 @@ class TestListView:
         html = client.get("/leadership/service-award/?year=nonsense").content.decode()
         assert "This Year" in html
 
-    def test_withdrawn_nominations_are_hidden(self, client, executor):
+    def test_withdrawn_nominations_are_hidden_from_the_main_table(self, client, executor):
         make_nomination(executor, nominee_name="Still In It")
         make_nomination(
             executor,
@@ -234,9 +234,13 @@ class TestListView:
             status=ServiceAwardNomination.WITHDRAWN,
         )
         client.force_login(executor)
-        html = client.get("/leadership/service-award/").content.decode()
+        response = client.get("/leadership/service-award/")
+        html = response.content.decode()
         assert "Still In It" in html
-        assert "Withdrawn One" not in html
+        # Not in the main nominee table — only the withdrawn/reinstate
+        # section below it (see TestReinstate).
+        nominee_names = [group["nominee_name"] for group in response.context["nominee_groups"]]
+        assert "Withdrawn One" not in nominee_names
 
     def test_nominations_for_the_same_email_are_grouped(self, client, executor, council_member):
         make_nomination(executor, nominee_name="Nia Nominee", nominee_email="nia@example.com")
@@ -287,6 +291,94 @@ class TestEditAndWithdraw:
         assert client.post(f"/leadership/service-award/{nomination.pk}/withdraw/").status_code == 403
         nomination.refresh_from_db()
         assert nomination.status == ServiceAwardNomination.SUBMITTED
+
+
+class TestReinstate:
+    def test_nominator_can_reinstate_their_own_withdrawn_nomination(self, client, executor):
+        nomination = make_nomination(executor, status=ServiceAwardNomination.WITHDRAWN)
+        client.force_login(executor)
+        response = client.post(f"/leadership/service-award/{nomination.pk}/reinstate/")
+        assert response.status_code == 302
+        nomination.refresh_from_db()
+        assert nomination.status == ServiceAwardNomination.SUBMITTED
+
+    def test_superuser_can_reinstate_anyones_withdrawn_nomination(self, client, executor, db):
+        nomination = make_nomination(executor, status=ServiceAwardNomination.WITHDRAWN)
+        admin = get_user_model().objects.create_superuser(username="root", email="root@example.com", password="pw")
+        client.force_login(admin)
+        response = client.post(f"/leadership/service-award/{nomination.pk}/reinstate/")
+        assert response.status_code == 302
+        nomination.refresh_from_db()
+        assert nomination.status == ServiceAwardNomination.SUBMITTED
+
+    def test_another_leader_cannot_reinstate_someone_elses_nomination(self, client, executor, council_member):
+        nomination = make_nomination(executor, status=ServiceAwardNomination.WITHDRAWN)
+        client.force_login(council_member)
+        assert client.post(f"/leadership/service-award/{nomination.pk}/reinstate/").status_code == 403
+        nomination.refresh_from_db()
+        assert nomination.status == ServiceAwardNomination.WITHDRAWN
+
+    def test_open_nomination_cannot_be_reinstated(self, client, executor):
+        nomination = make_nomination(executor)
+        client.force_login(executor)
+        assert client.post(f"/leadership/service-award/{nomination.pk}/reinstate/").status_code == 403
+
+    def test_a_past_cycles_withdrawn_nomination_cannot_be_reinstated(self, client, executor):
+        nomination = make_nomination(
+            executor, status=ServiceAwardNomination.WITHDRAWN, award_year=current_award_year() - 1
+        )
+        client.force_login(executor)
+        assert client.post(f"/leadership/service-award/{nomination.pk}/reinstate/").status_code == 403
+
+    def test_detail_page_shows_reinstate_button_only_to_the_nominator(self, client, executor, council_member):
+        nomination = make_nomination(executor, status=ServiceAwardNomination.WITHDRAWN)
+
+        client.force_login(executor)
+        assert (
+            "Reinstate this nomination"
+            in client.get(f"/leadership/service-award/{nomination.pk}/").content.decode()
+        )
+
+        client.force_login(council_member)
+        assert (
+            "Reinstate this nomination"
+            not in client.get(f"/leadership/service-award/{nomination.pk}/").content.decode()
+        )
+
+    def test_list_page_shows_withdrawn_section_for_the_current_cycle(self, client, executor, council_member):
+        make_nomination(executor, nominee_name="My Withdrawn Pick", status=ServiceAwardNomination.WITHDRAWN)
+        make_nomination(
+            council_member,
+            nominee_name="Someone Elses Pick",
+            nominee_email="someone-else@example.com",
+            status=ServiceAwardNomination.WITHDRAWN,
+        )
+        client.force_login(executor)
+
+        html = client.get("/leadership/service-award/").content.decode()
+        assert "My Withdrawn Pick" in html
+        # Not a superuser: only their own withdrawn nominations show up.
+        assert "Someone Elses Pick" not in html
+
+    def test_list_page_withdrawn_section_shows_everyone_to_a_superuser(self, client, executor, db):
+        make_nomination(executor, nominee_name="Someone Elses Pick", status=ServiceAwardNomination.WITHDRAWN)
+        admin = get_user_model().objects.create_superuser(username="root", email="root@example.com", password="pw")
+        client.force_login(admin)
+
+        html = client.get("/leadership/service-award/").content.decode()
+        assert "Someone Elses Pick" in html
+
+    def test_list_page_withdrawn_section_is_absent_for_a_past_cycle(self, client, executor):
+        make_nomination(
+            executor,
+            nominee_name="Old Withdrawn Pick",
+            status=ServiceAwardNomination.WITHDRAWN,
+            award_year=current_award_year() - 1,
+        )
+        client.force_login(executor)
+
+        html = client.get(f"/leadership/service-award/?year={current_award_year() - 1}").content.decode()
+        assert "Withdrawn —" not in html
 
 
 class TestDetailView:

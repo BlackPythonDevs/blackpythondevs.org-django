@@ -67,10 +67,22 @@ class NominationListView(LeadershipRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["award_year"] = self.get_award_year()
+        award_year = self.get_award_year()
+        context["award_year"] = award_year
         context["years"] = (
             ServiceAwardNomination.objects.order_by("-award_year").values_list("award_year", flat=True).distinct()
         )
+        # Reinstating a withdrawn nomination without resubmitting the form
+        # only makes sense for the current cycle (see `reinstatable_by`), so
+        # this section only shows up when that's the cycle being viewed.
+        if award_year == current_award_year():
+            withdrawn = ServiceAwardNomination.objects.filter(
+                award_year=award_year,
+                status=ServiceAwardNomination.WITHDRAWN,
+            ).select_related("nominator")
+            if not self.request.user.is_superuser:
+                withdrawn = withdrawn.filter(nominator=self.request.user)
+            context["withdrawn_nominations"] = withdrawn.order_by("-updated_at")
         return context
 
 
@@ -111,6 +123,8 @@ class NominationDetailView(LeadershipRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         # `editable_by` takes an argument, so templates can't call it directly.
         context["can_edit"] = self.object.editable_by(self.request.user)
+        # `reinstatable_by` takes an argument too, same reasoning as `can_edit`.
+        context["can_reinstate"] = self.object.reinstatable_by(self.request.user)
         # Other leaders' support for the same nominee this cycle (see
         # `group_by_nominee`) — this record's own nomination isn't repeated.
         context["supporting_nominations"] = (
@@ -162,4 +176,25 @@ class NominationWithdrawView(LeadershipRequiredMixin, View):
         nomination.status = ServiceAwardNomination.WITHDRAWN
         nomination.save(update_fields=["status", "updated_at"])
         messages.success(request, f"Withdrew the nomination for {nomination.nominee_name}.")
+        return redirect("service_award:detail", pk=nomination.pk)
+
+
+class NominationReinstateView(LeadershipRequiredMixin, View):
+    """POST-only: bring a withdrawn nomination straight back for the current
+    cycle, exactly as it was, without going through the nomination form.
+
+    This is the direct counterpart to withdrawing — the form's own
+    resubmit-and-reinstate path (see `ServiceAwardNominationForm.clean`)
+    still exists for when someone starts a fresh nomination for the same
+    person and happens to hit an old withdrawn one; this is for going
+    straight to a withdrawn nomination and bringing it back as-is.
+    """
+
+    def post(self, request, pk):
+        nomination = get_object_or_404(ServiceAwardNomination, pk=pk)
+        if not nomination.reinstatable_by(request.user):
+            raise PermissionDenied("You can only reinstate your own withdrawn nominations from this cycle.")
+        nomination.status = ServiceAwardNomination.SUBMITTED
+        nomination.save(update_fields=["status", "updated_at"])
+        messages.success(request, f"Reinstated the nomination for {nomination.nominee_name}.")
         return redirect("service_award:detail", pk=nomination.pk)

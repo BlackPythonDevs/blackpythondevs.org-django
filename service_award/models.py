@@ -140,6 +140,20 @@ class ServiceAwardNomination(models.Model):
         """
         return self.is_open and (user.is_superuser or self.nominator_id == user.pk)
 
+    def reinstatable_by(self, user):
+        """Whether `user` can bring this withdrawn nomination straight back,
+        as-is, without resubmitting the form (see `NominationReinstateView`).
+
+        Only for the current cycle — a withdrawn nomination from a past year
+        is history, not something to silently reopen — and only the
+        nominator who withdrew it, or a superuser.
+        """
+        if self.status != self.WITHDRAWN:
+            return False
+        if self.award_year != current_award_year():
+            return False
+        return user.is_superuser or self.nominator_id == user.pk
+
 
 def group_by_nominee(nominations):
     """Group nominations by nominee email (case-insensitively), the same way

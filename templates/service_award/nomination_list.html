@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Community Service Award nominations{% endblock %}
 
@@ -73,4 +74,55 @@
       </div>
     </section>
   {% endif %}
+
+  {% if withdrawn_nominations %}
+    <section class="card">
+      <h2>Withdrawn — {{ award_year }}</h2>
+      <p>
+        {% if request.user.is_superuser %}
+          Every withdrawn nomination this cycle. Reinstating brings it back
+          exactly as it was, without going through the nomination form.
+        {% else %}
+          Nominations you withdrew this cycle. Reinstating brings one back
+          exactly as it was, without going through the nomination form.
+        {% endif %}
+      </p>
+      <ul>
+        {% for nomination in withdrawn_nominations %}
+          <li>
+            <a href="{% url 'service_award:detail' nomination.pk %}">{{ nomination.nominee_name }}</a>
+            — nominated by {{ nomination.nominator }}
+            <form
+              method="post"
+              action="{% url 'service_award:reinstate' nomination.pk %}"
+              data-confirm-message="Reinstate the nomination for {{ nomination.nominee_name }}?"
+              style="display: inline;"
+            >
+              {% csrf_token %}
+              <button type="submit" class="btn secondary">Reinstate</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  <dialog id="confirm-submit-modal">
+    <div class="card">
+      <p><strong>Confirm</strong></p>
+      <p id="confirm-submit-message"></p>
+      <div class="modal-actions">
+        <button class="btn secondary" type="button" data-close-modal>Cancel</button>
+        <button class="btn" type="button" id="confirm-submit-proceed">Yes, continue</button>
+      </div>
+    </div>
+  </dialog>
+{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/service-award.css' %}" />
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/service-award-form.js' %}"></script>
 {% endblock %}

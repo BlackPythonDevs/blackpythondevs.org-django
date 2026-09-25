@@ -49,6 +49,17 @@
       </form>
     {% endif %}
 
+    {% if can_reinstate %}
+      <form
+        method="post"
+        action="{% url 'service_award:reinstate' object.pk %}"
+        data-confirm-message="Reinstate the nomination for {{ object.nominee_name }}?"
+      >
+        {% csrf_token %}
+        <button type="submit" class="btn">Reinstate this nomination</button>
+      </form>
+    {% endif %}
+
     {% if supporting_nominations %}
       <div class="card">
         <h2>Other nominations for {{ object.nominee_name }}</h2>

@@ -10,4 +10,5 @@ urlpatterns = [
     path("<int:pk>/", views.NominationDetailView.as_view(), name="detail"),
     path("<int:pk>/edit/", views.NominationUpdateView.as_view(), name="edit"),
     path("<int:pk>/withdraw/", views.NominationWithdrawView.as_view(), name="withdraw"),
+    path("<int:pk>/reinstate/", views.NominationReinstateView.as_view(), name="reinstate"),
 ]
