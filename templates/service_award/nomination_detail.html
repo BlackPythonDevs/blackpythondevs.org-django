@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ object.nominee_name }}{% endblock %}
+
+{% block content %}
+  <section>
+    <p><a href="{% url 'service_award:list' %}">&larr; All Community Service Award nominations</a></p>
+
+    <h1>{{ object.nominee_name }}</h1>
+    <p class="lead">
+      Nominated for the {{ object.award_year }} Community Service Award by
+      {{ object.nominator }} — {{ object.get_status_display }}.
+    </p>
+
+    <div class="card">
+      <dl>
+        <dt>Email</dt>
+        <dd><a href="mailto:{{ object.nominee_email }}">{{ object.nominee_email }}</a></dd>
+
+        <dt>Site account</dt>
+        <dd>{{ object.nominee_user|default:"— not linked" }}</dd>
+
+        <dt>Link</dt>
+        <dd>{% if object.nominee_url %}<a href="{{ object.nominee_url }}" rel="noopener">{{ object.nominee_url }}</a>{% else %}—{% endif %}</dd>
+
+        <dt>Why they deserve it</dt>
+        <dd>{{ object.statement|linebreaksbr }}</dd>
+
+        <dt>Contributions</dt>
+        <dd>{{ object.contributions|linebreaksbr|default:"—" }}</dd>
+
+        <dt>Submitted</dt>
+        <dd>{{ object.created_at|date:"d M Y H:i" }}, last updated {{ object.updated_at|date:"d M Y H:i" }}</dd>
+      </dl>
+    </div>
+
+    {% if can_edit or can_reinstate %}
+      <div class="card-actions">
+        {% if can_edit %}
+          <p>
+            <a role="button" class="btn" href="{% url 'service_award:edit' object.pk %}">Edit</a>
+          </p>
+          <form
+            method="post"
+            action="{% url 'service_award:withdraw' object.pk %}"
+            data-confirm-message="Withdraw the nomination for {{ object.nominee_name }}? This keeps the record but leadership will treat it as no longer active."
+          >
+            {% csrf_token %}
+            <button type="submit" class="btn secondary">Withdraw this nomination</button>
+          </form>
+        {% endif %}
+
+        {% if can_reinstate %}
+          <form
+            method="post"
+            action="{% url 'service_award:reinstate' object.pk %}"
+            data-confirm-message="Reinstate the nomination for {{ object.nominee_name }}?"
+          >
+            {% csrf_token %}
+            <button type="submit" class="btn">Reinstate this nomination</button>
+          </form>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    {% if supporting_nominations %}
+      <div class="card">
+        <h2>Other nominations for {{ object.nominee_name }}</h2>
+        <ul>
+          {% for nomination in supporting_nominations %}
+            <li>
+              <a href="{% url 'service_award:detail' nomination.pk %}">{{ nomination.nominator }}</a>
+              — {{ nomination.get_status_display }}
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+  </section>
+
+  <dialog id="confirm-submit-modal">
+    <div class="card">
+      <p><strong>Confirm</strong></p>
+      <p id="confirm-submit-message"></p>
+      <div class="modal-actions">
+        <button class="btn secondary" type="button" data-close-modal>Cancel</button>
+        <button class="btn" type="button" id="confirm-submit-proceed">Yes, continue</button>
+      </div>
+    </div>
+  </dialog>
+{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/service-award.css' %}" />
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/service-award-form.js' %}"></script>
+{% endblock %}

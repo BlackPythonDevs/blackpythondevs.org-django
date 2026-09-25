@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if object %}Edit nomination{% else %}Nominate someone for the Community Service Award{% endif %}{% endblock %}
+
+{% block content %}
+  <section class="auth-panel">
+    <h1>{% if object %}Edit nomination{% else %}Nominate someone for the Community Service Award{% endif %}</h1>
+    <p class="auth-intro">
+      The Community Service Award recognizes a community member's outstanding
+      contributions to Black Python Devs. Tell leadership who you think should
+      be recognized and why. Nominations stay internal to leadership.
+    </p>
+
+    <form method="post" id="service-award-form">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <input type="hidden" name="reinstate" id="reinstate-field" value="" />
+      <button type="submit" class="btn">
+        {% if object %}Save changes{% else %}Submit nomination{% endif %}
+      </button>
+      <a role="button" class="secondary" href="{% url 'service_award:list' %}">Cancel</a>
+    </form>
+  </section>
+
+  {% if form.needs_reinstate_confirmation %}
+    <dialog id="reinstate-modal" open>
+      <div class="card">
+        <p><strong>Reinstate your nomination?</strong></p>
+        <p>
+          You withdrew a nomination for this person earlier this cycle.
+          Continuing will reinstate that nomination — with the details
+          you've just entered — instead of starting a new one.
+        </p>
+        {% if form.other_nominators %}
+          <p>
+            Also nominated by:
+            {% for nominator in form.other_nominators %}{{ nominator }}{% if not forloop.last %}, {% endif %}{% endfor %}.
+          </p>
+        {% endif %}
+        <div class="modal-actions">
+          <button class="btn secondary" type="button" data-close-modal>Cancel</button>
+          <button class="btn" type="button" id="reinstate-confirm">Yes, reinstate my nomination</button>
+        </div>
+      </div>
+    </dialog>
+  {% endif %}
+{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/service-award.css' %}" />
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/service-award-form.js' %}"></script>
+{% endblock %}

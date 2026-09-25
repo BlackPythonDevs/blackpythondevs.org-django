@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Community Service Award nominations{% endblock %}
+
+{% block content %}
+  <section>
+    <h1>Community Service Award nominations</h1>
+    <p class="lead">
+      Leadership puts community members forward for the annual Community
+      Service Award. One row per nominee — nominating the same person as
+      someone else adds your support rather than starting a new entry.
+      Showing the {{ award_year }} cycle.
+    </p>
+
+    <p><a role="button" class="btn" href="{% url 'service_award:nominate' %}">Nominate someone</a></p>
+
+    {% if years|length > 1 %}
+      <form method="get" class="card" style="margin-bottom: 2rem;">
+        <label for="year">Cycle</label>
+        <select name="year" id="year">
+          {% for year in years %}
+            <option value="{{ year }}" {% if year == award_year %}selected{% endif %}>{{ year }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn">Show</button>
+      </form>
+    {% endif %}
+
+    {% if nominee_groups %}
+      <figure>
+        <table role="grid">
+          <thead>
+            <tr>
+              <th scope="col">Nominee</th>
+              <th scope="col">Nominated by</th>
+              <th scope="col">Support</th>
+              <th scope="col">Latest status</th>
+              <th scope="col">Last nominated</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for group in nominee_groups %}
+              <tr>
+                <th scope="row">
+                  <a href="{% url 'service_award:detail' group.nominations.0.pk %}">{{ group.nominee_name }}</a>
+                </th>
+                <td>
+                  {% for nomination in group.nominations %}{{ nomination.nominator }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                </td>
+                <td>{{ group.nominations|length }} nomination{{ group.nominations|length|pluralize }}</td>
+                <td>{{ group.nominations.0.get_status_display }}</td>
+                <td>{{ group.nominations.0.created_at|date:"d M Y" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </figure>
+    {% else %}
+      <p>No nominations yet for {{ award_year }}. Be the first.</p>
+    {% endif %}
+  </section>
+
+  {% if is_paginated %}
+    <section>
+      <div class="pagination">
+        {% if page_obj.has_previous %}
+          <a href="?year={{ award_year }}&amp;page={{ page_obj.previous_page_number }}">Previous</a>
+        {% endif %}
+        <span class="current">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+          <a href="?year={{ award_year }}&amp;page={{ page_obj.next_page_number }}">Next</a>
+        {% endif %}
+      </div>
+    </section>
+  {% endif %}
+
+  {% if withdrawn_nominations %}
+    <section class="card">
+      <h2>Withdrawn — {{ award_year }}</h2>
+      <p>
+        {% if request.user.is_superuser %}
+          Every withdrawn nomination this cycle. Reinstating brings one back
+          exactly as it was, without going through the nomination form.
+        {% else %}
+          Nominations you withdrew this cycle, plus withdrawn nominations for
+          anyone you're also currently nominating — only you (or the person
+          who withdrew it) can reinstate one.
+        {% endif %}
+      </p>
+      <ul>
+        {% for nomination in withdrawn_nominations %}
+          <li>
+            <a href="{% url 'service_award:detail' nomination.pk %}">{{ nomination.nominee_name }}</a>
+            — nominated by {{ nomination.nominator }}
+            {% if nomination.pk in reinstatable_ids %}
+              <form
+                method="post"
+                action="{% url 'service_award:reinstate' nomination.pk %}"
+                data-confirm-message="Reinstate the nomination for {{ nomination.nominee_name }}?"
+                style="display: inline;"
+              >
+                {% csrf_token %}
+                <button type="submit" class="btn secondary">Reinstate</button>
+              </form>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  <dialog id="confirm-submit-modal">
+    <div class="card">
+      <p><strong>Confirm</strong></p>
+      <p id="confirm-submit-message"></p>
+      <div class="modal-actions">
+        <button class="btn secondary" type="button" data-close-modal>Cancel</button>
+        <button class="btn" type="button" id="confirm-submit-proceed">Yes, continue</button>
+      </div>
+    </div>
+  </dialog>
+{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/service-award.css' %}" />
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/service-award-form.js' %}"></script>
+{% endblock %}

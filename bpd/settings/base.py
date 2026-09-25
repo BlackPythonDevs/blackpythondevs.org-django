@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "ambassadors",
     "nominations",
     "elections",
+    "service_award",
     "notifications",
     "communities",
     "community_messages",

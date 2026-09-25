@@ -14,6 +14,7 @@ from core.models import CustomImage, Leader, is_council_member, is_leadership_or
 from elections.models import Election
 from nominations.models import can_nominate
 from notifications.models import can_send_notifications
+from service_award.models import can_nominate as can_nominate_service_award
 
 from .discord import is_configured, login_available
 from .forms import CouncilProfileForm, OnboardingForm, ProfileForm
@@ -44,6 +45,8 @@ def members(request):
             "ambassador_application": StudentAmbassador.objects.filter(user=request.user).first(),
             # Council/Leadership members get the nominations panel.
             "can_nominate": can_nominate(request.user),
+            # Leadership Council + Executor get the service award panel.
+            "can_nominate_service_award": can_nominate_service_award(request.user),
             # Council members get the election panel; only they can be candidates.
             "is_council_member": is_council_member(request.user),
             "current_election": election,
