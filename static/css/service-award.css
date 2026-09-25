@@ -4,6 +4,19 @@
  * against bpd.css's own tokens, so the overlay is done by hand here rather
  * than pulling in the rest of Pico. */
 
+/* bpd.css's `.card` has no margin-bottom of its own, and its neighbours'
+ * spacing comes entirely from *their* margin-bottom (see `p { margin-bottom:
+ * ... }`) — so a button/form immediately after a `.card` sits flush against
+ * it with no gap. Give the actions block its own top margin instead of
+ * relying on that. */
+.card-actions {
+  margin-top: 1.5rem;
+}
+
+.card-actions > * + * {
+  margin-top: 0.75rem;
+}
+
 html.modal-is-open {
   overflow: hidden;
 }

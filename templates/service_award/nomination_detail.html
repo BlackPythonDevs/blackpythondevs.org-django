@@ -35,29 +35,33 @@
       </dl>
     </div>
 
-    {% if can_edit %}
-      <p>
-        <a role="button" class="btn" href="{% url 'service_award:edit' object.pk %}">Edit</a>
-      </p>
-      <form
-        method="post"
-        action="{% url 'service_award:withdraw' object.pk %}"
-        data-confirm-message="Withdraw the nomination for {{ object.nominee_name }}? This keeps the record but leadership will treat it as no longer active."
-      >
-        {% csrf_token %}
-        <button type="submit" class="btn secondary">Withdraw this nomination</button>
-      </form>
-    {% endif %}
+    {% if can_edit or can_reinstate %}
+      <div class="card-actions">
+        {% if can_edit %}
+          <p>
+            <a role="button" class="btn" href="{% url 'service_award:edit' object.pk %}">Edit</a>
+          </p>
+          <form
+            method="post"
+            action="{% url 'service_award:withdraw' object.pk %}"
+            data-confirm-message="Withdraw the nomination for {{ object.nominee_name }}? This keeps the record but leadership will treat it as no longer active."
+          >
+            {% csrf_token %}
+            <button type="submit" class="btn secondary">Withdraw this nomination</button>
+          </form>
+        {% endif %}
 
-    {% if can_reinstate %}
-      <form
-        method="post"
-        action="{% url 'service_award:reinstate' object.pk %}"
-        data-confirm-message="Reinstate the nomination for {{ object.nominee_name }}?"
-      >
-        {% csrf_token %}
-        <button type="submit" class="btn">Reinstate this nomination</button>
-      </form>
+        {% if can_reinstate %}
+          <form
+            method="post"
+            action="{% url 'service_award:reinstate' object.pk %}"
+            data-confirm-message="Reinstate the nomination for {{ object.nominee_name }}?"
+          >
+            {% csrf_token %}
+            <button type="submit" class="btn">Reinstate this nomination</button>
+          </form>
+        {% endif %}
+      </div>
     {% endif %}
 
     {% if supporting_nominations %}
