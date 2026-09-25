@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     "taggit",
     "neapolitan",
     "django_countries",
+    "auditlog",
     # allauth
     "allauth",
     "allauth.account",
@@ -82,7 +83,20 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "wagtail.contrib.redirects.middleware.RedirectMiddleware",
+    "auditlog.middleware.AuditlogMiddleware",
 ]
+
+# Audit every model's create/update/delete (see users.admin.AuditLogEntryAdmin
+# for the superuser-only django-admin view). django-auditlog itself always
+# excludes its own LogEntry model, so this can't recurse.
+AUDITLOG_INCLUDE_ALL_MODELS = True
+AUDITLOG_EXCLUDE_TRACKING_MODELS = (
+    # Session/content-type/permission bookkeeping — churny and not meaningful to audit.
+    "sessions.Session",
+    "contenttypes.ContentType",
+    "auth.Permission",
+    "admin.LogEntry",
+)
 
 ROOT_URLCONF = "bpd.urls"
 

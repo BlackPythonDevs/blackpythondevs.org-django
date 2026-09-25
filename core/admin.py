@@ -17,6 +17,7 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 
+from core import admin_auditlog  # noqa: F401
 from core.commitchange import DEFAULT_THRESHOLD, CommitChangeError, aggregate_payments
 from core.models import FoundationalSupport
 from core.supporters import diff_roster, find_name_conflicts, import_supporters, is_placeholder
