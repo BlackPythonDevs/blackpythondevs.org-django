@@ -76,14 +76,22 @@ class OnboardingForm(forms.ModelForm):
     class Meta:
         model = User
         fields = [
+            "display_name",
             "member_type",
             "country",
             "subcommunities",
             "communication_preferences",
             "app_communication_preferences",
         ]
-        labels = {"country": "What country do you currently reside in?"}
-        help_texts = {"country": "We'll match this to a region behind the scenes."}
+        labels = {
+            "display_name": "What name should we use for you?",
+            "country": "What country do you currently reside in?",
+        }
+        help_texts = {
+            "display_name": "This is how people will know and refer to you, including on the "
+            "website for things like speaking and leadership roles.",
+            "country": "We'll match this to a region behind the scenes.",
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -101,7 +109,7 @@ class ProfileForm(OnboardingForm):
     """
 
     class Meta(OnboardingForm.Meta):
-        fields = ["display_name", *OnboardingForm.Meta.fields, "twitter", "mastodon", "linkedin", "website"]
+        fields = [*OnboardingForm.Meta.fields, "twitter", "mastodon", "linkedin", "website"]
         labels = {**OnboardingForm.Meta.labels, "display_name": "Display name"}
         help_texts = {
             **OnboardingForm.Meta.help_texts,
