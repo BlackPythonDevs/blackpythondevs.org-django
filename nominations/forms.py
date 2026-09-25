@@ -6,12 +6,14 @@ from .models import CouncilNomination
 class CouncilNominationForm(forms.ModelForm):
     class Meta:
         model = CouncilNomination
-        # nominator, term_year, status and notes are set server-side or managed
-        # by the council, so they stay off the form.
+        # nominator, nominee_user, term_year, status and notes are set
+        # server-side or managed by the council, so they stay off the form.
+        # nominee_user in particular is never picked from a member list — the
+        # council links an account later, from the admin, if it turns out the
+        # nominee already has one.
         fields = [
             "nominee_name",
             "nominee_email",
-            "nominee_user",
             "nominee_url",
             "statement",
             "contributions",
@@ -20,7 +22,6 @@ class CouncilNominationForm(forms.ModelForm):
         labels = {
             "nominee_name": "Who are you nominating?",
             "nominee_email": "Their email",
-            "nominee_user": "Their site account (optional)",
             "nominee_url": "A link to their work (optional)",
             "statement": "Why should they serve on the council?",
             "contributions": "What have they contributed so far?",
@@ -35,9 +36,6 @@ class CouncilNominationForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.nominator = nominator
         self.term_year = term_year
-        # A large member list would make this select unusable, but the account
-        # link is optional — leaving it blank is always valid.
-        self.fields["nominee_user"].required = False
 
     def clean(self):
         """Catch the duplicate before the database constraint does.

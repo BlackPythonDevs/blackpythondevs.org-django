@@ -97,6 +97,12 @@ class TestAccess:
 
 
 class TestNominate:
+    def test_nominee_user_field_is_not_on_the_form(self, client, leader):
+        client.force_login(leader)
+        html = client.get("/council/nominations/new/").content.decode()
+        assert "nominee_user" not in html
+        assert "Their site account" not in html
+
     def test_leader_can_submit_a_nomination(self, client, leader):
         client.force_login(leader)
         response = client.post("/council/nominations/new/", FORM_DATA)
