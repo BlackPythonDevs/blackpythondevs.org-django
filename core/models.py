@@ -191,6 +191,11 @@ COUNCIL_GROUP_NAME = "Leadership Council"
 LEADERSHIP_GROUP_NAME = "Leadership"
 EXECUTOR_GROUP_NAME = "Executor"
 
+# Marks a member as a current student, so student-only features (like the
+# ambassador programme CTA) can gate on it. Granted by leadership in the
+# admin, the same way Council/Executor membership is.
+STUDENT_GROUP_NAME = "Student"
+
 
 def is_council_member(user):
     """Whether `user` is a member of the Leadership Council.
@@ -216,6 +221,18 @@ def is_leadership_or_above(user):
     if user.is_superuser:
         return True
     return user.groups.filter(name__in=(COUNCIL_GROUP_NAME, EXECUTOR_GROUP_NAME)).exists()
+
+
+def is_student(user):
+    """Whether `user` is in the Student group.
+
+    Superusers pass so a site admin is never locked out of their own console.
+    """
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    return user.groups.filter(name=STUDENT_GROUP_NAME).exists()
 
 
 @register_snippet
