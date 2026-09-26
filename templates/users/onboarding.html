@@ -108,25 +108,6 @@
       margin: 0;
       padding: 0;
     }
-
-    .onboarding-select-toggle {
-      margin: -0.5rem 0 1rem;
-    }
-
-    .onboarding-select-toggle button {
-      background: none;
-      border: none;
-      padding: 0;
-      color: var(--bpd-cyan);
-      font-size: 0.85rem;
-      cursor: pointer;
-    }
-
-    .onboarding-select-toggle button:not(:last-child)::after {
-      content: "·";
-      margin: 0 0.5rem;
-      color: var(--bpd-muted);
-    }
   </style>
 {% endblock %}
 
@@ -198,27 +179,10 @@
         <h2>What do you want to hear about, and how?</h2>
         <p class="onboarding-explainer">
           <strong>Why we ask:</strong> so we only notify you about what's actually
-          useful to you, instead of everything we send out. Email and app
-          notifications are separate — pick each independently.
+          useful to you, instead of everything we send out.
         </p>
 
-        <h3>{{ form.communication_preferences.label }}</h3>
-        <p class="onboarding-explainer">{{ form.communication_preferences.help_text }}</p>
-        <div class="onboarding-select-toggle">
-          <button type="button" class="select-all">Select all</button>
-          <button type="button" class="select-none">Select none</button>
-        </div>
-        <fieldset>{{ form.communication_preferences }}</fieldset>
-        {{ form.communication_preferences.errors }}
-
-        <h3>{{ form.app_communication_preferences.label }}</h3>
-        <p class="onboarding-explainer">{{ form.app_communication_preferences.help_text }}</p>
-        <div class="onboarding-select-toggle">
-          <button type="button" class="select-all">Select all</button>
-          <button type="button" class="select-none">Select none</button>
-        </div>
-        <fieldset>{{ form.app_communication_preferences }}</fieldset>
-        {{ form.app_communication_preferences.errors }}
+        {% include "users/_notification_preferences.html" %}
       </section>
 
       {% if council_form %}
@@ -291,16 +255,6 @@
       backBtn.addEventListener("click", function () {
         current = Math.max(current - 1, 0);
         render();
-      });
-
-      Array.prototype.slice.call(form.querySelectorAll(".onboarding-select-toggle")).forEach(function (toggle) {
-        var checkboxes = toggle.nextElementSibling.querySelectorAll('input[type="checkbox"]');
-        toggle.querySelector(".select-all").addEventListener("click", function () {
-          checkboxes.forEach(function (box) { box.checked = true; });
-        });
-        toggle.querySelector(".select-none").addEventListener("click", function () {
-          checkboxes.forEach(function (box) { box.checked = false; });
-        });
       });
 
       render();
