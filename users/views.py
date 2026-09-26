@@ -79,6 +79,13 @@ def _leader_for_roster(user):
     return leader
 
 
+def _notification_rows(form):
+    """Pairs each topic's email/app checkboxes so the template can lay them out
+    side by side instead of as two separate lists (see issue #35).
+    """
+    return zip(form["communication_preferences"], form["app_communication_preferences"])
+
+
 @login_required
 def onboarding(request):
     """One-time new-member survey. Leadership and above also add a photo and affiliations."""
@@ -106,7 +113,11 @@ def onboarding(request):
         form = OnboardingForm(instance=request.user)
         council_form = CouncilProfileForm(instance=leader) if leader else None
 
-    return render(request, "users/onboarding.html", {"form": form, "council_form": council_form})
+    return render(
+        request,
+        "users/onboarding.html",
+        {"form": form, "council_form": council_form, "notification_rows": _notification_rows(form)},
+    )
 
 
 @login_required
@@ -136,7 +147,11 @@ def profile(request):
         form = ProfileForm(instance=request.user, include_social=include_social)
         council_form = CouncilProfileForm(instance=leader) if leader else None
 
-    return render(request, "users/profile.html", {"form": form, "council_form": council_form})
+    return render(
+        request,
+        "users/profile.html",
+        {"form": form, "council_form": council_form, "notification_rows": _notification_rows(form)},
+    )
 
 
 def invite_accept(request, token):

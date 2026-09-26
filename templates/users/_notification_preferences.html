@@ -1,0 +1,97 @@
+<style>
+  .notification-select-toggle {
+    margin: -0.5rem 0 1rem;
+    font-size: 0.85rem;
+  }
+
+  .notification-select-toggle-label {
+    color: var(--bpd-muted);
+  }
+
+  .notification-select-toggle button {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--bpd-cyan);
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  .notification-select-toggle > *:not(:last-child)::after {
+    content: "·";
+    margin: 0 0.5rem;
+    color: var(--bpd-muted);
+  }
+
+  .notification-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 0.5rem;
+  }
+
+  .notification-table th,
+  .notification-table td {
+    padding: 0.5rem 0.5rem;
+    border-bottom: 1px solid var(--bpd-border);
+    text-align: left;
+  }
+
+  .notification-table th[scope="col"] {
+    color: var(--bpd-muted);
+    font-size: 0.85rem;
+    font-weight: 400;
+  }
+
+  .notification-table td {
+    text-align: center;
+    width: 4.5rem;
+  }
+</style>
+
+<h3>Notifications</h3>
+<p><small>Email and app notifications are separate — pick each independently.</small></p>
+<div class="notification-select-toggle">
+  <span class="notification-select-toggle-label">Email:</span>
+  <button type="button" class="select-all" data-column="email">Select all</button>
+  <button type="button" class="select-none" data-column="email">Select none</button>
+  <span class="notification-select-toggle-label">App:</span>
+  <button type="button" class="select-all" data-column="app">Select all</button>
+  <button type="button" class="select-none" data-column="app">Select none</button>
+</div>
+<table class="notification-table">
+  <thead>
+    <tr>
+      <th scope="col"></th>
+      <th scope="col">Email</th>
+      <th scope="col">App</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for email_widget, app_widget in notification_rows %}
+      <tr>
+        <th scope="row">{{ email_widget.choice_label }}</th>
+        <td data-column="email">{{ email_widget.tag }}</td>
+        <td data-column="app">{{ app_widget.tag }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{{ form.communication_preferences.errors }}
+{{ form.app_communication_preferences.errors }}
+
+<script>
+  (function () {
+    document.querySelectorAll(".notification-select-toggle").forEach(function (toggle) {
+      var table = toggle.nextElementSibling;
+      Array.prototype.slice.call(toggle.querySelectorAll("button")).forEach(function (button) {
+        button.addEventListener("click", function () {
+          var checked = button.classList.contains("select-all");
+          var column = button.dataset.column;
+          table.querySelectorAll('td[data-column="' + column + '"] input[type="checkbox"]').forEach(function (box) {
+            box.checked = checked;
+          });
+        });
+      });
+    });
+  })();
+</script>
