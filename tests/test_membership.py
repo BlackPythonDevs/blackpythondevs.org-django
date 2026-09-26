@@ -125,6 +125,35 @@ class TestDiscordIsConnectOnly:
         assert "Connect Discord" not in html
 
 
+class TestStudentAmbassadorVisibility:
+    def test_hidden_for_a_member_without_the_student_group(self, client, site, member):
+        client.force_login(member)
+        html = client.get("/members/").content.decode()
+        assert "Student Ambassador programme" not in html
+
+    def test_shown_for_a_member_in_the_student_group(self, client, site, member):
+        from django.contrib.auth.models import Group
+
+        from core.models import STUDENT_GROUP_NAME
+
+        member.groups.add(Group.objects.get(name=STUDENT_GROUP_NAME))
+        client.force_login(member)
+        html = client.get("/members/").content.decode()
+        assert "Student Ambassador programme" in html
+        assert "Apply now" in html
+
+    def test_shown_for_a_member_with_an_existing_application(self, client, site, member):
+        from ambassadors.models import StudentAmbassador
+
+        StudentAmbassador.objects.create(
+            user=member, name="A Member", email=member.email, school="A School", motivation="Because"
+        )
+        client.force_login(member)
+        html = client.get("/members/").content.decode()
+        assert "Student Ambassador programme" in html
+        assert "Your application status" in html
+
+
 class TestDiscordRoleGrant:
     def test_not_configured_by_default(self):
         from users.discord import is_configured
