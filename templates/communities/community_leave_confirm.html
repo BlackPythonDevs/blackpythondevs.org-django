@@ -13,8 +13,10 @@
 
     <form method="post">
       {% csrf_token %}
-      <button type="submit" class="btn">Leave this community</button>
-      <a role="button" class="secondary" href="{% url 'communities-detail' admin_link.community.pk %}">Cancel</a>
+      <div class="form-actions">
+        <button type="submit" class="btn">Leave this community</button>
+        <a role="button" class="btn-cancel" href="{% url 'communities-detail' admin_link.community.pk %}">Cancel</a>
+      </div>
     </form>
   </section>
 {% endblock %}

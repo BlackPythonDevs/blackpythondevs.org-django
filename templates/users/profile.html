@@ -31,8 +31,10 @@
 
       {% include "users/_notification_preferences.html" %}
 
-      <button type="submit" class="btn">Save changes</button>
-      <a role="button" class="secondary" href="{% url 'members' %}">Cancel</a>
+      <div class="form-actions">
+        <button type="submit" class="btn">Save changes</button>
+        <a role="button" class="btn-cancel" href="{% url 'members' %}">Cancel</a>
+      </div>
     </form>
   </section>
 {% endblock %}

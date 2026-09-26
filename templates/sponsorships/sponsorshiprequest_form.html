@@ -16,9 +16,11 @@
     <form method="post" {% if form.is_multipart %}enctype="multipart/form-data"{% endif %}>
       {% csrf_token %}
       {{ form.as_p }}
-      <button type="submit" class="btn">Save</button>
-      <a role="button" class="secondary"
-         href="{% if object %}{% url 'sponsorships-detail' object.pk %}{% else %}{% url 'sponsorships-list' %}{% endif %}">Cancel</a>
+      <div class="form-actions">
+        <button type="submit" class="btn">Save</button>
+        <a role="button" class="btn-cancel"
+           href="{% if object %}{% url 'sponsorships-detail' object.pk %}{% else %}{% url 'sponsorships-list' %}{% endif %}">Cancel</a>
+      </div>
     </form>
   </section>
 {% endblock %}
