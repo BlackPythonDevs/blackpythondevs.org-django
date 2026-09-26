@@ -12,7 +12,6 @@ from allauth.socialaccount.models import SocialAccount, SocialApp
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import mail
-from django.test import override_settings
 from django.utils import timezone
 
 pytestmark = pytest.mark.django_db
@@ -134,61 +133,56 @@ class TestDiscordIsConnectOnly:
         assert "Connect Discord" not in html
 
 
+class _FakeDiscordResponse:
+    def __init__(self, status_code=201, text=""):
+        self.status_code = status_code
+        self.text = text
+
+
+@pytest.fixture
+def configured_discord_settings(settings):
+    settings.DISCORD_GUILD_ID = "1"
+    settings.DISCORD_BOT_TOKEN = "token"
+    settings.DISCORD_MEMBER_ROLE_ID = "42"
+
+
 class TestDiscordRoleGrant:
     def test_not_configured_by_default(self):
         from users.discord import is_configured
 
         assert is_configured() is False
 
-    @override_settings(
-        DISCORD_GUILD_ID="1", DISCORD_BOT_TOKEN="token", DISCORD_MEMBER_ROLE_ID="42"
-    )
-    def test_grant_adds_member_with_role(self, monkeypatch):
+    def test_grant_adds_member_with_role(self, monkeypatch, configured_discord_settings):
         from users import discord
 
         calls = {}
 
-        class Response:
-            status_code = 201
-            text = ""
-
         def fake_put(url, headers=None, json=None, timeout=None):
             calls["url"] = url
             calls["json"] = json
-            return Response()
+            return _FakeDiscordResponse(201)
 
         monkeypatch.setattr(discord.requests, "put", fake_put)
         assert discord.grant_member_access("999", "access-token") == "added"
         assert calls["json"]["roles"] == ["42"]
         assert calls["json"]["access_token"] == "access-token"
 
-    @override_settings(
-        DISCORD_GUILD_ID="1", DISCORD_BOT_TOKEN="token", DISCORD_MEMBER_ROLE_ID="42"
-    )
-    def test_existing_member_gets_role_applied_separately(self, monkeypatch):
+    def test_existing_member_gets_role_applied_separately(self, monkeypatch, configured_discord_settings):
         """A 204 means they were already in the guild, so `roles` was ignored."""
         from users import discord
 
         urls = []
 
-        class Response:
-            def __init__(self, status_code):
-                self.status_code = status_code
-                self.text = ""
-
         def fake_put(url, headers=None, json=None, timeout=None):
             urls.append(url)
-            return Response(204)
+            return _FakeDiscordResponse(204)
 
         monkeypatch.setattr(discord.requests, "put", fake_put)
         assert discord.grant_member_access("999", "access-token") == "role_granted"
         assert len(urls) == 2
         assert urls[1].endswith("/roles/42")
 
-    @override_settings(
-        DISCORD_GUILD_ID="1", DISCORD_BOT_TOKEN="token", DISCORD_MEMBER_ROLE_ID="42"
-    )
-    def test_network_failure_does_not_raise(self, monkeypatch):
+    def test_network_failure_does_not_raise(self, monkeypatch, configured_discord_settings):
         from users import discord
 
         def boom(*args, **kwargs):

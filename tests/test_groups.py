@@ -6,6 +6,7 @@ exist, are asserted separately (see the Executor group below).
 """
 
 import pytest
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 
 from ambassadors.models import GROUP_NAME as AMBASSADORS_GROUP_NAME
@@ -45,44 +46,31 @@ def test_cms_groups_can_open_the_wagtail_admin(name):
 
 @pytest.mark.parametrize("name", CMS_GROUP_NAMES)
 def test_cms_groups_edit_pages_but_cannot_publish(name):
-    codenames = set(
-        Group.objects.get(name=name).page_permissions.values_list("permission__codename", flat=True)
-    )
+    codenames = set(Group.objects.get(name=name).page_permissions.values_list("permission__codename", flat=True))
     assert codenames == {"add_page", "change_page"}
 
 
 @pytest.mark.parametrize("name", CMS_GROUP_NAMES)
 def test_cms_groups_can_manage_images_and_documents(name):
-    codenames = set(
-        Group.objects.get(name=name).collection_permissions.values_list("permission__codename", flat=True)
-    )
+    codenames = set(Group.objects.get(name=name).collection_permissions.values_list("permission__codename", flat=True))
     assert {"add_customimage", "choose_customimage", "add_document", "choose_document"} <= codenames
 
 
-@pytest.mark.django_db
-def test_leadership_member_reaches_the_cms(client):
-    from django.contrib.auth import get_user_model
-
-    user = get_user_model().objects.create_user("lead", password="x")
-    user.groups.add(Group.objects.get(name=COUNCIL_GROUP_NAME))
-    client.force_login(user)
-    assert client.get("/cms/").status_code == 200
-
-
-@pytest.mark.django_db
-def test_ordinary_member_is_kept_out_of_the_cms(client):
-    from django.contrib.auth import get_user_model
-
-    user = get_user_model().objects.create_user("plain", password="x")
+@pytest.mark.parametrize("in_council", [True, False], ids=["leadership_member", "ordinary_member"])
+def test_cms_access_depends_on_council_membership(client, in_council):
+    user = get_user_model().objects.create_user("u", password="x")
+    if in_council:
+        user.groups.add(Group.objects.get(name=COUNCIL_GROUP_NAME))
     client.force_login(user)
     response = client.get("/cms/")
-    assert response.status_code == 302 and "/cms/login" in response["Location"] or response.status_code == 403
+    if in_council:
+        assert response.status_code == 200
+    else:
+        assert response.status_code == 302 and "/cms/login" in response["Location"] or response.status_code == 403
 
 
 def test_executor_group_keeps_its_sponsorship_permissions():
-    codenames = set(
-        Group.objects.get(name=EXECUTOR_GROUP_NAME).permissions.values_list("codename", flat=True)
-    )
+    codenames = set(Group.objects.get(name=EXECUTOR_GROUP_NAME).permissions.values_list("codename", flat=True))
     assert {
         "add_sponsorshiprequest",
         "change_sponsorshiprequest",

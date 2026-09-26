@@ -32,18 +32,14 @@ def sponsorship(db):
 
 @pytest.fixture
 def executor(db):
-    user = get_user_model().objects.create_user(
-        username="exec", email="exec@example.com", password="pw"
-    )
+    user = get_user_model().objects.create_user(username="exec", email="exec@example.com", password="pw")
     user.groups.add(Group.objects.get(name="Executor"))
     return user
 
 
 @pytest.fixture
 def member(db):
-    return get_user_model().objects.create_user(
-        username="member", email="member@example.com", password="pw"
-    )
+    return get_user_model().objects.create_user(username="member", email="member@example.com", password="pw")
 
 
 def all_urls(sponsorship):
@@ -51,24 +47,18 @@ def all_urls(sponsorship):
 
 
 class TestConsoleAccess:
-    def test_executor_reaches_every_view(self, client, executor, sponsorship):
-        client.force_login(executor)
-        for url in all_urls(sponsorship):
-            assert client.get(url).status_code == 200, url
+    """PermissionRequiredMixin's own split: bounces anonymous, 403s unprivileged, 200s executor."""
 
-    def test_anonymous_is_bounced(self, client, sponsorship):
+    @pytest.mark.parametrize(
+        "login_as,expected_status",
+        [("executor", 200), (None, 302), ("member", 403)],
+        ids=["executor", "anonymous", "ordinary_member"],
+    )
+    def test_console_access_by_role(self, request, client, sponsorship, login_as, expected_status):
+        if login_as:
+            client.force_login(request.getfixturevalue(login_as))
         for url in all_urls(sponsorship):
-            assert client.get(url).status_code == 302, url
-
-    def test_ordinary_member_gets_403(self, client, member, sponsorship):
-        """Signed in but unprivileged: 403, not a pointless bounce to login.
-
-        This is PermissionRequiredMixin's own split — it redirects anonymous
-        users and raises for authenticated ones.
-        """
-        client.force_login(member)
-        for url in all_urls(sponsorship):
-            assert client.get(url).status_code == 403, url
+            assert client.get(url).status_code == expected_status, url
 
 
 class TestConsoleTemplates:

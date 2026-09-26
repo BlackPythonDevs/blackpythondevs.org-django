@@ -71,6 +71,11 @@ def plain_member(db):
     return make_user("member")
 
 
+@pytest.fixture
+def superuser(db):
+    return get_user_model().objects.create_superuser(username="root", email="root@example.com", password="pw")
+
+
 FORM_DATA = {"subject": "Hello", "body": "Just saying hi."}
 
 
@@ -86,55 +91,45 @@ class TestAccess:
         client.force_login(plain_member)
         assert client.get(path).status_code == 403
 
-    @pytest.mark.parametrize(
-        "fixture", ["staff_member", "executor", "sponsor", "community_partner"]
-    )
+    @pytest.mark.parametrize("fixture", ["staff_member", "executor", "sponsor", "community_partner", "superuser"])
     def test_permitted_senders_get_in(self, client, request, fixture):
         client.force_login(request.getfixturevalue(fixture))
         assert client.get("/notifications/new/").status_code == 200
 
-    def test_superuser_gets_in(self, client, db):
-        admin = get_user_model().objects.create_superuser(
-            username="root", email="root@example.com", password="pw"
-        )
-        client.force_login(admin)
-        assert client.get("/notifications/new/").status_code == 200
-
 
 class TestFormRestrictions:
-    def test_staff_sees_every_filter(self, client, staff_member):
-        client.force_login(staff_member)
+    @pytest.mark.parametrize(
+        "fixture,expected_present,expected_absent",
+        [
+            ("staff_member", {"regions", "roles", "affinities"}, set()),
+            ("sponsor", {"regions"}, {"roles", "affinities"}),
+            ("community_partner", {"affinities"}, {"regions", "roles"}),
+        ],
+        ids=["staff_sees_every_filter", "sponsor_only_sees_regions", "community_partner_only_sees_affinities"],
+    )
+    def test_role_sees_only_its_own_filters(self, client, request, fixture, expected_present, expected_absent):
+        client.force_login(request.getfixturevalue(fixture))
         html = client.get("/notifications/new/").content.decode()
-        assert 'name="regions"' in html
-        assert 'name="roles"' in html
-        assert 'name="affinities"' in html
-
-    def test_sponsor_only_sees_regions(self, client, sponsor):
-        client.force_login(sponsor)
-        html = client.get("/notifications/new/").content.decode()
-        assert 'name="regions"' in html
-        assert 'name="roles"' not in html
-        assert 'name="affinities"' not in html
+        for field in expected_present:
+            assert f'name="{field}"' in html
+        for field in expected_absent:
+            assert f'name="{field}"' not in html
 
     def test_community_partner_only_sees_their_own_affinities(self, client, community_partner):
         client.force_login(community_partner)
         html = client.get("/notifications/new/").content.decode()
-        assert 'name="regions"' not in html
-        assert 'name="roles"' not in html
-        assert 'name="affinities"' in html
         # Only their own subcommunity is offered, not the others.
         assert "LATAM" in html
         assert "Pacific Islander" not in html
 
-    def test_community_partner_must_pick_an_affinity(self, client, community_partner):
+    @pytest.mark.parametrize(
+        "extra",
+        [{}, {"affinities": ["pacific_islander"]}],
+        ids=["no_affinity_picked", "someone_elses_affinity"],
+    )
+    def test_community_partner_invalid_affinity_is_rejected(self, client, community_partner, extra):
         client.force_login(community_partner)
-        response = client.post("/notifications/new/", FORM_DATA)
-        assert response.status_code == 200
-        assert Notification.objects.count() == 0
-
-    def test_community_partner_cannot_post_someone_elses_affinity(self, client, community_partner):
-        client.force_login(community_partner)
-        response = client.post("/notifications/new/", {**FORM_DATA, "affinities": ["pacific_islander"]})
+        response = client.post("/notifications/new/", {**FORM_DATA, **extra})
         assert response.status_code == 200
         assert Notification.objects.count() == 0
 
@@ -142,9 +137,7 @@ class TestFormRestrictions:
         """Posting a field the sponsor's form doesn't render is just ignored."""
         executor_group = Group.objects.get(name="Executor")
         client.force_login(sponsor)
-        response = client.post(
-            "/notifications/new/", {**FORM_DATA, "roles": [executor_group.pk]}
-        )
+        response = client.post("/notifications/new/", {**FORM_DATA, "roles": [executor_group.pk]})
         assert response.status_code == 302
         assert Notification.objects.get().roles.count() == 0
 
@@ -175,9 +168,7 @@ class TestSending:
     def test_role_filter_narrows_recipients(self, client, staff_member, executor, plain_member):
         client.force_login(staff_member)
         executor_group = Group.objects.get(name="Executor")
-        response = client.post(
-            "/notifications/new/", {**FORM_DATA, "roles": [executor_group.pk]}
-        )
+        response = client.post("/notifications/new/", {**FORM_DATA, "roles": [executor_group.pk]})
         assert response.status_code == 302
 
         notification = Notification.objects.get()

@@ -39,16 +39,23 @@ class TestAggregation:
         ]
         assert summary["supporters"] == 1
 
-    def test_giving_under_the_threshold_is_dropped(self):
-        rows, summary = aggregate_payments(
-            payments(("2024-01-01", "Ada Lovelace", "ada@example.com", "$199.99", "False"))
-        )
-        assert rows == []
-        assert summary["below_threshold"] == 1
-
-    def test_the_threshold_is_configurable(self):
-        text = payments(("2024-01-01", "Ada Lovelace", "ada@example.com", "$50.00", "False"))
-        assert aggregate_payments(text, threshold=Decimal("25"))[0]
+    @pytest.mark.parametrize(
+        "amount,threshold,kept",
+        [
+            ("$199.99", None, False),
+            ("$50.00", Decimal("25"), True),
+        ],
+        ids=["below_default_threshold_is_dropped", "custom_threshold_lets_smaller_gift_count"],
+    )
+    def test_the_threshold_is_configurable(self, amount, threshold, kept):
+        text = payments(("2024-01-01", "Ada Lovelace", "ada@example.com", amount, "False"))
+        kwargs = {"threshold": threshold} if threshold is not None else {}
+        rows, summary = aggregate_payments(text, **kwargs)
+        if kept:
+            assert rows
+        else:
+            assert rows == []
+            assert summary["below_threshold"] == 1
 
     def test_anonymous_payments_never_count(self):
         """Not just hidden — an anonymous gift cannot push someone over."""
@@ -230,30 +237,22 @@ class TestAdminImport:
     def url(self):
         return reverse("admin:core_foundationalsupport_import")
 
+    def upload(self, staff_client, export, csv=None, **extra):
+        csv = csv or payments(("2024-01-01", "Grace Hopper", "grace@example.com", "$300", "False"))
+        return staff_client.post(self.url(), {"csv_file": export(csv), "threshold": "200", **extra})
+
     def test_the_changelist_links_to_the_importer(self, staff_client):
         html = staff_client.get(reverse("admin:core_foundationalsupport_changelist")).content.decode()
         assert self.url() in html
 
     def test_upload_previews_without_writing(self, staff_client, export):
-        response = staff_client.post(
-            self.url(),
-            {
-                "csv_file": export(payments(("2024-01-01", "Grace Hopper", "grace@example.com", "$300", "False"))),
-                "threshold": "200",
-            },
-        )
+        response = self.upload(staff_client, export)
         assert response.status_code == 200
         assert "Grace Hopper" in response.content.decode()
         assert not FoundationalSupport.objects.exists()
 
     def test_confirming_imports_the_previewed_roster(self, staff_client, export):
-        staff_client.post(
-            self.url(),
-            {
-                "csv_file": export(payments(("2024-01-01", "Grace Hopper", "grace@example.com", "$300", "False"))),
-                "threshold": "200",
-            },
-        )
+        self.upload(staff_client, export)
         response = staff_client.post(self.url(), {"confirm": "1"}, follow=True)
         assert response.status_code == 200
 
@@ -263,13 +262,7 @@ class TestAdminImport:
         assert support.status == FoundationalSupport.LISTED
 
     def test_confirming_twice_does_not_re_import(self, staff_client, export):
-        staff_client.post(
-            self.url(),
-            {
-                "csv_file": export(payments(("2024-01-01", "Grace Hopper", "grace@example.com", "$300", "False"))),
-                "threshold": "200",
-            },
-        )
+        self.upload(staff_client, export)
         staff_client.post(self.url(), {"confirm": "1"})
         response = staff_client.post(self.url(), {"confirm": "1"}, follow=True)
         assert "expired" in response.content.decode()
@@ -279,14 +272,7 @@ class TestAdminImport:
         stale, _ = get_or_create_supporter_user(get_user_model(), "Someone Else")
         FoundationalSupport.objects.create(user=stale, year=2019)
 
-        staff_client.post(
-            self.url(),
-            {
-                "csv_file": export(payments(("2024-01-01", "Grace Hopper", "grace@example.com", "$300", "False"))),
-                "threshold": "200",
-                "replace": "on",
-            },
-        )
+        self.upload(staff_client, export, replace="on")
         staff_client.post(self.url(), {"confirm": "1"})
 
         assert [s.year for s in FoundationalSupport.objects.all()] == [2024]
@@ -301,51 +287,48 @@ class TestAdminImport:
         assert "needs a name" in response.content.decode()
 
     def test_an_export_with_nobody_over_the_threshold_is_rejected(self, staff_client, export):
-        response = staff_client.post(
-            self.url(),
-            {
-                "csv_file": export(payments(("2024-01-01", "Grace Hopper", "grace@example.com", "$5", "False"))),
-                "threshold": "200",
-            },
+        response = self.upload(
+            staff_client,
+            export,
+            csv=payments(("2024-01-01", "Grace Hopper", "grace@example.com", "$5", "False")),
         )
         assert "No one in that export reached the threshold." in response.content.decode()
 
-    def upload(self, staff_client, export, csv=None, **extra):
-        csv = csv or payments(("2024-01-01", "Grace Hopper", "grace@work.example", "$300", "False"))
-        return staff_client.post(self.url(), {"csv_file": export(csv), "threshold": "200", **extra})
+    def clash_upload(self, staff_client, export):
+        return self.upload(
+            staff_client,
+            export,
+            csv=payments(("2024-01-01", "Grace Hopper", "grace@work.example", "$300", "False")),
+        )
 
     def test_a_clash_with_a_claimed_account_is_put_to_the_user(self, staff_client, export):
         User = get_user_model()
         claimed = User.objects.create_user(username="grace", email="grace@navy.example", display_name="Grace Hopper")
-        html = self.upload(staff_client, export).content.decode()
+        html = self.clash_upload(staff_client, export).content.decode()
         assert "Is this the same person?" in html
         assert f'value="link:{claimed.pk}"' in html
 
-    def test_answering_same_person_merges_onto_that_account(self, staff_client, export):
+    @pytest.mark.parametrize(
+        "resolve",
+        ["link", "separate", "skip"],
+        ids=["same_person_merges_onto_that_account", "different_person_keeps_them_apart", "skipped_row_not_imported"],
+    )
+    def test_resolving_a_name_clash(self, staff_client, export, resolve):
         User = get_user_model()
         claimed = User.objects.create_user(username="grace", email="grace@navy.example", display_name="Grace Hopper")
-        self.upload(staff_client, export)
-        staff_client.post(self.url(), {"confirm": "1", "resolve_0": f"link:{claimed.pk}"})
+        self.clash_upload(staff_client, export)
+        resolve_value = f"link:{claimed.pk}" if resolve == "link" else resolve
+        response = staff_client.post(self.url(), {"confirm": "1", "resolve_0": resolve_value}, follow=True)
 
-        assert claimed.foundational_support.get().year == 2024
-        assert User.objects.filter(display_name="Grace Hopper").count() == 1
-
-    def test_answering_different_person_keeps_them_apart(self, staff_client, export):
-        User = get_user_model()
-        User.objects.create_user(username="grace", email="grace@navy.example", display_name="Grace Hopper")
-        self.upload(staff_client, export)
-        staff_client.post(self.url(), {"confirm": "1", "resolve_0": "separate"})
-
-        assert User.objects.filter(display_name="Grace Hopper").count() == 2
-        assert FoundationalSupport.objects.get().user.email == "grace@work.example"
-
-    def test_a_skipped_row_is_not_imported(self, staff_client, export):
-        get_user_model().objects.create_user(username="grace", email="grace@navy.example", display_name="Grace Hopper")
-        self.upload(staff_client, export)
-        response = staff_client.post(self.url(), {"confirm": "1", "resolve_0": "skip"}, follow=True)
-
-        assert not FoundationalSupport.objects.exists()
-        assert "1 row left out at your request." in response.content.decode()
+        if resolve == "link":
+            assert claimed.foundational_support.get().year == 2024
+            assert User.objects.filter(display_name="Grace Hopper").count() == 1
+        elif resolve == "separate":
+            assert User.objects.filter(display_name="Grace Hopper").count() == 2
+            assert FoundationalSupport.objects.get().user.email == "grace@work.example"
+        else:
+            assert not FoundationalSupport.objects.exists()
+            assert "1 row left out at your request." in response.content.decode()
 
     def test_an_account_that_was_never_offered_cannot_be_chosen(self, staff_client, export):
         """A hand-edited form must not be able to attach support to any member."""
@@ -353,7 +336,7 @@ class TestAdminImport:
         User.objects.create_user(username="grace", email="grace@navy.example", display_name="Grace Hopper")
         bystander = User.objects.create_user(username="nobody", email="nobody@example.com")
 
-        self.upload(staff_client, export)
+        self.clash_upload(staff_client, export)
         staff_client.post(self.url(), {"confirm": "1", "resolve_0": f"link:{bystander.pk}"})
 
         assert not bystander.foundational_support.exists()

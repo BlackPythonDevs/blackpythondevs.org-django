@@ -44,14 +44,11 @@ from users.regions import REGION_CHOICES, region_for_country
         ("GU", "Micronesia"),
         ("WS", "Polynesia"),
         ("AQ", "Antarctica"),
+        ("", ""),
     ],
 )
 def test_region_for_country(alpha2, expected):
     assert region_for_country(alpha2) == expected
-
-
-def test_blank_code_is_unmapped():
-    assert region_for_country("") == ""
 
 
 def test_every_choice_is_reachable():
