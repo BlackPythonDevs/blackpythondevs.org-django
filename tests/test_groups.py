@@ -9,7 +9,7 @@ import pytest
 from django.contrib.auth.models import Group
 
 from ambassadors.models import GROUP_NAME as AMBASSADORS_GROUP_NAME
-from core.models import COUNCIL_GROUP_NAME, LEADERSHIP_GROUP_NAME
+from core.models import COUNCIL_GROUP_NAME, LEADERSHIP_GROUP_NAME, STUDENT_GROUP_NAME
 
 pytestmark = pytest.mark.django_db
 
@@ -18,7 +18,7 @@ EXECUTOR_GROUP_NAME = "Executor"
 
 @pytest.mark.parametrize(
     "name",
-    [AMBASSADORS_GROUP_NAME, COUNCIL_GROUP_NAME, EXECUTOR_GROUP_NAME],
+    [AMBASSADORS_GROUP_NAME, COUNCIL_GROUP_NAME, EXECUTOR_GROUP_NAME, STUDENT_GROUP_NAME],
 )
 def test_group_exists(name):
     assert Group.objects.filter(name=name).exists(), f"missing auth group {name!r}"
@@ -32,6 +32,11 @@ def test_leadership_group_was_consolidated_into_council():
 def test_ambassadors_group_carries_no_permissions():
     """Membership-only groups must not silently grant admin access."""
     assert not Group.objects.get(name=AMBASSADORS_GROUP_NAME).permissions.exists()
+
+
+def test_student_group_carries_no_permissions():
+    """Membership-only groups must not silently grant admin access."""
+    assert not Group.objects.get(name=STUDENT_GROUP_NAME).permissions.exists()
 
 
 CMS_GROUP_NAMES = [COUNCIL_GROUP_NAME, EXECUTOR_GROUP_NAME]

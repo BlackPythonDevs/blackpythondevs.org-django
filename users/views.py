@@ -10,7 +10,7 @@ from django.utils import timezone
 from ambassadors.models import StudentAmbassador
 from communities.models import can_manage_community
 from community_messages.models import is_leadership
-from core.models import CustomImage, Leader, is_council_member, is_leadership_or_above
+from core.models import CustomImage, Leader, is_council_member, is_leadership_or_above, is_student
 from elections.models import Election
 from nominations.models import can_nominate
 from notifications.models import can_send_notifications
@@ -43,6 +43,9 @@ def members(request):
             "discord_login_available": login_available(request),
             # Their ambassador application, if they've started one.
             "ambassador_application": StudentAmbassador.objects.filter(user=request.user).first(),
+            # Only students can apply, but anyone with an existing application
+            # should keep seeing its status.
+            "is_student": is_student(request.user),
             # Council/Leadership members get the nominations panel.
             "can_nominate": can_nominate(request.user),
             # Leadership Council + Executor get the service award panel.
