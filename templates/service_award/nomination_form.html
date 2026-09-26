@@ -16,10 +16,12 @@
       {% csrf_token %}
       {{ form.as_p }}
       <input type="hidden" name="reinstate" id="reinstate-field" value="" />
-      <button type="submit" class="btn">
-        {% if object %}Save changes{% else %}Submit nomination{% endif %}
-      </button>
-      <a role="button" class="secondary" href="{% url 'service_award:list' %}">Cancel</a>
+      <div class="form-actions">
+        <button type="submit" class="btn">
+          {% if object %}Save changes{% else %}Submit nomination{% endif %}
+        </button>
+        <a role="button" class="btn-cancel" href="{% url 'service_award:list' %}">Cancel</a>
+      </div>
     </form>
   </section>
 
