@@ -1,21 +1,25 @@
-"""Compose-and-send front end for broadcast notifications.
+"""Compose-and-send front end for broadcast notifications, and each member's
+own in-app notification inbox (see models.py's UserNotification, issue #98).
 
-Staff, Executors, Sponsors, and Community Partners get in; a signed-in member
-outside those groups gets a 403 rather than a login loop, and anonymous
-visitors are sent to log in first (see nominations.views for the same
-pattern, which this mirrors).
+Staff, Executors, Sponsors, and Community Partners get in to the compose/send
+views; a signed-in member outside those groups gets a 403 rather than a login
+loop, and anonymous visitors are sent to log in first (see nominations.views
+for the same pattern, which this mirrors). The inbox itself is just
+login-required — it only ever shows a member their own notifications.
 """
 
 from django.contrib import messages
-from django.contrib.auth.mixins import UserPassesTestMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.shortcuts import redirect
 from django.urls import reverse_lazy
+from django.utils import timezone
 from django.views.generic import CreateView, ListView
 
 from core.models import CustomImage
 from users.regions import PARENT_REGIONS, SUBREGION_COUNTRIES
 
 from .forms import NotificationForm
-from .models import Notification, can_send_notifications
+from .models import Notification, UserNotification, can_send_notifications
 
 
 class NotificationSenderRequiredMixin(UserPassesTestMixin):
@@ -77,3 +81,27 @@ class SendNotificationView(NotificationSenderRequiredMixin, CreateView):
         else:
             messages.warning(self.request, "No members matched those filters — nothing was sent.")
         return response
+
+
+class NotificationInboxView(LoginRequiredMixin, ListView):
+    """The signed-in member's own in-app notifications, newest first."""
+
+    model = UserNotification
+    template_name = "notifications/notification_inbox.html"
+    context_object_name = "user_notifications"
+    paginate_by = 25
+
+    def get_queryset(self):
+        return UserNotification.objects.filter(recipient=self.request.user).select_related("actor")
+
+    def post(self, request, *args, **kwargs):
+        action = request.POST.get("action")
+        if action == "mark_read":
+            notification = UserNotification.objects.filter(
+                pk=request.POST.get("notification_id"), recipient=request.user
+            ).first()
+            if notification is not None:
+                notification.mark_read()
+        elif action == "mark_all_read":
+            self.get_queryset().filter(read_at__isnull=True).update(read_at=timezone.now())
+        return redirect("notifications:inbox")
