@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Object to {{ nomination.nominee_name }}'s nomination{% endblock %}
+
+{% block content %}
+  <section class="auth-panel">
+    <h1>Raise an objection</h1>
+    <p class="auth-intro">
+      Your objection is recorded for the Leadership Council and Executor to
+      review — it isn't shown to {{ nomination.nominee_name }} or made public.
+    </p>
+
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <div class="form-actions">
+        <button type="submit" class="btn">Submit objection</button>
+        <a role="button" class="btn-cancel" href="{% url 'nominations:detail' nomination.pk %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

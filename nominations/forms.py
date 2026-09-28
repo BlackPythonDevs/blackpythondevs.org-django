@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import CouncilNomination
+from .models import CouncilNomination, NominationObjection
 
 
 class CouncilNominationForm(forms.ModelForm):
@@ -58,3 +58,11 @@ class CouncilNominationForm(forms.ModelForm):
                     "You've already nominated this person for this cycle.",
                 )
         return cleaned
+
+
+class NominationObjectionForm(forms.ModelForm):
+    class Meta:
+        model = NominationObjection
+        fields = ["reason"]
+        labels = {"reason": "Why are you objecting to this nomination?"}
+        widgets = {"reason": forms.Textarea(attrs={"rows": 4})}

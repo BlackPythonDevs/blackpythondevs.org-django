@@ -12,7 +12,7 @@ from communities.models import can_manage_community
 from community_messages.models import is_leadership
 from core.models import CustomImage, Leader, is_council_member, is_leadership_or_above, is_student
 from elections.models import Election
-from nominations.models import can_nominate
+from nominations.models import CouncilNomination, can_nominate
 from notifications.models import can_send_notifications
 from service_award.models import can_nominate as can_nominate_service_award
 
@@ -82,6 +82,20 @@ def _leader_for_roster(user):
     return leader
 
 
+def _finalize_pending_nomination(user, leader, request):
+    """If `user` accepted a council nomination and is still finishing
+    onboarding, hand their now-saved `Leader` roster entry to the nomination
+    so it can draft the announcement and notify the onboarding team once a
+    photo is present. No-op for anyone who didn't arrive via a nomination.
+    """
+    nomination = CouncilNomination.objects.filter(
+        invite_link__accepted_by=user,
+        status=CouncilNomination.ACCEPTED_PENDING_ONBOARDING,
+    ).first()
+    if nomination is not None:
+        nomination.complete_onboarding(leader, request)
+
+
 def _notification_rows(form):
     """Pairs each topic's email/app checkboxes so the template can lay them out
     side by side instead of as two separate lists (see issue #35).
@@ -109,6 +123,7 @@ def onboarding(request):
                 if photo_file:
                     council_leader.photo = CustomImage.objects.create(title=photo_file.name, file=photo_file)
                 council_leader.save()
+                _finalize_pending_nomination(user, council_leader, request)
 
             messages.success(request, "Thanks — your profile is all set.")
             return redirect("members")
@@ -144,6 +159,7 @@ def profile(request):
                 if photo_file:
                     roster_leader.photo = CustomImage.objects.create(title=photo_file.name, file=photo_file)
                 roster_leader.save()
+                _finalize_pending_nomination(request.user, roster_leader, request)
             messages.success(request, "Your profile has been updated.")
             return redirect("members")
     else:
@@ -181,6 +197,9 @@ def invite_accept(request, token):
 
     if request.method == "POST":
         user = invite.accept(request)
+        nomination = CouncilNomination.objects.filter(invite_link=invite).first()
+        if nomination is not None and nomination.status == CouncilNomination.CONFIRMATION_SENT:
+            nomination.mark_accepted_pending_onboarding()
         LoginCodeVerificationProcess.initiate(request=request, user=user, email=invite.email)
         return headed_redirect_response("account_confirm_login_code")
 

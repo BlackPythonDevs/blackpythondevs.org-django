@@ -190,6 +190,7 @@ class Partner(models.Model):
 COUNCIL_GROUP_NAME = "Leadership Council"
 LEADERSHIP_GROUP_NAME = "Leadership"
 EXECUTOR_GROUP_NAME = "Executor"
+ONBOARDING_GROUP_NAME = "Onboarding Team"
 
 # Marks a member as a current student, so student-only features (like the
 # ambassador programme CTA) can gate on it. Granted by leadership in the
