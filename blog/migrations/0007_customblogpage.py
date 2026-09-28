@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('blog', '0006_alter_blogpage_body'),
-        ('core', '0010_sponsor_contract_amount_sponsor_expires_at_and_more'),
+        ('core', '0012_sponsor_contract_amount_sponsor_expires_at_and_more'),
     ]
 
     operations = [
