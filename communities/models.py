@@ -19,7 +19,7 @@ from django.conf import settings
 from django.db import models
 from django_countries.fields import CountryField
 
-from users.regions import region_for_country
+from users.regions import census_region_for_state, region_for_country
 
 # Membership group for the front-end console: like Executor, it carries real
 # model permissions (view/change Community — never delete), granted by the
@@ -53,6 +53,12 @@ class Community(models.Model):
         blank=True,
         help_text="Where this community is based. Leave blank for an online-only community.",
     )
+    state_province = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="This community's state or province, if relevant. For a US state, this can also narrow "
+        "its region below the country level, same as User.state_province.",
+    )
     # Derived on save() from country (or forced to "Online"); not edited directly.
     region = models.CharField(max_length=80, blank=True, editable=False)
 
@@ -81,6 +87,8 @@ class Community(models.Model):
             self.region = "Online"
         elif self.country:
             self.region = region_for_country(self.country.code) or self.region
+            if self.country.code == "US":
+                self.region = census_region_for_state(self.state_province) or self.region
         super().save(*args, **kwargs)
 
 

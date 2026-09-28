@@ -10,7 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django_countries.fields import CountryField
 
-from .regions import region_for_country
+from .regions import census_region_for_state, region_for_country
 
 # How long a generated invite link stays valid if it isn't used.
 INVITE_LINK_EXPIRY_DAYS = 7
@@ -79,7 +79,14 @@ class User(AbstractUser):
 
     member_type = models.CharField(max_length=20, choices=MEMBER_TYPE_CHOICES, blank=True)
     country = CountryField(blank=True, help_text="Where you currently reside. Used to match you to a region.")
-    # Derived on save() from `country`; not edited directly.
+    state_province = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Your state, province, or other local region — helps us connect you to opportunities "
+        "(like volunteering) closer to you. For a US state, this can also narrow your region below the "
+        "country level.",
+    )
+    # Derived on save() from `country` (and, for a US state, `state_province`); not edited directly.
     region = models.CharField(max_length=80, blank=True, editable=False)
     subcommunities = ArrayField(
         models.CharField(max_length=40, choices=SUBCOMMUNITY_CHOICES),
@@ -117,6 +124,8 @@ class User(AbstractUser):
     def save(self, *args, **kwargs):
         if self.country:
             self.region = region_for_country(self.country.code) or self.region
+            if self.country.code == "US":
+                self.region = census_region_for_state(self.state_province) or self.region
         super().save(*args, **kwargs)
 
     @property

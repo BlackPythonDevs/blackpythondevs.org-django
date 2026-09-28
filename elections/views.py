@@ -4,14 +4,27 @@ statement form (gated to council members — see `core.models.is_council_member`
 
 from django.contrib import messages
 from django.contrib.auth.mixins import UserPassesTestMixin
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views import View
 
 from core.models import is_council_member
+from users.regions import continent_for_region
 
-from .forms import CandidacyForm
-from .models import Candidacy, Election
+from .forms import BallotForm, CandidacyForm
+from .models import Ballot, BallotRanking, Candidacy, Election, VoteRecord, regional_results
+
+
+def group_by_continent(by_region):
+    """`{region: value}` -> `[(continent, [(region, value), ...]), ...]`,
+    sorted by continent then region — shared by the ballot page (grouping
+    candidates) and the results page (grouping each region's tally), so a
+    voter or council member sees the same continent headers in both."""
+    by_continent = {}
+    for region, value in by_region.items():
+        by_continent.setdefault(continent_for_region(region), []).append((region, value))
+    return sorted((continent, sorted(regions)) for continent, regions in by_continent.items())
 
 
 def election_detail(request):
@@ -43,6 +56,8 @@ def election_detail(request):
         # for a council member, and only they could have one anyway.
         if is_council_member(request.user):
             context["user_candidacy"] = election.candidacies.filter(user=request.user).first()
+            if election.phase == Election.VOTING:
+                context["has_voted"] = election.has_voted(request.user)
 
     return render(request, "elections/election_detail.html", context)
 
@@ -119,3 +134,89 @@ class CandidacyRemoveView(NominatingWindowRequiredMixin, View):
         self.get_candidacy().delete()
         messages.success(request, "Your candidacy statement has been removed.")
         return redirect(self.success_url)
+
+
+class VotingWindowRequiredMixin(CouncilMemberRequiredMixin):
+    """Only reachable while the latest election is in its voting window,
+    and only for a council member who hasn't already cast a ballot.
+
+    Checked against `Election.has_voted` (backed by `VoteRecord`), never
+    against `Ballot` — see that model's docstring for why.
+    """
+
+    success_url = reverse_lazy("elections:detail")
+
+    def dispatch(self, request, *args, **kwargs):
+        self.election = Election.objects.order_by("-year").first()
+        if self.election is None or self.election.phase != Election.VOTING:
+            messages.error(request, "Voting isn't open right now.")
+            return redirect(self.success_url)
+        if request.user.is_authenticated and self.election.has_voted(request.user):
+            messages.info(request, "You've already voted in this election.")
+            return redirect(self.success_url)
+        return super().dispatch(request, *args, **kwargs)
+
+
+class BallotCastView(VotingWindowRequiredMixin, View):
+    """Cast one anonymous ballot, ranking each region's candidates for that
+    region's own race — see `elections.models.regional_results`. Sections
+    aren't just a display grouping here: a region's ranking only ever
+    competes against candidates in that same region.
+    """
+
+    def get_candidacies(self):
+        return self.election.candidacies.select_related("user").order_by("user__region", "user__display_name")
+
+    def get_sections(self, form):
+        """Candidates grouped by region and then by continent — see
+        `elections.views.group_by_continent`."""
+        by_region = {}
+        for candidacy in form.candidacies:
+            region = candidacy.user.region or "Unspecified region"
+            by_region.setdefault(region, []).append((candidacy, form[f"rank_{candidacy.pk}"]))
+        return group_by_continent(by_region)
+
+    def get(self, request, *args, **kwargs):
+        form = BallotForm(candidacies=self.get_candidacies())
+        return render(
+            request,
+            "elections/ballot_form.html",
+            {"form": form, "election": self.election, "sections": self.get_sections(form)},
+        )
+
+    def post(self, request, *args, **kwargs):
+        form = BallotForm(request.POST, candidacies=self.get_candidacies())
+        if form.is_valid():
+            with transaction.atomic():
+                ballot = Ballot.objects.create(election=self.election)
+                BallotRanking.objects.bulk_create(
+                    BallotRanking(ballot=ballot, candidacy=candidacy, rank=rank) for candidacy, rank in form.rankings()
+                )
+                VoteRecord.objects.create(election=self.election, user=request.user)
+            messages.success(request, "Your ballot has been cast anonymously. Thank you for voting.")
+            return redirect(self.success_url)
+        return render(
+            request,
+            "elections/ballot_form.html",
+            {"form": form, "election": self.election, "sections": self.get_sections(form)},
+        )
+
+
+class ResultsView(CouncilMemberRequiredMixin, View):
+    """Each region's instant-runoff winner and final vote counts —
+    council-only, and only once voting has closed. Ballots stay anonymous
+    throughout: this reads `Ballot`/`BallotRanking`, never `VoteRecord`.
+
+    Shows only the deciding round, not the full round-by-round elimination
+    log — the tally still runs every round internally (see
+    `elections.models.tally_irv`), this just reports where it landed.
+    """
+
+    def get(self, request, *args, **kwargs):
+        election = get_object_or_404(Election, year=kwargs["year"])
+        if election.phase != Election.CLOSED:
+            messages.error(request, "Results aren't available until voting has closed.")
+            return redirect("elections:detail")
+        final_rounds = {region: rounds[-1] for region, rounds in regional_results(election).items()}
+        sections = group_by_continent(final_rounds)
+        return render(request, "elections/results.html", {"election": election, "sections": sections})

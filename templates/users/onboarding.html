@@ -164,6 +164,17 @@
         {{ form.country.errors }}
       </section>
 
+      <section class="onboarding-step" data-title="State / province" hidden>
+        <h2>What state, province, or region?</h2>
+        <p class="onboarding-explainer">
+          <strong>Why we ask:</strong> optional, but it helps us connect you to opportunities
+          closer to you, like volunteering. If you're in the US, it also narrows your region
+          below the country level.
+        </p>
+        {{ form.state_province }}
+        {{ form.state_province.errors }}
+      </section>
+
       <section class="onboarding-step" data-title="Subcommunities" hidden>
         <h2>Do you identify as a member of any of the following communities?</h2>
         <p class="onboarding-explainer">

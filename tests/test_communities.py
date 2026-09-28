@@ -67,6 +67,21 @@ class TestRegionDerivation:
         user = make_user("leader", country="NG")
         assert community.region == user.region
 
+    def test_us_state_narrows_region_to_a_census_region(self, db):
+        community = Community.objects.create(name="PyATL", country="US", state_province="Georgia")
+        assert community.region == "US South"
+
+    def test_unrecognized_us_state_falls_back_to_northern_america(self, db):
+        community = Community.objects.create(name="Mystery Meetup", country="US", state_province="")
+        assert community.region == "Northern America"
+
+    def test_non_us_country_ignores_state_province(self, db):
+        # A Canadian province isn't a US Census region — state_province is
+        # free text here (e.g. for volunteer matching), not something this
+        # lookup should try to interpret.
+        community = Community.objects.create(name="PyToronto", country="CA", state_province="Ontario")
+        assert community.region == "Northern America"
+
 
 class TestGroupSync:
     def test_creating_community_admin_grants_group(self, db, community, member):

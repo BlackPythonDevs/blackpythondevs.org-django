@@ -3,9 +3,61 @@ import datetime as dt
 from django import forms
 from django.contrib.admin.widgets import AdminDateWidget
 
-from .models import AOE, EARLIEST_TZ, Candidacy, Election, election_window_instants
+from .models import AOE, EARLIEST_TZ, Candidacy, Election, _region_of, election_window_instants
 
 ONE_DAY = dt.timedelta(days=1)
+
+
+class BallotForm(forms.Form):
+    """A ranked-choice ballot: one optional rank field per candidacy.
+
+    Built dynamically off whichever candidacies are running rather than a
+    `ModelForm` on `BallotRanking`, since the set of fields depends on the
+    election — a voter isn't ranking a fixed schema, they're ranking
+    whoever happens to be on the ballot this cycle.
+
+    Each region elects its own representative, so a rank only has to be
+    unique among the candidates *in the same region* — the same number
+    (e.g. everyone's "1") is expected to recur once per region, one for
+    each region's separate race.
+    """
+
+    def __init__(self, *args, candidacies, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.candidacies = list(candidacies)
+        for candidacy in self.candidacies:
+            self.fields[f"rank_{candidacy.pk}"] = forms.IntegerField(
+                required=False,
+                min_value=1,
+                widget=forms.NumberInput(attrs={"min": 1, "inputmode": "numeric", "class": "ballot-card-input"}),
+            )
+
+    def clean(self):
+        cleaned = super().clean()
+        ranks_by_region = {}
+        for candidacy in self.candidacies:
+            value = cleaned.get(f"rank_{candidacy.pk}")
+            if value is None:
+                continue
+            ranks_by_region.setdefault(_region_of(candidacy), []).append(value)
+
+        if not ranks_by_region:
+            raise forms.ValidationError("Rank at least one candidate before submitting your ballot.")
+        for region, ranks in ranks_by_region.items():
+            if len(ranks) != len(set(ranks)):
+                raise forms.ValidationError(f"In {region}, give each candidate you rank a different number.")
+        return cleaned
+
+    def rankings(self):
+        """`[(candidacy, rank), ...]` for every candidate the voter ranked,
+        in the order they'll be recorded — sorted by rank."""
+        ranked = [
+            (candidacy, self.cleaned_data[f"rank_{candidacy.pk}"])
+            for candidacy in self.candidacies
+            if self.cleaned_data.get(f"rank_{candidacy.pk}") is not None
+        ]
+        ranked.sort(key=lambda pair: pair[1])
+        return ranked
 
 
 class CandidacyForm(forms.ModelForm):

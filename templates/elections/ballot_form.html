@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Cast your ballot &ndash; {{ election.year }} Executorship Election{% endblock %}
+
+{% block content %}
+  <section>
+    <h1>Cast your ballot</h1>
+    <p class="lead">
+      Each region elects its own representative &mdash; rank the candidates within each region separately. Drag a
+      candidate up or down (or use the &#9650;&#9660; buttons) to set your order of preference for that region's race.
+    </p>
+    <p>
+      Your ballot is anonymous: once it's submitted, there's no record connecting your ranking back to your account.
+    </p>
+    <noscript>
+      <p class="error">
+        Drag and drop needs JavaScript. Without it, type a rank number (1 for your first choice, and so on) next to
+        each candidate below instead.
+      </p>
+    </noscript>
+
+    {% if form.non_field_errors %}
+      <p class="error">{{ form.non_field_errors|join:" " }}</p>
+    {% endif %}
+
+    <form method="post" id="ballot-form">
+      {% csrf_token %}
+
+      {% for continent, regions in sections %}
+        <h2 class="ballot-continent">{{ continent }}</h2>
+        <hr />
+        {% for region, rows in regions %}
+          <h3>{{ region }}</h3>
+          <ol class="ballot-card-list ballot-region-list" data-region="{{ region }}">
+            {% for candidacy, field in rows %}
+              <li class="ballot-card" draggable="true" data-region="{{ region }}">
+                <span class="ballot-card-handle" aria-hidden="true">&#9776;</span>
+                <label class="ballot-card-name" for="{{ field.id_for_label }}">{{ candidacy.user.display_name }}</label>
+                <span class="ballot-card-rank" aria-hidden="true"></span>
+                <button type="button" class="ballot-card-move-up" aria-label="Move up">&#9650;</button>
+                <button type="button" class="ballot-card-move-down" aria-label="Move down">&#9660;</button>
+                {{ field }}
+                {% if field.errors %}<p class="error">{{ field.errors|join:" " }}</p>{% endif %}
+              </li>
+            {% endfor %}
+          </ol>
+        {% endfor %}
+      {% endfor %}
+
+      <button type="submit" class="btn">Submit ballot</button>
+    </form>
+  </section>
+{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/elections.css' %}" />
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/ballot-dragdrop.js' %}"></script>
+{% endblock %}

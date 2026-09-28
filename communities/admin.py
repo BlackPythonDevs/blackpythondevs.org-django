@@ -17,7 +17,7 @@ class CommunityModelAdmin(admin.ModelAdmin):
     ordering = ("name",)
     fieldsets = (
         (None, {"fields": ("name", "description", "website")}),
-        ("Location", {"fields": ("is_online", "country")}),
+        ("Location", {"fields": ("is_online", "country", "state_province")}),
         ("Internal", {"fields": ("notes",)}),
         ("Derived", {"fields": ("region",), "classes": ("collapse",)}),
     )

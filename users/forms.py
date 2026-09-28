@@ -79,6 +79,7 @@ class OnboardingForm(forms.ModelForm):
             "display_name",
             "member_type",
             "country",
+            "state_province",
             "subcommunities",
             "communication_preferences",
             "app_communication_preferences",
@@ -86,11 +87,14 @@ class OnboardingForm(forms.ModelForm):
         labels = {
             "display_name": "What name should we use for you?",
             "country": "What country do you currently reside in?",
+            "state_province": "What state, province, or region?",
         }
         help_texts = {
             "display_name": "This is how people will know and refer to you, including on the "
             "website for things like speaking and leadership roles.",
             "country": "We'll match this to a region behind the scenes.",
+            "state_province": "Optional. Helps us connect you to more local opportunities, like "
+            "volunteering — and for a US state, narrows your region below the country level.",
         }
 
     def __init__(self, *args, **kwargs):

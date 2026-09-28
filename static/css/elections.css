@@ -43,3 +43,104 @@ dialog.statement-modal .modal-actions {
   justify-content: flex-end;
   margin-top: 1.5rem;
 }
+
+/* Ballot page (ballot_form.html): drag-and-drop ranking, layered over the
+ * plain rank-number inputs by ballot-dragdrop.js. `.js-ballot` is only
+ * added once that script runs, so the inputs stay visible without it. */
+
+/* Continent header (ballot_form.html and results.html) — one level above
+ * the region headings, so it needs to read as a bigger grouping rather
+ * than another region. */
+.ballot-continent {
+  margin-top: 3rem;
+  margin-bottom: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 1rem;
+  color: var(--bpd-muted);
+}
+
+.ballot-continent:first-of-type {
+  margin-top: 0;
+}
+
+.ballot-continent + hr {
+  margin: 0.5rem 0 1.5rem;
+  border: none;
+  border-top: 1px solid var(--bpd-border);
+}
+
+.ballot-card-list {
+  list-style: none;
+  margin: 0 0 2rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ballot-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--bpd-border);
+  border-radius: 12px;
+  background: var(--bpd-raised);
+  cursor: grab;
+}
+
+.ballot-card:active {
+  cursor: grabbing;
+}
+
+.ballot-card-handle {
+  opacity: 0.5;
+}
+
+.ballot-card-name {
+  flex: 1;
+  margin: 0;
+}
+
+.ballot-card-rank {
+  font-weight: bold;
+  min-width: 1.5rem;
+  text-align: right;
+}
+
+.ballot-card-move-up,
+.ballot-card-move-down {
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--bpd-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--bpd-white);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ballot-card-move-up:disabled,
+.ballot-card-move-down:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+#ballot-form.js-ballot .ballot-card-input {
+  display: none;
+}
+
+/* The card left behind in the list while its clone (below) follows the
+ * cursor — a dimmed placeholder for where it'll land. */
+.ballot-card.is-dragging {
+  opacity: 0.35;
+}
+
+/* The clone handed to `setDragImage` (ballot-dragdrop.js): styled to look
+ * lifted off the list while it's under the pointer. Never actually seen
+ * in its off-screen resting spot — only as the browser's drag image. */
+.ballot-card-dragimage {
+  cursor: grabbing;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+  transform: rotate(-2deg) scale(1.03);
+}
