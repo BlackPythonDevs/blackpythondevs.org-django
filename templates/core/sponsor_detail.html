@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load static checklists_tags %}
+
+{% block title %}{{ object.name }}{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/checklists.css' %}" />
+{% endblock %}
+
+{% block content %}
+  <section>
+    <p><a href="{% url 'sponsors-list' %}">&larr; All sponsors</a></p>
+
+    <h1>
+      {{ object.name }}
+      {% if object.active %}<span class="badge">on site</span>{% endif %}
+    </h1>
+    <p class="lead">{{ object.get_status_display }}</p>
+
+    <div class="card">
+      <dl>
+        <dt>Website</dt>
+        <dd>{% if object.url %}<a href="{{ object.url }}" rel="noopener">{{ object.url }}</a>{% else %}—{% endif %}</dd>
+
+        <dt>Logo</dt>
+        <dd>
+          {% if object.logo %}
+            {{ object.logo.title }}
+          {% elif object.logo_static_path %}
+            {{ object.logo_static_path }} <small>(static fallback)</small>
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+
+        <dt>Invoice paid</dt>
+        <dd>{{ object.invoice_paid_date|date:"d M Y"|default:"—" }}</dd>
+
+        <dt>Expires</dt>
+        <dd>{{ object.expires_at|date:"d M Y"|default:"—" }} <small>(derived on save)</small></dd>
+
+        <dt>Contract amount</dt>
+        <dd>{{ object.contract_amount|default:"—" }}</dd>
+
+        <dt>Primary contact</dt>
+        <dd>
+          {{ object.primary_contact_name|default:"—" }}
+          {% if object.primary_contact_email %}&lt;{{ object.primary_contact_email }}&gt;{% endif %}
+        </dd>
+      </dl>
+    </div>
+
+    <p>
+      <a role="button" class="btn" href="{% url 'sponsors-update' object.pk %}">Edit</a>
+      <a role="button" class="secondary" href="{% url 'sponsors-delete' object.pk %}">Delete</a>
+    </p>
+
+    {% checklist_widget object %}
+    {% task_activity object %}
+  </section>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/htmx.min.js' %}"></script>
+  <script src="{% static 'js/checklist-dragdrop.js' %}"></script>
+  <script src="{% static 'js/checklist-mentions.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}{{ process_name }} checklists{% endblock %}
+
+{% block content %}
+  <section>
+    <p><a href="{% url 'checklists-index' %}">&larr; All checklists</a></p>
+
+    <h1>{{ process_name }}</h1>
+
+    {% if rows %}
+      <figure>
+        <table role="grid">
+          <thead>
+            <tr>
+              <th scope="col">{{ process_name }}</th>
+              <th scope="col">Progress</th>
+              <th scope="col"><span class="screen-reader-text">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+              <tr>
+                <th scope="row">{{ row.object }}</th>
+                <td>
+                  {% if row.total %}
+                    {{ row.done }} / {{ row.total }}
+                  {% else %}
+                    No checklist yet
+                  {% endif %}
+                </td>
+                <td>
+                  <a href="{% url 'checklists-detail' app_label model_name row.object.pk %}">Open</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </figure>
+    {% else %}
+      <p>There are no {{ process_name|lower }} records yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}

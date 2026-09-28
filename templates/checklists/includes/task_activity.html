@@ -1,0 +1,19 @@
+{% load checklists_tags %}
+{% if task_activity %}
+  <section class="card">
+    <h2>Task activity</h2>
+    <ul>
+      {% for entry in task_activity %}
+        <li>
+          <small>
+            {{ entry.timestamp|date:"d M Y H:i" }} &middot;
+            {{ entry.actor|checklist_person|default:"System" }} &mdash; {{ entry }}
+            {% if entry.changes_display_dict %}
+              ({% for field, values in entry.changes_display_dict.items %}{{ field }}: {{ values.0|default:"—" }} &rarr; {{ values.1|default:"—" }}{% if not forloop.last %}; {% endif %}{% endfor %})
+            {% endif %}
+          </small>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+{% endif %}

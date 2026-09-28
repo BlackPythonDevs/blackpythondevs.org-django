@@ -1,0 +1,163 @@
+{% load checklists_tags %}
+{% if registered %}
+  <section class="checklist-widget card" data-mention-url="{% url 'checklists-mentions' %}">
+    <h2>{{ process_name }} checklist</h2>
+
+    {% if tasks %}
+      <form
+        method="post" action="{{ post_url }}" id="checklist-reorder-form"
+        hx-post="{{ post_url }}" hx-target="closest .checklist-widget" hx-swap="outerHTML"
+      >
+        {% csrf_token %}
+        <input type="hidden" name="action" value="reorder" />
+        <input type="hidden" name="next" value="{{ next }}" />
+      </form>
+      <ol class="checklist-task-list">
+        {% for task in tasks %}
+          <li class="checklist-task-card" draggable="true">
+            <input type="hidden" name="task_id" value="{{ task.pk }}" form="checklist-reorder-form" />
+            <span class="checklist-task-handle" aria-hidden="true">&#8942;&#8942;</span>
+
+            <form
+              method="post" action="{{ post_url }}" class="checklist-task-toggle"
+              hx-post="{{ post_url }}" hx-target="closest .checklist-widget" hx-swap="outerHTML"
+            >
+              {% csrf_token %}
+              <input type="hidden" name="action" value="toggle" />
+              <input type="hidden" name="task_id" value="{{ task.pk }}" />
+              <input type="hidden" name="next" value="{{ next }}" />
+              <input
+                type="checkbox" aria-label="Mark &quot;{{ task.title }}&quot; done"
+                onchange="this.form.requestSubmit()" {% if task.is_done %}checked{% endif %}
+              />
+            </form>
+
+            <details class="checklist-task-details">
+              <summary>
+                {% if task.is_done %}<s>{{ task.title }}</s>{% else %}{{ task.title }}{% endif %}
+                {% if not task.is_default %}<small>(custom)</small>{% endif %}
+                {% if task.due_date %}
+                  <small class="checklist-task-due{% if task.is_overdue %} is-overdue{% endif %}">
+                    &middot; due {{ task.due_date|date:"d M Y" }}
+                  </small>
+                {% endif %}
+                {% if task.assigned_to %}
+                  <small class="checklist-task-assignee">&middot; {{ task.assigned_to|checklist_person }}</small>
+                {% endif %}
+                {% if task.comments %}
+                  <small class="checklist-task-comment-count">&middot; {{ task.comments|length }} comment{{ task.comments|length|pluralize }}</small>
+                {% endif %}
+                {% if task.is_done %}
+                  <small>&mdash; done {{ task.done_at|date:"d M Y H:i" }}{% if task.done_by %} by {{ task.done_by|checklist_person }}{% endif %}</small>
+                {% endif %}
+              </summary>
+              <form
+                method="post" action="{{ post_url }}" class="checklist-task-assign-form"
+                hx-post="{{ post_url }}" hx-target="closest .checklist-widget" hx-swap="outerHTML"
+              >
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_task_details" />
+                <input type="hidden" name="task_id" value="{{ task.pk }}" />
+                <input type="hidden" name="next" value="{{ next }}" />
+                <label>
+                  Due date
+                  <input type="date" name="due_date" value="{{ task.due_date|date:'Y-m-d' }}" />
+                </label>
+                <label>
+                  Assign to
+                  <select name="assigned_to">
+                    <option value="">&mdash; Unassigned &mdash;</option>
+                    {% for user in assignable_users %}
+                      <option value="{{ user.pk }}" {% if task.assigned_to_id == user.pk %}selected{% endif %}>
+                        {{ user|checklist_person }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <button type="submit" class="btn secondary">Save</button>
+              </form>
+
+              <div class="checklist-task-comments">
+                {% if task.comments %}
+                  <ul class="checklist-task-comment-list">
+                    {% for comment in task.comments %}
+                      <li>
+                        <p>{{ comment.body|mentionify|linebreaksbr }}</p>
+                        <small>{{ comment.created_at|date:"d M Y H:i" }}{% if comment.created_by %} &middot; {{ comment.created_by|checklist_person }}{% endif %}</small>
+                      </li>
+                    {% endfor %}
+                  </ul>
+                {% endif %}
+                <form
+                  method="post" action="{{ post_url }}" class="checklist-task-comment-form"
+                  hx-post="{{ post_url }}" hx-target="closest .checklist-widget" hx-swap="outerHTML"
+                >
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="add_task_comment" />
+                  <input type="hidden" name="task_id" value="{{ task.pk }}" />
+                  <input type="hidden" name="next" value="{{ next }}" />
+                  <label>
+                    Add a comment
+                    <textarea name="body" required rows="2"></textarea>
+                  </label>
+                  <button type="submit" class="btn secondary">Comment</button>
+                </form>
+              </div>
+            </details>
+
+            <span class="checklist-task-moves">
+              <button type="button" class="btn secondary checklist-task-move-up">&#9650;</button>
+              <button type="button" class="btn secondary checklist-task-move-down">&#9660;</button>
+            </span>
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <p>No tasks yet.</p>
+    {% endif %}
+
+    <form
+      method="post" action="{{ post_url }}"
+      hx-post="{{ post_url }}" hx-target="closest .checklist-widget" hx-swap="outerHTML"
+    >
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_task" />
+      <input type="hidden" name="next" value="{{ next }}" />
+      <label>
+        Add a task
+        <input type="text" name="title" required maxlength="200" />
+      </label>
+      <button type="submit" class="btn secondary">Add task</button>
+    </form>
+
+    <h3>Notes</h3>
+
+    <form
+      method="post" action="{{ post_url }}"
+      hx-post="{{ post_url }}" hx-target="closest .checklist-widget" hx-swap="outerHTML"
+    >
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_note" />
+      <input type="hidden" name="next" value="{{ next }}" />
+      <label>
+        Add a note
+        <textarea name="body" required rows="3"></textarea>
+      </label>
+      {% if assignable_users %}
+        <small class="checklist-mention-hint">
+          Mention someone: {% for user in assignable_users %}@{{ user.username }}{% if not forloop.last %} {% endif %}{% endfor %}
+        </small>
+      {% endif %}
+      <button type="submit" class="btn secondary">Add note</button>
+    </form>
+
+    {% for note in notes %}
+      <article class="card">
+        <p>{{ note.body|mentionify|linebreaksbr }}</p>
+        <footer>
+          <small>{{ note.created_at|date:"d M Y H:i" }}{% if note.created_by %} &middot; {{ note.created_by|checklist_person }}{% endif %}</small>
+        </footer>
+      </article>
+    {% endfor %}
+  </section>
+{% endif %}
