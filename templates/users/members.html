@@ -63,9 +63,20 @@
     </section>
   {% endif %}
 
-  {% if can_nominate or can_nominate_service_award or is_council_member %}
+  {% if can_nominate or can_nominate_service_award or is_council_member or can_manage_sponsorships %}
     <section class="auth-panel">
       <h2>Leadership actions</h2>
+
+      {% if can_manage_sponsorships %}
+        <div>
+          <h3>Sponsorships</h3>
+          <p>Manage corporate sponsors and community event sponsorship requests.</p>
+          <p>
+            <a role="button" class="btn" href="{% url 'sponsors-list' %}">Corporate sponsors</a>
+            <a role="button" class="secondary" href="{% url 'sponsorships-list' %}">Event sponsorship requests</a>
+          </p>
+        </div>
+      {% endif %}
 
       {% if can_nominate %}
         <div>

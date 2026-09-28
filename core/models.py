@@ -119,24 +119,24 @@ class FooterSettings(BaseSiteSetting):
 # ── Snippets ──────────────────────────────────────────────────────────────
 
 
-@register_snippet
 class Sponsor(models.Model):
     """Corporate sponsor logo shown in the sponsor strip.
 
     The `active` flag is the public "show in the sponsor strip" toggle,
     unchanged in meaning since before the lifecycle fields below existed.
     `status` tracks the internal contract lifecycle instead, and is what
-    the auto-expiration job (a separate follow-up) will drive.
-    """
+    the auto-expiration job drives.
 
-    TIER_COMMUNITY = "community"
-    TIER_STANDARD = "standard"
-    TIER_PREMIUM = "premium"
-    TIER_CHOICES = [
-        (TIER_COMMUNITY, "Community"),
-        (TIER_STANDARD, "Standard"),
-        (TIER_PREMIUM, "Premium"),
-    ]
+    Managed from its own neapolitan console (core.views.SponsorView, at
+    /sponsors/) rather than Wagtail admin — this used to be a
+    `@register_snippet` model with `panels`, but that console replaces the
+    Wagtail snippet editor as the place to manage sponsors, and embeds the
+    corporate-sponsorship checklist (see checklists/registry.py) that the
+    Wagtail snippet form had no natural place for. `CustomBlogPage.sponsor`
+    (blog/models.py) still points at this model via a plain FieldPanel; that
+    just renders as an ordinary select in the page editor now instead of a
+    snippet chooser.
+    """
 
     STATUS_ACTIVE = "active"
     STATUS_EXPIRING_SOON = "expiring_soon"
@@ -160,7 +160,6 @@ class Sponsor(models.Model):
     sort_order = models.IntegerField(default=0)
     active = models.BooleanField(default=True)
 
-    tier = models.CharField(max_length=20, choices=TIER_CHOICES, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_ACTIVE, db_index=True)
     invoice_paid_date = models.DateField(
         null=True,
@@ -178,31 +177,6 @@ class Sponsor(models.Model):
     )
     primary_contact_name = models.CharField(max_length=200, blank=True)
     primary_contact_email = models.EmailField(blank=True)
-
-    panels = [
-        FieldPanel("name"),
-        FieldPanel("url"),
-        FieldPanel("logo"),
-        FieldPanel("logo_static_path"),
-        FieldPanel("sort_order"),
-        FieldPanel("active"),
-        MultiFieldPanel(
-            [
-                FieldPanel("tier"),
-                FieldPanel("status"),
-                FieldPanel("invoice_paid_date"),
-                FieldPanel("contract_amount"),
-            ],
-            heading="Contract",
-        ),
-        MultiFieldPanel(
-            [
-                FieldPanel("primary_contact_name"),
-                FieldPanel("primary_contact_email"),
-            ],
-            heading="Primary contact",
-        ),
-    ]
 
     class Meta:
         ordering = ["sort_order", "name"]
@@ -305,6 +279,21 @@ def is_leadership_or_above(user):
     if user.is_superuser:
         return True
     return user.groups.filter(name__in=(COUNCIL_GROUP_NAME, EXECUTOR_GROUP_NAME)).exists()
+
+
+def can_manage_sponsorships(user):
+    """Whether `user` can reach the sponsorships/sponsors front-end consoles
+    (sponsorships.views.SponsorshipRequestView, core.views.SponsorView).
+
+    Mirrors those views' own `permission_required`: both are Executor-only
+    (the group each is granted full CRUD on in their own migrations), plus
+    superusers, who pass every permission check regardless.
+    """
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    return user.groups.filter(name=EXECUTOR_GROUP_NAME).exists()
 
 
 def is_student(user):

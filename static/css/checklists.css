@@ -1,0 +1,188 @@
+/* Checklist widget (templates/checklists/includes/widget.html):
+ * drag-and-drop task reordering, layered over the plain <ol> by
+ * checklist-dragdrop.js. Without that script the list is just a static,
+ * unstyled-for-dragging order — the handle/move buttons are only meaningful
+ * once it runs. */
+
+.checklist-task-list {
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.checklist-task-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--bpd-border);
+  border-radius: 12px;
+  background: var(--bpd-raised);
+  cursor: grab;
+}
+
+.checklist-task-card:active {
+  cursor: grabbing;
+}
+
+.checklist-task-handle {
+  opacity: 0.5;
+}
+
+.checklist-task-toggle {
+  margin: 0;
+}
+
+.checklist-task-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.checklist-task-details summary {
+  cursor: pointer;
+}
+
+.checklist-task-due {
+  color: var(--bpd-muted);
+}
+
+.checklist-task-due.is-overdue {
+  color: var(--bpd-danger);
+  font-weight: bold;
+}
+
+.checklist-task-assignee {
+  color: var(--bpd-muted);
+}
+
+.checklist-task-comment-count {
+  color: var(--bpd-muted);
+}
+
+/* An "@username" resolved to an assignable user (mentions.py's
+ * render_mentions) — a plain "@word" that matches no one is left as
+ * unstyled text, so this only ever highlights a real mention. */
+.checklist-mention {
+  padding: 0.05rem 0.35rem;
+  border-radius: 6px;
+  background: var(--bpd-surface);
+  font-weight: bold;
+}
+
+.checklist-mention-hint {
+  display: block;
+  color: var(--bpd-muted);
+  margin: 0.25rem 0 0;
+}
+
+/* The "@" autocomplete dropdown (checklist-mentions.js) — positioned
+ * absolutely in JS (top/left/width set inline per textarea), so only its
+ * fixed appearance lives here. */
+.checklist-mention-suggestions {
+  position: absolute;
+  z-index: 1000;
+  margin: 0.25rem 0 0;
+  padding: 0.25rem;
+  list-style: none;
+  border: 1px solid var(--bpd-border);
+  border-radius: 8px;
+  background: var(--bpd-raised);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+.checklist-mention-suggestions li {
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.checklist-mention-suggestions li.is-active,
+.checklist-mention-suggestions li:hover {
+  background: var(--bpd-surface);
+}
+
+/* Click-to-expand due date/assignee editor (widget.html's per-task
+ * <details>) — laid out as its own small row rather than Pico's default
+ * block-per-label stacking, so it doesn't blow out each task card's height
+ * while collapsed elsewhere in the list. */
+.checklist-task-assign-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin: 0.5rem 0 0;
+}
+
+.checklist-task-assign-form label {
+  margin: 0;
+}
+
+.checklist-task-comments {
+  margin: 0.75rem 0 0;
+}
+
+.checklist-task-comment-list {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.checklist-task-comment-list li {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--bpd-border);
+  border-radius: 8px;
+  background: var(--bpd-surface);
+}
+
+.checklist-task-comment-list p {
+  margin: 0 0 0.25rem;
+}
+
+.checklist-task-comment-form {
+  margin: 0;
+}
+
+.checklist-task-moves {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.checklist-task-move-up,
+.checklist-task-move-down {
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--bpd-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--bpd-white);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.checklist-task-move-up:disabled,
+.checklist-task-move-down:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+/* The card left behind in the list while its clone (below) follows the
+ * cursor — a dimmed placeholder for where it'll land. */
+.checklist-task-card.is-dragging {
+  opacity: 0.35;
+}
+
+/* The clone handed to `setDragImage` (checklist-dragdrop.js): styled to
+ * look lifted off the list while it's under the pointer. Never actually
+ * seen in its off-screen resting spot — only as the browser's drag image. */
+.checklist-task-card-dragimage {
+  cursor: grabbing;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+  transform: rotate(-2deg) scale(1.03);
+}
