@@ -4,6 +4,7 @@ Everything the old Jekyll/render-engine site kept in `_data/*.json` lives here a
 editable snippets so the community can maintain it without a deploy.
 """
 
+from dateutil.relativedelta import relativedelta
 from django.db import models
 from modelcluster.fields import ParentalKey
 from modelcluster.models import ClusterableModel
@@ -120,7 +121,33 @@ class FooterSettings(BaseSiteSetting):
 
 @register_snippet
 class Sponsor(models.Model):
-    """Corporate sponsor logo shown in the sponsor strip."""
+    """Corporate sponsor logo shown in the sponsor strip.
+
+    The `active` flag is the public "show in the sponsor strip" toggle,
+    unchanged in meaning since before the lifecycle fields below existed.
+    `status` tracks the internal contract lifecycle instead, and is what
+    the auto-expiration job (a separate follow-up) will drive.
+    """
+
+    TIER_COMMUNITY = "community"
+    TIER_STANDARD = "standard"
+    TIER_PREMIUM = "premium"
+    TIER_CHOICES = [
+        (TIER_COMMUNITY, "Community"),
+        (TIER_STANDARD, "Standard"),
+        (TIER_PREMIUM, "Premium"),
+    ]
+
+    STATUS_ACTIVE = "active"
+    STATUS_EXPIRING_SOON = "expiring_soon"
+    STATUS_EXPIRED = "expired"
+    STATUS_CANCELLED = "cancelled"
+    STATUS_CHOICES = [
+        (STATUS_ACTIVE, "Active"),
+        (STATUS_EXPIRING_SOON, "Expiring soon"),
+        (STATUS_EXPIRED, "Expired"),
+        (STATUS_CANCELLED, "Cancelled"),
+    ]
 
     name = models.CharField(max_length=120)
     url = models.URLField(blank=True)
@@ -133,6 +160,25 @@ class Sponsor(models.Model):
     sort_order = models.IntegerField(default=0)
     active = models.BooleanField(default=True)
 
+    tier = models.CharField(max_length=20, choices=TIER_CHOICES, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_ACTIVE, db_index=True)
+    invoice_paid_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="When Black Python Devs received payment. The sponsorship term runs one year from this date.",
+    )
+    # Derived on save() from invoice_paid_date; not edited directly.
+    expires_at = models.DateField(null=True, blank=True, editable=False)
+    contract_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Contract value, for internal records. Never shown on the public site.",
+    )
+    primary_contact_name = models.CharField(max_length=200, blank=True)
+    primary_contact_email = models.EmailField(blank=True)
+
     panels = [
         FieldPanel("name"),
         FieldPanel("url"),
@@ -140,6 +186,22 @@ class Sponsor(models.Model):
         FieldPanel("logo_static_path"),
         FieldPanel("sort_order"),
         FieldPanel("active"),
+        MultiFieldPanel(
+            [
+                FieldPanel("tier"),
+                FieldPanel("status"),
+                FieldPanel("invoice_paid_date"),
+                FieldPanel("contract_amount"),
+            ],
+            heading="Contract",
+        ),
+        MultiFieldPanel(
+            [
+                FieldPanel("primary_contact_name"),
+                FieldPanel("primary_contact_email"),
+            ],
+            heading="Primary contact",
+        ),
     ]
 
     class Meta:
@@ -147,6 +209,14 @@ class Sponsor(models.Model):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        # Keep expires_at in step with its source. Only overwrite when
+        # invoice_paid_date is present so rows without one keep whatever
+        # they already have.
+        if self.invoice_paid_date:
+            self.expires_at = self.invoice_paid_date + relativedelta(years=1)
+        super().save(*args, **kwargs)
 
 
 @register_snippet
