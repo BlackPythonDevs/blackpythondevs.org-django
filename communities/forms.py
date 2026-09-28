@@ -14,4 +14,4 @@ class CommunityAdminForm(forms.ModelForm):
 
     class Meta:
         model = Community
-        fields = ["name", "description", "website", "is_online", "country"]
+        fields = ["name", "description", "website", "is_online", "country", "state_province"]

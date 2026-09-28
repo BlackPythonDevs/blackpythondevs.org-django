@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}{{ election.year }} Executorship Election &ndash; Results{% endblock %}
+
+{% block content %}
+  <section>
+    <h1>{{ election.year }} Executorship Election &ndash; Results</h1>
+    <p class="lead">Each region elects its own representative &mdash; instant-runoff winner and final vote count.</p>
+
+    {% for continent, regions in sections %}
+      <h2 class="ballot-continent">{{ continent }}</h2>
+      <hr />
+
+      {% for region, round in regions %}
+        <h3>{{ region }}</h3>
+        <table>
+          <thead>
+            <tr><th>Candidate</th><th>Votes</th></tr>
+          </thead>
+          <tbody>
+            {% for candidacy, count in round.counts.items %}
+              <tr{% if candidacy == round.winner %} class="winner"{% endif %}>
+                <td>{{ candidacy.user.display_name }}</td>
+                <td>{{ count }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if round.winner %}
+          <p class="lead">{{ round.winner.user.display_name }} wins {{ region }}.</p>
+        {% else %}
+          <p>No ballots were cast for {{ region }}.</p>
+        {% endif %}
+      {% endfor %}
+    {% empty %}
+      <p>No candidates ran in this election.</p>
+    {% endfor %}
+  </section>
+{% endblock %}

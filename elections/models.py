@@ -14,6 +14,7 @@ but no ballot logic lives here.
 """
 
 import datetime as dt
+import secrets
 
 import bleach
 import markdown
@@ -170,6 +171,14 @@ class Election(models.Model):
             self.VOTING: ("Voting closes", self.voting_closes_at),
         }.get(self.phase)
 
+    def has_voted(self, user):
+        """Whether `user` has already cast a ballot in this election.
+
+        Checked against `VoteRecord`, never against `Ballot` — that's the
+        whole point of keeping the two apart. See `VoteRecord`.
+        """
+        return self.vote_records.filter(user=user).exists()
+
 
 class Candidacy(models.Model):
     """One council member's candidacy statement for the Executorship Election."""
@@ -201,3 +210,162 @@ class Candidacy(models.Model):
         """Whether the statement can still be changed — only while the
         election this candidacy belongs to is accepting nominations."""
         return self.election.phase == Election.NOMINATING
+
+
+def _ballot_token():
+    return secrets.token_urlsafe(32)
+
+
+class Ballot(models.Model):
+    """One anonymous ranked-choice ballot cast in an Executorship Election's
+    voting window.
+
+    Deliberately carries no field pointing back to the voter. `VoteRecord`
+    is the only thing that enforces one ballot per council member, and it
+    lives in a separate table so there's no join — accidental or
+    deliberate — from "who voted" to "how they ranked candidates".
+    `elections.views.BallotCastView` creates both rows in the same request,
+    but nothing in the schema itself connects them afterward.
+    """
+
+    election = models.ForeignKey(Election, on_delete=models.CASCADE, related_name="ballots")
+    token = models.CharField(max_length=64, unique=True, default=_ballot_token, editable=False)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "ballot"
+        verbose_name_plural = "ballots"
+
+    def __str__(self):
+        return f"Ballot {self.token[:8]}… ({self.election.year})"
+
+
+class BallotRanking(models.Model):
+    """One candidate's place (1 = first choice) on one anonymous `Ballot`,
+    *within their own region's race*.
+
+    Each region elects its own representative — one ballot carries a
+    separate ranking per region, not one combined list for a single seat.
+    `rank` is therefore only required to be unique among a ballot's
+    candidates who share a region (enforced in `elections.forms.BallotForm`,
+    not at the database level, since region lives on `candidacy.user`
+    rather than on this row); the same number can and does recur across
+    different regions on the same ballot.
+    """
+
+    ballot = models.ForeignKey(Ballot, on_delete=models.CASCADE, related_name="rankings")
+    candidacy = models.ForeignKey(Candidacy, on_delete=models.CASCADE, related_name="rankings")
+    rank = models.PositiveSmallIntegerField()
+
+    class Meta:
+        verbose_name = "ballot ranking"
+        verbose_name_plural = "ballot rankings"
+        ordering = ["ballot_id", "rank"]
+        constraints = [
+            models.UniqueConstraint(fields=["ballot", "candidacy"], name="one_ranking_per_candidate_per_ballot"),
+        ]
+
+    def __str__(self):
+        return f"#{self.rank}: {self.candidacy}"
+
+
+class VoteRecord(models.Model):
+    """That `user` cast a ballot in `election` — nothing more.
+
+    This is what `Election.has_voted` and `elections.views.VotingWindowRequiredMixin`
+    check to stop a council member voting twice. It's kept apart from
+    `Ballot`/`BallotRanking` on purpose — see `Ballot`'s docstring.
+    """
+
+    election = models.ForeignKey(Election, on_delete=models.CASCADE, related_name="vote_records")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="election_votes")
+    voted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "vote record"
+        verbose_name_plural = "vote records"
+        constraints = [models.UniqueConstraint(fields=["election", "user"], name="one_vote_per_member_per_election")]
+
+    def __str__(self):
+        return f"{self.user} voted ({self.election.year})"
+
+
+def _region_of(candidacy):
+    return candidacy.user.region or "Unspecified region"
+
+
+def tally_irv(election, candidacies=None):
+    """Run instant-runoff tabulation over every ballot cast in `election`,
+    restricted to `candidacies` (every candidate in the election if not
+    given). Pass one region's candidacies to tally just that region's
+    race — see `regional_results`, which is what actually does that; this
+    function doesn't care whether `candidacies` spans one region or all of
+    them, it just counts whichever candidates it's handed.
+
+    Each round tallies every remaining candidate's current first choice
+    among ballots that still have one (a ballot that ranked none of the
+    candidates still standing is "exhausted" and simply stops counting,
+    same as any IRV tally). A candidate with a strict majority of the
+    non-exhausted ballots wins; otherwise the round's last-place candidate
+    is eliminated and the next round runs on whoever's left.
+
+    Returns a list of rounds, each `{"counts": {candidacy: n, ...},
+    "eliminated": candidacy_or_None, "winner": candidacy_or_None}`, keyed by
+    `Candidacy` instances rather than ids so callers don't have to re-fetch
+    them. The last round either has a `winner` or, if candidates keep
+    tying for last with no ballots left to separate them, ends with
+    `remaining` down to whoever's left standing.
+    """
+    if candidacies is None:
+        candidacies = election.candidacies.all()
+    candidacies = {c.pk: c for c in candidacies}
+
+    ballots = []
+    for ballot in election.ballots.prefetch_related("rankings"):
+        ordered = [
+            r.candidacy_id for r in sorted(ballot.rankings.all(), key=lambda r: r.rank) if r.candidacy_id in candidacies
+        ]
+        ballots.append(ordered)
+
+    remaining = set(candidacies)
+    rounds = []
+    while remaining:
+        counts = dict.fromkeys(remaining, 0)
+        for ordered in ballots:
+            choice = next((c for c in ordered if c in remaining), None)
+            if choice is not None:
+                counts[choice] += 1
+
+        total = sum(counts.values())
+        winner = None
+        if total and max(counts.values()) * 2 > total:
+            winner = max(counts, key=counts.get)
+
+        eliminated = None
+        if winner is None and len(remaining) > 1:
+            eliminated = min(counts, key=counts.get)
+
+        rounds.append(
+            {
+                "counts": {candidacies[cid]: n for cid, n in counts.items()},
+                "eliminated": candidacies[eliminated] if eliminated is not None else None,
+                "winner": candidacies[winner] if winner is not None else None,
+            }
+        )
+
+        if winner is not None or eliminated is None:
+            break
+        remaining.remove(eliminated)
+
+    return rounds
+
+
+def regional_results(election):
+    """`{region: rounds}` for every region with candidates in `election` —
+    one independent instant-runoff race per region, tallied from the same
+    ballots (see `BallotRanking`), sorted by region name for a stable
+    display order."""
+    by_region = {}
+    for candidacy in election.candidacies.select_related("user"):
+        by_region.setdefault(_region_of(candidacy), []).append(candidacy)
+    return {region: tally_irv(election, candidacies) for region, candidacies in sorted(by_region.items())}

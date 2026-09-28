@@ -18,7 +18,19 @@ from django.utils import timezone
 
 from core.models import COUNCIL_GROUP_NAME, Leader
 from elections.forms import ElectionAdminForm
-from elections.models import Candidacy, Election, closes_instant, default_election_year, opens_instant
+from elections.models import (
+    Ballot,
+    BallotRanking,
+    Candidacy,
+    Election,
+    VoteRecord,
+    closes_instant,
+    default_election_year,
+    opens_instant,
+    regional_results,
+    tally_irv,
+)
+from elections.views import group_by_continent
 
 pytestmark = pytest.mark.django_db
 
@@ -502,3 +514,334 @@ class TestElectionAdminForm:
         assert saved.nomination_closes_at == election.nomination_closes_at
         assert saved.voting_opens_at == election.voting_opens_at
         assert saved.voting_closes_at == election.voting_closes_at
+
+
+class TestBallotCasting:
+    def test_anonymous_is_redirected_to_login(self, client):
+        make_election(phase="voting")
+        response = client.get("/elections/vote/")
+        assert response.status_code == 302
+        assert "/accounts/login/" in response["Location"]
+
+    def test_member_outside_council_is_forbidden(self, client, plain_member):
+        make_election(phase="voting")
+        client.force_login(plain_member)
+        assert client.get("/elections/vote/").status_code == 403
+
+    def test_blocked_outside_the_voting_window(self, client, council_member):
+        election = make_election(phase="nominating")
+        Candidacy.objects.create(election=election, user=council_member, statement="Vote for me.")
+        client.force_login(council_member)
+        response = client.get("/elections/vote/", follow=True)
+        assert "open right now" in response.content.decode()
+        assert Ballot.objects.count() == 0
+
+    def test_council_member_can_cast_a_ranked_ballot(self, client, council_member):
+        election = make_election(phase="voting")
+        first = council_member
+        second = make_user("candidate_two", COUNCIL_GROUP_NAME, display_name="Second Candidate")
+        first_candidacy = Candidacy.objects.create(election=election, user=first, statement="Pick me.")
+        second_candidacy = Candidacy.objects.create(election=election, user=second, statement="Or me.")
+
+        client.force_login(council_member)
+        response = client.post(
+            "/elections/vote/",
+            {f"rank_{first_candidacy.pk}": "2", f"rank_{second_candidacy.pk}": "1"},
+        )
+        assert response.status_code == 302
+        assert response["Location"] == "/elections/"
+
+        assert Ballot.objects.filter(election=election).count() == 1
+        ballot = Ballot.objects.get(election=election)
+        rankings = list(ballot.rankings.order_by("rank"))
+        assert [r.candidacy_id for r in rankings] == [second_candidacy.pk, first_candidacy.pk]
+        assert VoteRecord.objects.filter(election=election, user=council_member).exists()
+
+    def test_ballot_carries_no_reference_to_the_voter(self, client, council_member):
+        election = make_election(phase="voting")
+        candidacy = Candidacy.objects.create(election=election, user=council_member, statement="Pick me.")
+        client.force_login(council_member)
+        client.post("/elections/vote/", {f"rank_{candidacy.pk}": "1"})
+
+        ballot = Ballot.objects.get(election=election)
+        assert not hasattr(ballot, "user")
+        assert not hasattr(ballot, "user_id")
+
+    def test_partial_ranking_is_allowed(self, client, council_member):
+        election = make_election(phase="voting")
+        second = make_user("candidate_two", COUNCIL_GROUP_NAME, display_name="Second Candidate")
+        first_candidacy = Candidacy.objects.create(election=election, user=council_member, statement="Pick me.")
+        Candidacy.objects.create(election=election, user=second, statement="Or me.")
+
+        client.force_login(council_member)
+        response = client.post("/elections/vote/", {f"rank_{first_candidacy.pk}": "1"})
+        assert response.status_code == 302
+        assert BallotRanking.objects.filter(ballot__election=election).count() == 1
+
+    def test_empty_ballot_is_rejected(self, client, council_member):
+        election = make_election(phase="voting")
+        candidacy = Candidacy.objects.create(election=election, user=council_member, statement="Pick me.")
+        client.force_login(council_member)
+        response = client.post("/elections/vote/", {f"rank_{candidacy.pk}": ""})
+        assert response.status_code == 200
+        assert "Rank at least one candidate" in response.content.decode()
+        assert Ballot.objects.count() == 0
+
+    def test_duplicate_ranks_are_rejected(self, client, council_member):
+        election = make_election(phase="voting")
+        second = make_user("candidate_two", COUNCIL_GROUP_NAME, display_name="Second Candidate")
+        first_candidacy = Candidacy.objects.create(election=election, user=council_member, statement="Pick me.")
+        second_candidacy = Candidacy.objects.create(election=election, user=second, statement="Or me.")
+
+        client.force_login(council_member)
+        response = client.post(
+            "/elections/vote/",
+            {f"rank_{first_candidacy.pk}": "1", f"rank_{second_candidacy.pk}": "1"},
+        )
+        assert response.status_code == 200
+        assert "different number" in response.content.decode()
+        assert Ballot.objects.count() == 0
+
+    def test_same_rank_is_allowed_across_different_regions(self, client, council_member):
+        # Each region is its own race, so "1" recurring once per region is
+        # the normal shape of a ballot, not a duplicate.
+        election = make_election(phase="voting")
+        council_member.region = "Western Africa"
+        council_member.save()
+        second = make_user("candidate_two", COUNCIL_GROUP_NAME, display_name="Second Candidate")
+        second.region = "South-eastern Asia"
+        second.save()
+        first_candidacy = Candidacy.objects.create(election=election, user=council_member, statement="Pick me.")
+        second_candidacy = Candidacy.objects.create(election=election, user=second, statement="Or me.")
+
+        client.force_login(council_member)
+        response = client.post(
+            "/elections/vote/",
+            {f"rank_{first_candidacy.pk}": "1", f"rank_{second_candidacy.pk}": "1"},
+        )
+        assert response.status_code == 302
+        assert BallotRanking.objects.filter(ballot__election=election, rank=1).count() == 2
+
+    def test_cannot_vote_twice(self, client, council_member):
+        election = make_election(phase="voting")
+        candidacy = Candidacy.objects.create(election=election, user=council_member, statement="Pick me.")
+        client.force_login(council_member)
+        client.post("/elections/vote/", {f"rank_{candidacy.pk}": "1"})
+
+        response = client.get("/elections/vote/", follow=True)
+        assert "already voted" in response.content.decode()
+        assert Ballot.objects.filter(election=election).count() == 1
+
+    def test_candidates_are_sectioned_by_region(self, client, council_member):
+        election = make_election(phase="voting")
+        council_member.region = "Western Africa"
+        council_member.save()
+        second = make_user("candidate_two", COUNCIL_GROUP_NAME, display_name="Second Candidate")
+        second.region = "South-eastern Asia"
+        second.save()
+        Candidacy.objects.create(election=election, user=council_member, statement="Pick me.")
+        Candidacy.objects.create(election=election, user=second, statement="Or me.")
+
+        client.force_login(council_member)
+        html = client.get("/elections/vote/").content.decode()
+        assert "Western Africa" in html
+        assert "South-eastern Asia" in html
+
+    def test_regions_are_grouped_under_continent_headers(self, client, council_member):
+        election = make_election(phase="voting")
+        council_member.region = "Western Africa"
+        council_member.save()
+        second = make_user("candidate_two", COUNCIL_GROUP_NAME, display_name="Second Candidate")
+        second.region = "South-eastern Asia"
+        second.save()
+        Candidacy.objects.create(election=election, user=council_member, statement="Pick me.")
+        Candidacy.objects.create(election=election, user=second, statement="Or me.")
+
+        client.force_login(council_member)
+        html = client.get("/elections/vote/").content.decode()
+        assert "Africa" in html
+        assert "Asia" in html
+        # The continent header must come before its own region in the
+        # document, not just appear somewhere on the page.
+        assert html.index("Africa") < html.index("Western Africa")
+        assert html.index("Asia") < html.index("South-eastern Asia")
+
+
+class TestInstantRunoffTally:
+    def cast(self, election, *candidacies):
+        ballot = Ballot.objects.create(election=election)
+        BallotRanking.objects.bulk_create(
+            BallotRanking(ballot=ballot, candidacy=candidacy, rank=rank)
+            for rank, candidacy in enumerate(candidacies, start=1)
+        )
+
+    def test_majority_winner_in_the_first_round(self, db):
+        election = make_election(phase="closed")
+        a = Candidacy.objects.create(election=election, user=make_user("a", display_name="A"), statement="A")
+        b = Candidacy.objects.create(election=election, user=make_user("b", display_name="B"), statement="B")
+        self.cast(election, a)
+        self.cast(election, a)
+        self.cast(election, b)
+
+        rounds = tally_irv(election)
+        assert len(rounds) == 1
+        assert rounds[0]["winner"] == a
+
+    def test_elimination_redistributes_the_next_choice(self, db):
+        election = make_election(phase="closed")
+        a = Candidacy.objects.create(election=election, user=make_user("a", display_name="A"), statement="A")
+        b = Candidacy.objects.create(election=election, user=make_user("b", display_name="B"), statement="B")
+        c = Candidacy.objects.create(election=election, user=make_user("c", display_name="C"), statement="C")
+        # A: 2 first-choice votes, B: 1, C: 2 -- no majority. C is last (tie
+        # broken arbitrarily) or B is eliminated; either way the second
+        # round should produce a majority winner between the two survivors.
+        self.cast(election, a)
+        self.cast(election, a)
+        self.cast(election, b, a)
+        self.cast(election, c)
+        self.cast(election, c)
+
+        rounds = tally_irv(election)
+        assert rounds[-1]["winner"] is not None
+
+    def test_no_ballots_is_not_an_error(self, db):
+        election = make_election(phase="closed")
+        Candidacy.objects.create(election=election, user=make_user("a", display_name="A"), statement="A")
+        rounds = tally_irv(election)
+        assert rounds[-1]["winner"] is None
+
+
+class TestRegionalResults:
+    def cast(self, election, *candidacies):
+        ballot = Ballot.objects.create(election=election)
+        BallotRanking.objects.bulk_create(
+            BallotRanking(ballot=ballot, candidacy=candidacy, rank=rank)
+            for rank, candidacy in enumerate(candidacies, start=1)
+        )
+
+    def make_candidacy(self, election, name, region):
+        user = make_user(name.lower().replace(" ", "-"), display_name=name)
+        user.region = region
+        user.save()
+        return Candidacy.objects.create(election=election, user=user, statement=name)
+
+    def test_each_region_gets_its_own_independent_winner(self, db):
+        election = make_election(phase="closed")
+        west_a = self.make_candidacy(election, "West A", "Western Africa")
+        west_b = self.make_candidacy(election, "West B", "Western Africa")
+        asia_a = self.make_candidacy(election, "Asia A", "South-eastern Asia")
+        asia_b = self.make_candidacy(election, "Asia B", "South-eastern Asia")
+
+        # One ballot ranks both races: West A wins the Western Africa race,
+        # Asia B wins the South-eastern Asia race — same ballot, two
+        # independent outcomes.
+        self.cast(election, west_a, west_b)
+        self.cast(election, west_a, west_b)
+        self.cast(election, west_b)
+        self.cast(election, asia_b, asia_a)
+        self.cast(election, asia_b, asia_a)
+        self.cast(election, asia_a)
+
+        results = regional_results(election)
+        assert set(results) == {"Western Africa", "South-eastern Asia"}
+        assert results["Western Africa"][-1]["winner"] == west_a
+        assert results["South-eastern Asia"][-1]["winner"] == asia_b
+
+    def test_no_candidates_is_an_empty_result(self, db):
+        election = make_election(phase="closed")
+        assert regional_results(election) == {}
+
+
+class TestGroupByContinent:
+    def test_groups_and_sorts_by_continent_then_region(self):
+        by_region = {
+            "South-eastern Asia": "asia-value",
+            "Western Africa": "africa-value",
+            "Northern America": "americas-value",
+        }
+        assert group_by_continent(by_region) == [
+            ("Africa", [("Western Africa", "africa-value")]),
+            ("Americas", [("Northern America", "americas-value")]),
+            ("Asia", [("South-eastern Asia", "asia-value")]),
+        ]
+
+    def test_unrecognized_region_falls_back_to_other_and_sorts_last(self):
+        by_region = {"Unspecified region": "x", "Antarctica": "y"}
+        assert group_by_continent(by_region) == [
+            ("Antarctica", [("Antarctica", "y")]),
+            ("Other", [("Unspecified region", "x")]),
+        ]
+
+    def test_empty_input_is_empty_output(self):
+        assert group_by_continent({}) == []
+
+
+class TestResultsView:
+    def test_anonymous_is_redirected_to_login(self, client):
+        election = make_election(phase="closed")
+        response = client.get(f"/elections/{election.year}/results/")
+        assert response.status_code == 302
+        assert "/accounts/login/" in response["Location"]
+
+    def test_member_outside_council_is_forbidden(self, client, plain_member):
+        election = make_election(phase="closed")
+        client.force_login(plain_member)
+        assert client.get(f"/elections/{election.year}/results/").status_code == 403
+
+    def test_blocked_until_voting_closes(self, client, council_member):
+        election = make_election(phase="voting")
+        client.force_login(council_member)
+        response = client.get(f"/elections/{election.year}/results/", follow=True)
+        assert "available until voting has closed" in response.content.decode()
+
+    def test_shows_the_winner_once_closed(self, client, council_member):
+        election = make_election(phase="closed")
+        candidacy = Candidacy.objects.create(election=election, user=council_member, statement="Pick me.")
+        self.cast(election, candidacy)
+        client.force_login(council_member)
+        response = client.get(f"/elections/{election.year}/results/")
+        assert response.status_code == 200
+        assert "wins" in response.content.decode()
+
+    def test_regions_are_grouped_under_continent_headers(self, client, council_member):
+        election = make_election(phase="closed")
+        council_member.region = "Western Africa"
+        council_member.save()
+        second = make_user("candidate_two", display_name="Second Candidate")
+        second.region = "South-eastern Asia"
+        second.save()
+        africa_candidacy = Candidacy.objects.create(election=election, user=council_member, statement="Pick me.")
+        asia_candidacy = Candidacy.objects.create(election=election, user=second, statement="Or me.")
+        self.cast(election, africa_candidacy)
+        self.cast(election, asia_candidacy)
+
+        client.force_login(council_member)
+        html = client.get(f"/elections/{election.year}/results/").content.decode()
+        assert html.index("Africa") < html.index("Western Africa")
+        assert html.index("Asia") < html.index("South-eastern Asia")
+
+    def test_shows_only_the_final_round_not_the_elimination_log(self, client, council_member):
+        election = make_election(phase="closed")
+        a = Candidacy.objects.create(election=election, user=council_member, statement="A")
+        b = Candidacy.objects.create(election=election, user=make_user("b", display_name="B"), statement="B")
+        c = Candidacy.objects.create(election=election, user=make_user("c", display_name="C"), statement="C")
+        # No majority in round 1 (A: 2, B: 1, C: 2) — C or B is eliminated
+        # before a winner emerges in a later round.
+        self.cast(election, a)
+        self.cast(election, a)
+        self.cast(election, b, a)
+        self.cast(election, c)
+        self.cast(election, c)
+
+        client.force_login(council_member)
+        html = client.get(f"/elections/{election.year}/results/").content.decode()
+        assert "Round" not in html
+        assert "eliminated" not in html
+        assert "wins" in html
+
+    def cast(self, election, *candidacies):
+        ballot = Ballot.objects.create(election=election)
+        BallotRanking.objects.bulk_create(
+            BallotRanking(ballot=ballot, candidacy=candidacy, rank=rank)
+            for rank, candidacy in enumerate(candidacies, start=1)
+        )
