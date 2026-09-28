@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static checklists_tags %}
 
 {% comment %}
   Written out by hand rather than via {% object_detail %} so the console can show
@@ -7,6 +8,10 @@
 {% endcomment %}
 
 {% block title %}{{ object.name }}{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/checklists.css' %}" />
+{% endblock %}
 
 {% block content %}
   <section>
@@ -60,5 +65,14 @@
       <a role="button" class="btn" href="{% url 'sponsorships-update' object.pk %}">Edit</a>
       <a role="button" class="secondary" href="{% url 'sponsorships-delete' object.pk %}">Delete</a>
     </p>
+
+    {% checklist_widget object %}
+    {% task_activity object %}
   </section>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/htmx.min.js' %}"></script>
+  <script src="{% static 'js/checklist-dragdrop.js' %}"></script>
+  <script src="{% static 'js/checklist-mentions.js' %}"></script>
 {% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Checklists{% endblock %}
+
+{% block content %}
+  <section>
+    <h1>Checklists</h1>
+    <p class="lead">
+      Follow-through tracking for the executorship's internal processes.
+    </p>
+
+    {% if processes %}
+      <figure>
+        <table role="grid">
+          <thead>
+            <tr>
+              <th scope="col">Process</th>
+              <th scope="col">Fully checked off</th>
+              <th scope="col"><span class="screen-reader-text">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for process in processes %}
+              <tr>
+                <th scope="row">{{ process.name }}</th>
+                <td>{{ process.fully_done }} / {{ process.total }}</td>
+                <td>
+                  <a href="{% url 'checklists-object-list' process.app_label process.model_name %}">View</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </figure>
+    {% else %}
+      <p>No process has a checklist registered yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}
