@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load static checklists_tags %}
+
+{% block title %}{{ object }} checklist{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/checklists.css' %}" />
+{% endblock %}
+
+{% block content %}
+  <section>
+    <p>
+      <a href="{% url 'checklists-object-list' app_label model_name %}">&larr; All {{ process_name|lower }} checklists</a>
+    </p>
+
+    <h1>{{ object }}</h1>
+    <p class="lead">{{ process_name }}</p>
+
+    {% checklist_widget object %}
+  </section>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/htmx.min.js' %}"></script>
+  <script src="{% static 'js/checklist-dragdrop.js' %}"></script>
+  <script src="{% static 'js/checklist-mentions.js' %}"></script>
+{% endblock %}

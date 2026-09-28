@@ -10,7 +10,14 @@ from django.utils import timezone
 from ambassadors.models import StudentAmbassador
 from communities.models import can_manage_community
 from community_messages.models import is_leadership
-from core.models import CustomImage, Leader, is_council_member, is_leadership_or_above, is_student
+from core.models import (
+    CustomImage,
+    Leader,
+    can_manage_sponsorships,
+    is_council_member,
+    is_leadership_or_above,
+    is_student,
+)
 from elections.models import Election
 from nominations.models import CouncilNomination, can_nominate
 from notifications.models import can_send_notifications
@@ -58,6 +65,8 @@ def members(request):
             "can_send_notifications": can_send_notifications(request.user),
             # Community admins get a link to their console + compose form.
             "can_manage_communities": can_manage_community(request.user),
+            # Executors get links to the sponsorships/sponsors consoles.
+            "can_manage_sponsorships": can_manage_sponsorships(request.user),
             # Leadership members get a link to messages sent to them.
             "is_leadership_member": is_leadership(request.user),
         },

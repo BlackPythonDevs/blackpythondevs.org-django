@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     "blog",
     "events",
     "sponsorships",
+    "checklists",
     "ambassadors",
     "nominations",
     "elections",
