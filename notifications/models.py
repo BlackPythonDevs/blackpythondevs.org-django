@@ -1,11 +1,12 @@
-"""Broadcast messages to a filtered slice of the membership.
+"""Broadcast messages to a filtered slice of the membership, and each
+member's own in-app notification feed.
 
-Staff, Executors, Sponsors, and Community Partners can each send an
-announcement to members matching a set of filters — region, group membership
-("roles"), and subcommunity ("affinities"). Sponsors and Community Partners
-are membership groups like Ambassadors or the Leadership Council: they carry
-no permissions of their own, are provisioned by a data migration, and views
-gate on membership rather than on model permissions.
+`Notification` (below): staff, Executors, Sponsors, and Community Partners
+can each send an announcement to members matching a set of filters — region,
+group membership ("roles"), and subcommunity ("affinities"). Sponsors and
+Community Partners are membership groups like Ambassadors or the Leadership
+Council: they carry no permissions of their own, are provisioned by a data
+migration, and views gate on membership rather than on model permissions.
 
 Sending happens immediately on save: the model resolves the matching `User`
 queryset and emails them right away rather than queuing anything, since the
@@ -16,6 +17,15 @@ send is fine.
 widget: Sponsors and Community Partners send from here too, and they don't
 have Wagtail admin access, which Draftail's own image chooser requires. A
 plain textarea plus a client-side preview works the same for every sender.
+
+`UserNotification` (see issue #98) is a different, smaller thing: one item in
+a single member's own in-app feed — "so-and-so mentioned you" — rather than a
+staff-composed broadcast to many. `User.app_communication_preferences`
+(added in #34) implied an in-app delivery channel already existed; it didn't,
+until this. Deliberately generic (a plain message + optional link + optional
+actor, no typed "kind" field) so a new feature anywhere in the project can
+create one with `notify(...)` without this app needing to know what it's
+about — the same reasoning as checklists.models.Note's generic relation.
 """
 
 import markdown
@@ -144,3 +154,48 @@ class Notification(models.Model):
         self.sent_at = timezone.now()
         self.save(update_fields=["recipient_count", "sent_at"])
         return len(emails)
+
+
+class UserNotification(models.Model):
+    """One item in one member's own in-app notification feed."""
+
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="app_notifications"
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    message = models.CharField(max_length=255)
+    url = models.CharField(max_length=500, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["recipient", "read_at"])]
+
+    def __str__(self):
+        return self.message
+
+    @property
+    def is_read(self):
+        return self.read_at is not None
+
+    def mark_read(self):
+        if self.read_at is None:
+            self.read_at = timezone.now()
+            self.save(update_fields=["read_at"])
+
+
+def notify(recipient, message, *, actor=None, url=""):
+    """Create one in-app notification for `recipient`.
+
+    The one entry point other apps should use rather than creating
+    `UserNotification` rows directly — see checklists.mentions for the first
+    caller. Never raises on a recipient with notifications disabled at the
+    Django level; there's no such switch yet (see issue #98's "out of scope"
+    note about `app_communication_preferences`), so this always creates the
+    row for now.
+    """
+    return UserNotification.objects.create(recipient=recipient, actor=actor, message=message, url=url)
