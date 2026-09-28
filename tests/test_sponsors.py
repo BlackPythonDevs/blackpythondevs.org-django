@@ -82,3 +82,43 @@ def test_deleting_sponsor_keeps_the_announcement_post(blog_index, sponsor):
     sponsor.delete()
     page.refresh_from_db()
     assert page.sponsor_id is None
+
+
+class TestSponsorAnnouncementDraft:
+    def test_setting_invoice_paid_date_drafts_a_welcome_post(self, blog_index):
+        sponsor = Sponsor.objects.create(name="Acme Corp", invoice_paid_date=datetime.date(2026, 1, 15))
+
+        page = CustomBlogPage.objects.get(sponsor=sponsor)
+        assert page.live is False
+        assert "Welcome our new sponsor" in page.title
+        assert page.date == datetime.date(2026, 1, 15)
+        assert page.get_parent().specific == blog_index
+
+    def test_renewing_drafts_a_renewal_post(self, blog_index):
+        sponsor = Sponsor.objects.create(name="Acme Corp", invoice_paid_date=datetime.date(2026, 1, 15))
+        sponsor.invoice_paid_date = datetime.date(2027, 1, 15)
+        sponsor.save()
+
+        assert CustomBlogPage.objects.filter(sponsor=sponsor).count() == 2
+        renewal = CustomBlogPage.objects.get(sponsor=sponsor, date=datetime.date(2027, 1, 15))
+        assert "renews their sponsorship" in renewal.title
+
+    def test_resaving_without_changing_invoice_paid_date_does_not_duplicate(self, blog_index):
+        sponsor = Sponsor.objects.create(name="Acme Corp", invoice_paid_date=datetime.date(2026, 1, 15))
+        sponsor.name = "Acme Corp Ltd"
+        sponsor.save()
+
+        assert CustomBlogPage.objects.filter(sponsor=sponsor).count() == 1
+
+    def test_no_invoice_paid_date_drafts_nothing(self, blog_index):
+        sponsor = Sponsor.objects.create(name="Acme Corp")
+        assert not CustomBlogPage.objects.filter(sponsor=sponsor).exists()
+
+    def test_never_auto_publishes(self, blog_index):
+        sponsor = Sponsor.objects.create(name="Acme Corp", invoice_paid_date=datetime.date(2026, 1, 15))
+        page = CustomBlogPage.objects.get(sponsor=sponsor)
+        assert not page.live
+        assert page.first_published_at is None
+
+    def test_missing_blog_index_does_not_error(self, db):
+        Sponsor.objects.create(name="Acme Corp", invoice_paid_date=datetime.date(2026, 1, 15))
