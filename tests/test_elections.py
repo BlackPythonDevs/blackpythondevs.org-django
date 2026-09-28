@@ -201,18 +201,46 @@ class TestElectionDetailView:
         assert "Write your candidacy statement" in html
 
 
-class TestCandidacyStatement:
-    def test_anonymous_is_redirected_to_login(self, client):
+CANDIDACY_URLS = pytest.mark.parametrize(
+    "url", ["/elections/statement/", "/elections/statement/remove/"], ids=["write", "remove"]
+)
+
+
+class TestCandidacyGuards:
+    """Access guards shared by the statement-writing and statement-removal views."""
+
+    @CANDIDACY_URLS
+    def test_anonymous_is_redirected_to_login(self, client, url):
         make_election()
-        response = client.get("/elections/statement/")
+        response = client.get(url)
         assert response.status_code == 302
         assert "/accounts/login/" in response["Location"]
 
-    def test_member_outside_council_is_forbidden(self, client, plain_member):
+    @CANDIDACY_URLS
+    def test_member_outside_council_is_forbidden(self, client, plain_member, url):
         make_election()
         client.force_login(plain_member)
-        assert client.get("/elections/statement/").status_code == 403
+        assert client.get(url).status_code == 403
 
+    @pytest.mark.parametrize(
+        "url,method,seed_candidacy,expected_count",
+        [
+            ("/elections/statement/", "get", False, 0),
+            ("/elections/statement/remove/", "post", True, 1),
+        ],
+        ids=["write", "remove"],
+    )
+    def test_blocked_once_nominations_close(self, client, council_member, url, method, seed_candidacy, expected_count):
+        election = make_election(phase="voting")
+        if seed_candidacy:
+            Candidacy.objects.create(election=election, user=council_member, statement="Vote for me.")
+        client.force_login(council_member)
+        response = getattr(client, method)(url, follow=True)
+        assert "open right now" in response.content.decode()
+        assert Candidacy.objects.count() == expected_count
+
+
+class TestCandidacyStatement:
     def test_council_member_can_submit_a_statement(self, client, council_member):
         election = make_election()
         client.force_login(council_member)
@@ -231,13 +259,6 @@ class TestCandidacyStatement:
         candidacy.refresh_from_db()
         assert candidacy.statement == "Final version."
 
-    def test_blocked_once_nominations_close(self, client, council_member):
-        make_election(phase="voting")
-        client.force_login(council_member)
-        response = client.get("/elections/statement/", follow=True)
-        assert "open right now" in response.content.decode()
-        assert Candidacy.objects.count() == 0
-
     def test_superuser_gets_in(self, client, db):
         make_election()
         admin = get_user_model().objects.create_superuser(username="root", email="root@example.com", password="pw")
@@ -246,17 +267,6 @@ class TestCandidacyStatement:
 
 
 class TestCandidacyRemoval:
-    def test_anonymous_is_redirected_to_login(self, client):
-        make_election()
-        response = client.get("/elections/statement/remove/")
-        assert response.status_code == 302
-        assert "/accounts/login/" in response["Location"]
-
-    def test_member_outside_council_is_forbidden(self, client, plain_member):
-        make_election()
-        client.force_login(plain_member)
-        assert client.get("/elections/statement/remove/").status_code == 403
-
     def test_get_shows_a_confirmation_without_deleting(self, client, council_member):
         election = make_election(phase="nominating")
         Candidacy.objects.create(election=election, user=council_member, statement="Vote for me.")
@@ -289,14 +299,6 @@ class TestCandidacyRemoval:
         # *your own* record, so a missing one of yours is just a 404, not a
         # way to delete someone else's.
         assert client.get("/elections/statement/remove/").status_code == 404
-        assert Candidacy.objects.count() == 1
-
-    def test_blocked_once_nominations_close(self, client, council_member):
-        election = make_election(phase="voting")
-        Candidacy.objects.create(election=election, user=council_member, statement="Vote for me.")
-        client.force_login(council_member)
-        response = client.post("/elections/statement/remove/", follow=True)
-        assert "open right now" in response.content.decode()
         assert Candidacy.objects.count() == 1
 
 

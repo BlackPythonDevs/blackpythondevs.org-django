@@ -30,44 +30,67 @@ def published_names(client, index):
     return html
 
 
+def make_summit(events_index, slug, **kwargs):
+    page = LeadershipSummitPage(title=slug.title(), slug=slug, **kwargs)
+    events_index.add_child(instance=page)
+    page.save_revision().publish()
+    return page
+
+
+@pytest.fixture
+def today():
+    from django.utils import timezone
+
+    return timezone.localdate()
+
+
+@pytest.fixture
+def editor(db):
+    from django.contrib.auth import get_user_model
+
+    return get_user_model().objects.create_superuser(username="cms", email="cms@example.com", password="pw")
+
+
 class TestPublishing:
-    def test_completed_paid_event_is_shown(self, client, events_index):
-        make(events_index, "PyCon Africa")
-        assert "PyCon Africa" in published_names(client, events_index)
-
-    def test_requested_event_is_hidden(self, client, events_index):
-        make(events_index, "Pending Conf", status=SponsorshipRequest.REQUESTED)
-        assert "Pending Conf" not in published_names(client, events_index)
-
-    def test_approved_but_not_completed_is_hidden(self, client, events_index):
-        make(events_index, "Upcoming Conf", status=SponsorshipRequest.APPROVED)
-        assert "Upcoming Conf" not in published_names(client, events_index)
-
-    def test_cancelled_event_is_hidden(self, client, events_index):
-        make(events_index, "Cancelled Conf", status=SponsorshipRequest.CANCELLED)
-        assert "Cancelled Conf" not in published_names(client, events_index)
-
-    def test_completed_unpaid_event_is_shown_with_badge(self, client, events_index):
-        make(events_index, "Community Meetup", paid=False)
+    @pytest.mark.parametrize(
+        ("status", "shown"),
+        [
+            (SponsorshipRequest.COMPLETED, True),
+            (SponsorshipRequest.REQUESTED, False),
+            (SponsorshipRequest.APPROVED, False),
+            (SponsorshipRequest.CANCELLED, False),
+        ],
+        ids=["completed-shown", "requested-hidden", "approved-hidden", "cancelled-hidden"],
+    )
+    def test_shown_only_when_completed(self, client, events_index, status, shown):
+        make(events_index, "Some Conf", status=status)
         html = published_names(client, events_index)
-        assert "Community Meetup" in html
-        assert "badge-community" in html
+        assert ("Some Conf" in html) is shown
 
-    def test_paid_event_has_no_badge(self, client, events_index):
-        make(events_index, "PyOhio", paid=True)
+    @pytest.mark.parametrize(
+        ("paid", "badge_expected"),
+        [(False, True), (True, False)],
+        ids=["unpaid-has-badge", "paid-no-badge"],
+    )
+    def test_community_badge_reflects_paid_status(self, client, events_index, paid, badge_expected):
+        make(events_index, "Some Event", paid=paid)
         html = published_names(client, events_index)
-        assert "PyOhio" in html
-        # The only badge on the page would be a community one.
-        assert "badge-community" not in html
+        assert "Some Event" in html
+        assert ("badge-community" in html) is badge_expected
 
 
 class TestModel:
-    def test_is_published_requires_completed(self, events_index):
-        assert make(events_index, "A", status=SponsorshipRequest.COMPLETED).is_published
-        assert not make(events_index, "B", status=SponsorshipRequest.APPROVED).is_published
-
-    def test_completed_unpaid_still_publishes(self, events_index):
-        assert make(events_index, "C", status=SponsorshipRequest.COMPLETED, paid=False).is_published
+    @pytest.mark.parametrize(
+        ("status", "paid", "expected"),
+        [
+            (SponsorshipRequest.COMPLETED, True, True),
+            (SponsorshipRequest.APPROVED, True, False),
+            (SponsorshipRequest.COMPLETED, False, True),
+        ],
+        ids=["completed-paid-publishes", "approved-does-not-publish", "completed-unpaid-still-publishes"],
+    )
+    def test_is_published_requires_completed(self, events_index, status, paid, expected):
+        assert make(events_index, "A", status=status, paid=paid).is_published is expected
 
     def test_amount_and_notes_never_reach_the_page(self, client, events_index):
         make(events_index, "Funded Conf", amount_requested="1234.56", notes="secret internal note")
@@ -204,22 +227,19 @@ class TestHostEventDates:
     def make(self, start, end):
         return LeadershipSummitPage(host_event_start=start, host_event_end=end).host_event_dates
 
-    def test_blank_without_a_start_date(self):
-        assert self.make(None, None) == ""
-
-    def test_single_day(self):
-        assert self.make(datetime.date(2027, 4, 16), None) == "April 16, 2027"
-
-    def test_same_month(self):
-        assert self.make(datetime.date(2027, 4, 16), datetime.date(2027, 4, 18)) == "April 16 – 18, 2027"
-
-    def test_spanning_months(self):
-        assert self.make(datetime.date(2027, 4, 30), datetime.date(2027, 5, 2)) == "April 30 – May 2, 2027"
-
-    def test_spanning_years(self):
-        assert (
-            self.make(datetime.date(2027, 12, 30), datetime.date(2028, 1, 2)) == "December 30, 2027 – January 2, 2028"
-        )
+    @pytest.mark.parametrize(
+        ("start", "end", "expected"),
+        [
+            (None, None, ""),
+            (datetime.date(2027, 4, 16), None, "April 16, 2027"),
+            (datetime.date(2027, 4, 16), datetime.date(2027, 4, 18), "April 16 – 18, 2027"),
+            (datetime.date(2027, 4, 30), datetime.date(2027, 5, 2), "April 30 – May 2, 2027"),
+            (datetime.date(2027, 12, 30), datetime.date(2028, 1, 2), "December 30, 2027 – January 2, 2028"),
+        ],
+        ids=["blank-without-start-date", "single-day", "same-month", "spanning-months", "spanning-years"],
+    )
+    def test_host_event_dates(self, start, end, expected):
+        assert self.make(start, end) == expected
 
 
 class TestSummitInWagtailAdmin:
@@ -228,12 +248,6 @@ class TestSummitInWagtailAdmin:
     `sponsors` is an InlinePanel whose ParentalKey targets EventPage, the parent
     in a multi-table inheritance pair — worth asserting the child's form builds.
     """
-
-    @pytest.fixture
-    def editor(self, db):
-        from django.contrib.auth import get_user_model
-
-        return get_user_model().objects.create_superuser(username="cms", email="cms@example.com", password="pw")
 
     def test_create_form_renders(self, client, editor, events_index):
         client.force_login(editor)
@@ -504,12 +518,6 @@ class TestScheduleRows:
 class TestLineupInWagtailAdmin:
     """Both lists are inline panels, which is what gives them drag handles."""
 
-    @pytest.fixture
-    def editor(self, db):
-        from django.contrib.auth import get_user_model
-
-        return get_user_model().objects.create_superuser(username="cms2", email="cms2@example.com", password="pw")
-
     def test_edit_form_offers_speakers_and_schedule_inline(self, client, editor, events_index):
         client.force_login(editor)
         html = client.get(f"/cms/pages/add/events/leadershipsummitpage/{events_index.pk}/").content.decode()
@@ -589,38 +597,26 @@ class TestSummitRecordings:
 class TestPastSummitsDropForwardLookingCopy:
     """A summit that has happened is a record, not a call to action."""
 
-    def make(self, events_index, slug, **kwargs):
-        page = LeadershipSummitPage(title=slug.title(), slug=slug, **kwargs)
-        events_index.add_child(instance=page)
-        page.save_revision().publish()
-        return page
-
-    @pytest.fixture
-    def today(self):
-        from django.utils import timezone
-
-        return timezone.localdate()
-
     def test_a_dated_past_summit_has_happened(self, events_index, today):
-        page = self.make(events_index, "past-summit", start_date=today - datetime.timedelta(days=1))
+        page = make_summit(events_index, "past-summit", start_date=today - datetime.timedelta(days=1))
         assert page.has_happened
 
     def test_an_upcoming_summit_has_not(self, events_index, today):
-        page = self.make(events_index, "future-summit", start_date=today + datetime.timedelta(days=1))
+        page = make_summit(events_index, "future-summit", start_date=today + datetime.timedelta(days=1))
         assert not page.has_happened
 
     def test_recordings_mark_a_dateless_summit_as_past(self, events_index):
         """Summits carried over from the static site never recorded a date."""
-        page = self.make(events_index, "old-summit", morning_video_url="https://youtu.be/AAAAAAAAAAA")
+        page = make_summit(events_index, "old-summit", morning_video_url="https://youtu.be/AAAAAAAAAAA")
         assert page.date is None
         assert page.has_happened
 
     def test_a_dateless_summit_without_recordings_is_still_upcoming(self, events_index):
-        page = self.make(events_index, "unscheduled-summit")
+        page = make_summit(events_index, "unscheduled-summit")
         assert not page.has_happened
 
     def test_past_summit_hides_coming_soon_and_pending_copy(self, client, events_index, today):
-        page = self.make(
+        page = make_summit(
             events_index,
             "finished-summit",
             start_date=today - datetime.timedelta(days=30),
@@ -637,27 +633,15 @@ class TestPastSummitsDropForwardLookingCopy:
         assert "Who is Invited?" in html
 
     def test_upcoming_summit_still_shows_coming_soon(self, client, events_index, today):
-        page = self.make(events_index, "next-summit", start_date=today + datetime.timedelta(days=30))
+        page = make_summit(events_index, "next-summit", start_date=today + datetime.timedelta(days=30))
         html = client.get(page.url).content.decode()
         assert "Coming Soon" in html
         assert "will be announced on this page" in html
 
 
 class TestCallForSpeakersDeadline:
-    def make(self, events_index, slug, **kwargs):
-        page = LeadershipSummitPage(title=slug.title(), slug=slug, **kwargs)
-        events_index.add_child(instance=page)
-        page.save_revision().publish()
-        return page
-
-    @pytest.fixture
-    def today(self):
-        from django.utils import timezone
-
-        return timezone.localdate()
-
     def test_open_while_before_the_deadline(self, client, events_index, today):
-        page = self.make(
+        page = make_summit(
             events_index,
             "cfp-open",
             start_date=today + datetime.timedelta(days=60),
@@ -668,7 +652,7 @@ class TestCallForSpeakersDeadline:
         assert "Submit a talk" in client.get(page.url).content.decode()
 
     def test_closed_once_the_deadline_passes(self, client, events_index, today):
-        page = self.make(
+        page = make_summit(
             events_index,
             "cfp-closed",
             start_date=today + datetime.timedelta(days=30),
@@ -681,7 +665,7 @@ class TestCallForSpeakersDeadline:
         assert "Submit a talk" not in html
 
     def test_no_deadline_means_open_for_as_long_as_the_link_is_up(self, events_index, today):
-        page = self.make(
+        page = make_summit(
             events_index,
             "cfp-no-deadline",
             start_date=today + datetime.timedelta(days=30),
@@ -690,7 +674,7 @@ class TestCallForSpeakersDeadline:
         assert page.cfp_open
 
     def test_a_past_summit_is_neither_open_nor_closed(self, events_index, today):
-        page = self.make(
+        page = make_summit(
             events_index,
             "cfp-past",
             start_date=today - datetime.timedelta(days=1),

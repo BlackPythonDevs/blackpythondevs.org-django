@@ -9,6 +9,7 @@ variant (no fixed email, multiple uses) that hands off to the normal signup
 form instead.
 """
 
+from contextlib import nullcontext
 from datetime import timedelta
 
 import pytest
@@ -69,35 +70,31 @@ def make_invite(email="invitee@example.com", groups=(), created_by=None, **kwarg
 
 
 class TestInviteLinkModel:
-    def test_valid_invite_is_neither_exhausted_nor_expired(self, staff_user):
-        invite = make_invite(created_by=staff_user)
-        assert invite.is_valid
-        assert not invite.is_exhausted
-        assert not invite.is_expired
+    @pytest.mark.parametrize(
+        "kwargs,expected_exhausted,expected_expired",
+        [
+            ({}, False, False),
+            ({"expires_at": timezone.now() - timedelta(seconds=1)}, False, True),
+            ({"max_uses": 1, "use_count": 1}, True, False),
+            ({"max_uses": 3, "use_count": 2}, False, False),
+        ],
+        ids=["fresh", "expired", "at_use_limit", "below_use_limit"],
+    )
+    def test_validity_reflects_exhaustion_and_expiry(self, staff_user, kwargs, expected_exhausted, expected_expired):
+        invite = make_invite(created_by=staff_user, **kwargs)
+        assert invite.is_exhausted is expected_exhausted
+        assert invite.is_expired is expected_expired
+        assert invite.is_valid is not (expected_exhausted or expected_expired)
 
-    def test_expired_invite_is_invalid(self, staff_user):
-        invite = make_invite(created_by=staff_user, expires_at=timezone.now() - timedelta(seconds=1))
-        assert invite.is_expired
-        assert not invite.is_valid
-
-    def test_invite_at_its_use_limit_is_invalid(self, staff_user):
-        invite = make_invite(created_by=staff_user, max_uses=1, use_count=1)
-        assert invite.is_exhausted
-        assert not invite.is_valid
-
-    def test_invite_below_its_use_limit_is_still_valid(self, staff_user):
-        invite = make_invite(created_by=staff_user, max_uses=3, use_count=2)
-        assert not invite.is_exhausted
-        assert invite.is_valid
-
-    def test_unlimited_uses_requires_an_expiry_date(self, staff_user):
-        invite = make_invite(created_by=staff_user, max_uses=None, expires_at=None)
-        with pytest.raises(ValidationError):
+    @pytest.mark.parametrize(
+        "expires_at,expect_error",
+        [(None, True), (timezone.now() + timedelta(days=1), False)],
+        ids=["no_expiry_raises", "with_expiry_is_fine"],
+    )
+    def test_unlimited_uses_requires_an_expiry_date(self, staff_user, expires_at, expect_error):
+        invite = make_invite(created_by=staff_user, max_uses=None, expires_at=expires_at)
+        with pytest.raises(ValidationError) if expect_error else nullcontext():
             invite.full_clean()
-
-    def test_unlimited_uses_is_fine_with_an_expiry_date(self, staff_user):
-        invite = make_invite(created_by=staff_user, max_uses=None)
-        invite.full_clean()
 
     def test_accept_creates_a_new_account_with_groups_applied(self, staff_user, executor_group, rf):
         invite = make_invite(created_by=staff_user, groups=[executor_group])

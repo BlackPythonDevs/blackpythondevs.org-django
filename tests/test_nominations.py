@@ -158,41 +158,47 @@ class TestListView:
 
 
 class TestEditAndWithdraw:
-    def test_nominator_can_edit_their_own_open_nomination(self, client, leader):
-        nomination = make_nomination(leader)
-        client.force_login(leader)
-        response = client.post(
-            f"/council/nominations/{nomination.pk}/edit/",
-            FORM_DATA | {"statement": "Updated reasoning."},
-        )
-        assert response.status_code == 302
-        nomination.refresh_from_db()
-        assert nomination.statement == "Updated reasoning."
+    @pytest.mark.parametrize(
+        "actor,status,allowed",
+        [
+            ("owner", CouncilNomination.SUBMITTED, True),
+            ("other", CouncilNomination.SUBMITTED, False),
+            ("owner", CouncilNomination.ACCEPTED, False),
+        ],
+        ids=["owner_can_edit_their_own_open_nomination", "another_leader_is_forbidden", "decided_is_forbidden"],
+    )
+    def test_edit_access(self, client, leader, council_member, actor, status, allowed):
+        nomination = make_nomination(leader, status=status)
+        client.force_login(leader if actor == "owner" else council_member)
 
-    def test_another_leader_cannot_edit_someone_elses_nomination(self, client, leader, council_member):
-        nomination = make_nomination(leader)
-        client.force_login(council_member)
-        assert client.get(f"/council/nominations/{nomination.pk}/edit/").status_code == 403
+        if allowed:
+            response = client.post(
+                f"/council/nominations/{nomination.pk}/edit/",
+                FORM_DATA | {"statement": "Updated reasoning."},
+            )
+            assert response.status_code == 302
+            nomination.refresh_from_db()
+            assert nomination.statement == "Updated reasoning."
+        else:
+            assert client.get(f"/council/nominations/{nomination.pk}/edit/").status_code == 403
 
-    def test_decided_nomination_can_no_longer_be_edited(self, client, leader):
-        nomination = make_nomination(leader, status=CouncilNomination.ACCEPTED)
-        client.force_login(leader)
-        assert client.get(f"/council/nominations/{nomination.pk}/edit/").status_code == 403
-
-    def test_nominator_can_withdraw_and_the_record_survives(self, client, leader):
+    @pytest.mark.parametrize(
+        "actor,allowed",
+        [("owner", True), ("other", False)],
+        ids=["nominator_can_withdraw_and_the_record_survives", "withdraw_rejects_someone_elses_nomination"],
+    )
+    def test_withdraw_access(self, client, leader, council_member, actor, allowed):
         nomination = make_nomination(leader)
-        client.force_login(leader)
+        client.force_login(leader if actor == "owner" else council_member)
+
         response = client.post(f"/council/nominations/{nomination.pk}/withdraw/")
-        assert response.status_code == 302
         nomination.refresh_from_db()
-        assert nomination.status == CouncilNomination.WITHDRAWN
-
-    def test_withdraw_rejects_someone_elses_nomination(self, client, leader, council_member):
-        nomination = make_nomination(leader)
-        client.force_login(council_member)
-        assert client.post(f"/council/nominations/{nomination.pk}/withdraw/").status_code == 403
-        nomination.refresh_from_db()
-        assert nomination.status == CouncilNomination.SUBMITTED
+        if allowed:
+            assert response.status_code == 302
+            assert nomination.status == CouncilNomination.WITHDRAWN
+        else:
+            assert response.status_code == 403
+            assert nomination.status == CouncilNomination.SUBMITTED
 
 
 class TestDetailView:

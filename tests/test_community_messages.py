@@ -187,40 +187,33 @@ class TestMessageDetailView:
         client.force_login(member)
         assert client.get(f"/communities/messages/{message.pk}/").status_code == 403
 
-    def test_leader_it_reached_can_read_it(self, client, admin_user, community):
-        leader = make_leader("lead-ng", "NG")  # same country as the community
+    @pytest.mark.parametrize(
+        "country,expected_status",
+        [("NG", 200), ("US", 404)],
+        ids=["reached", "not_reached"],
+    )
+    def test_leader_reach_determines_read_access(self, client, admin_user, community, country, expected_status):
+        leader = make_leader(f"lead-{country.lower()}", country)  # NG matches the community, US does not
         message = CommunityMessage.objects.create(community=community, sender=admin_user, subject="Update", body="x")
         message.send()
 
         client.force_login(leader)
-        assert client.get(f"/communities/messages/{message.pk}/").status_code == 200
-
-    def test_leader_it_did_not_reach_gets_404(self, client, admin_user, community):
-        leader = make_leader("lead-us", "US")  # different region than the community
-        message = CommunityMessage.objects.create(community=community, sender=admin_user, subject="Update", body="x")
-        message.send()
-
-        client.force_login(leader)
-        assert client.get(f"/communities/messages/{message.pk}/").status_code == 404
+        assert client.get(f"/communities/messages/{message.pk}/").status_code == expected_status
 
 
 class TestLeadershipInbox:
-    def test_leader_sees_messages_in_their_region(self, client, admin_user, community):
-        leader = make_leader("lead-ng", "NG")  # same country as the community
-        message = CommunityMessage.objects.create(community=community, sender=admin_user, subject="Update", body="x")
-        message.send()
-
-        client.force_login(leader)
-        body = client.get("/communities/messages/inbox/").content.decode()
-        assert "Update" in body
-
-    def test_leader_does_not_see_other_regions(self, client, admin_user, community):
-        leader = make_leader("lead-us", "US")  # different region than the community
+    @pytest.mark.parametrize(
+        "country,expected_visible",
+        [("NG", True), ("US", False)],
+        ids=["same_region", "different_region"],
+    )
+    def test_leader_visibility_by_region(self, client, admin_user, community, country, expected_visible):
+        leader = make_leader(f"lead-{country.lower()}", country)  # NG matches the community, US does not
         CommunityMessage.objects.create(community=community, sender=admin_user, subject="Update", body="x").send()
 
         client.force_login(leader)
         body = client.get("/communities/messages/inbox/").content.decode()
-        assert "Update" not in body
+        assert ("Update" in body) == expected_visible
 
     def test_leader_sees_online_community_messages_regardless_of_region(self, client, admin_user):
         online_community = Community.objects.create(name="Remote Pythonistas", is_online=True)
@@ -242,12 +235,14 @@ class TestLeadershipInbox:
         body = client.get("/communities/messages/inbox/").content.decode()
         assert "Draft" not in body
 
-    def test_non_leadership_gets_403(self, client, member):
-        client.force_login(member)
-        assert client.get("/communities/messages/inbox/").status_code == 403
-
-    def test_community_admin_who_is_not_leadership_gets_403(self, client, admin_user):
-        client.force_login(admin_user)
+    @pytest.mark.parametrize(
+        "user_fixture",
+        ["member", "admin_user"],
+        ids=["non_leadership_member", "community_admin_only"],
+    )
+    def test_non_leadership_gets_403(self, client, request, user_fixture):
+        user = request.getfixturevalue(user_fixture)
+        client.force_login(user)
         assert client.get("/communities/messages/inbox/").status_code == 403
 
 

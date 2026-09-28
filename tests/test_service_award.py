@@ -53,6 +53,11 @@ def plain_member(db):
     return make_user("member")
 
 
+@pytest.fixture
+def superuser(db):
+    return get_user_model().objects.create_superuser(username="root", email="root@example.com", password="pw")
+
+
 def make_nomination(nominator, **kwargs):
     defaults = {
         "nominee_name": "Nia Nominee",
@@ -86,14 +91,9 @@ class TestAccess:
         # 403, not a login redirect: they're signed in, they just aren't leadership.
         assert client.get(path).status_code == 403
 
-    @pytest.mark.parametrize("fixture", ["council_member", "executor"])
+    @pytest.mark.parametrize("fixture", ["council_member", "executor", "superuser"])
     def test_council_and_executors_get_in(self, client, request, fixture):
         client.force_login(request.getfixturevalue(fixture))
-        assert client.get("/leadership/service-award/").status_code == 200
-
-    def test_superuser_gets_in(self, client, db):
-        admin = get_user_model().objects.create_superuser(username="root", email="root@example.com", password="pw")
-        client.force_login(admin)
         assert client.get("/leadership/service-award/").status_code == 200
 
 
@@ -174,9 +174,7 @@ class TestNominate:
         withdrawn.refresh_from_db()
         assert withdrawn.status == ServiceAwardNomination.WITHDRAWN
 
-    def test_resubmitting_shows_other_active_nominators_for_the_same_person(
-        self, client, executor, council_member
-    ):
+    def test_resubmitting_shows_other_active_nominators_for_the_same_person(self, client, executor, council_member):
         make_nomination(executor, status=ServiceAwardNomination.WITHDRAWN)
         make_nomination(council_member)
         client.force_login(executor)
@@ -267,14 +265,17 @@ class TestEditAndWithdraw:
         nomination.refresh_from_db()
         assert nomination.statement == "Updated reasoning."
 
-    def test_another_leader_cannot_edit_someone_elses_nomination(self, client, executor, council_member):
-        nomination = make_nomination(executor)
-        client.force_login(council_member)
-        assert client.get(f"/leadership/service-award/{nomination.pk}/edit/").status_code == 403
-
-    def test_decided_nomination_can_no_longer_be_edited(self, client, executor):
-        nomination = make_nomination(executor, status=ServiceAwardNomination.ACCEPTED)
-        client.force_login(executor)
+    @pytest.mark.parametrize(
+        "status,actor",
+        [
+            (ServiceAwardNomination.SUBMITTED, "council_member"),
+            (ServiceAwardNomination.ACCEPTED, "executor"),
+        ],
+        ids=["someone_elses_nomination", "own_decided_nomination"],
+    )
+    def test_edit_is_forbidden(self, client, request, executor, status, actor):
+        nomination = make_nomination(executor, status=status)
+        client.force_login(request.getfixturevalue(actor))
         assert client.get(f"/leadership/service-award/{nomination.pk}/edit/").status_code == 403
 
     def test_nominator_can_withdraw_and_the_record_survives(self, client, executor):
@@ -302,10 +303,9 @@ class TestReinstate:
         nomination.refresh_from_db()
         assert nomination.status == ServiceAwardNomination.SUBMITTED
 
-    def test_superuser_can_reinstate_anyones_withdrawn_nomination(self, client, executor, db):
+    def test_superuser_can_reinstate_anyones_withdrawn_nomination(self, client, executor, superuser):
         nomination = make_nomination(executor, status=ServiceAwardNomination.WITHDRAWN)
-        admin = get_user_model().objects.create_superuser(username="root", email="root@example.com", password="pw")
-        client.force_login(admin)
+        client.force_login(superuser)
         response = client.post(f"/leadership/service-award/{nomination.pk}/reinstate/")
         assert response.status_code == 302
         nomination.refresh_from_db()
@@ -329,21 +329,6 @@ class TestReinstate:
         )
         client.force_login(executor)
         assert client.post(f"/leadership/service-award/{nomination.pk}/reinstate/").status_code == 403
-
-    def test_detail_page_shows_reinstate_button_only_to_the_nominator(self, client, executor, council_member):
-        nomination = make_nomination(executor, status=ServiceAwardNomination.WITHDRAWN)
-
-        client.force_login(executor)
-        assert (
-            "Reinstate this nomination"
-            in client.get(f"/leadership/service-award/{nomination.pk}/").content.decode()
-        )
-
-        client.force_login(council_member)
-        assert (
-            "Reinstate this nomination"
-            not in client.get(f"/leadership/service-award/{nomination.pk}/").content.decode()
-        )
 
     def test_list_page_shows_withdrawn_section_for_the_current_cycle(self, client, executor, council_member):
         make_nomination(executor, nominee_name="My Withdrawn Pick", status=ServiceAwardNomination.WITHDRAWN)
@@ -382,10 +367,9 @@ class TestReinstate:
         assert "nominated by Cee Member" in html
         assert "Reinstate</button>" not in html
 
-    def test_list_page_withdrawn_section_shows_everyone_to_a_superuser(self, client, executor, db):
+    def test_list_page_withdrawn_section_shows_everyone_to_a_superuser(self, client, executor, superuser):
         make_nomination(executor, nominee_name="Someone Elses Pick", status=ServiceAwardNomination.WITHDRAWN)
-        admin = get_user_model().objects.create_superuser(username="root", email="root@example.com", password="pw")
-        client.force_login(admin)
+        client.force_login(superuser)
 
         html = client.get("/leadership/service-award/").content.decode()
         assert "Someone Elses Pick" in html
@@ -404,20 +388,24 @@ class TestReinstate:
 
 
 class TestDetailView:
-    def test_edit_controls_only_show_for_the_nominator(self, client, executor, council_member):
-        nomination = make_nomination(executor)
+    @pytest.mark.parametrize(
+        "status,expected_phrase",
+        [
+            (ServiceAwardNomination.SUBMITTED, "Withdraw this nomination"),
+            (ServiceAwardNomination.WITHDRAWN, "Reinstate this nomination"),
+        ],
+        ids=["open_nomination_shows_withdraw", "withdrawn_nomination_shows_reinstate"],
+    )
+    def test_action_button_only_shows_for_the_nominator(
+        self, client, executor, council_member, status, expected_phrase
+    ):
+        nomination = make_nomination(executor, status=status)
 
         client.force_login(executor)
-        assert (
-            "Withdraw this nomination"
-            in client.get(f"/leadership/service-award/{nomination.pk}/").content.decode()
-        )
+        assert expected_phrase in client.get(f"/leadership/service-award/{nomination.pk}/").content.decode()
 
         client.force_login(council_member)
-        assert (
-            "Withdraw this nomination"
-            not in client.get(f"/leadership/service-award/{nomination.pk}/").content.decode()
-        )
+        assert expected_phrase not in client.get(f"/leadership/service-award/{nomination.pk}/").content.decode()
 
     def test_detail_page_lists_other_support_for_the_same_nominee(self, client, executor, council_member):
         first = make_nomination(executor)
@@ -430,10 +418,12 @@ class TestDetailView:
 
 
 class TestMemberArea:
-    def test_leaders_see_the_service_award_panel(self, client, executor):
-        client.force_login(executor)
-        assert "Community Service Award" in client.get("/members/").content.decode()
-
-    def test_other_members_do_not(self, client, plain_member):
-        client.force_login(plain_member)
-        assert "Community Service Award" not in client.get("/members/").content.decode()
+    @pytest.mark.parametrize(
+        "actor,should_see",
+        [("executor", True), ("plain_member", False)],
+        ids=["leader_sees_panel", "other_member_does_not"],
+    )
+    def test_service_award_panel_visibility(self, client, request, actor, should_see):
+        client.force_login(request.getfixturevalue(actor))
+        content = client.get("/members/").content.decode()
+        assert ("Community Service Award" in content) == should_see

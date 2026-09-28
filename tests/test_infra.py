@@ -33,9 +33,7 @@ def test_production_switches_media_to_s3_when_bucket_configured(monkeypatch):
     importlib.reload(production)
 
     assert production.STORAGES["default"]["BACKEND"] == "storages.backends.s3.S3Storage"
-    assert production.STORAGES["staticfiles"]["BACKEND"] == (
-        "whitenoise.storage.CompressedManifestStaticFilesStorage"
-    )
+    assert production.STORAGES["staticfiles"]["BACKEND"] == ("whitenoise.storage.CompressedManifestStaticFilesStorage")
 
 
 def test_robots_and_sitemap(client, site):

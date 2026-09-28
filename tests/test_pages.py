@@ -31,7 +31,6 @@ def test_bootstrap_creates_page_tree(site):
 
 
 def test_bootstrap_is_idempotent(site):
-    from django.core.management import call_command
     from wagtail.models import Page
 
     before = Page.objects.count()
@@ -49,10 +48,7 @@ def test_bootstrap_seeds_snippets(site):
 def test_principles_heading_is_not_double_escaped(site):
     """The seed copy must hold a literal '&', not a pre-escaped entity."""
     headings = [
-        card["heading"]
-        for block in site.body
-        if block.block_type == "card_grid"
-        for card in block.value["cards"]
+        card["heading"] for block in site.body if block.block_type == "card_grid" for card in block.value["cards"]
     ]
     assert "Community & Belonging" in headings
     assert not any("&amp;" in h for h in headings)
@@ -141,9 +137,7 @@ class TestFoundationalSupport:
         public, _ = get_or_create_supporter_user(User, "Listed Person")
         private, _ = get_or_create_supporter_user(User, "Private Person")
         FoundationalSupport.objects.create(user=public, year=2026)
-        FoundationalSupport.objects.create(
-            user=private, year=2026, status=FoundationalSupport.ANONYMOUS
-        )
+        FoundationalSupport.objects.create(user=private, year=2026, status=FoundationalSupport.ANONYMOUS)
 
         html = client.get("/support/").content.decode()
         assert "Listed Person" in html
@@ -161,9 +155,7 @@ class TestPartnerPromoCodes:
 
     def test_logged_in_members_see_promo_codes(self, client, site):
         User = get_user_model()
-        user = User.objects.create_user(
-            username="member", email="member@example.com", password="password123"
-        )
+        user = User.objects.create_user(username="member", email="member@example.com", password="password123")
         client.force_login(user)
 
         html = client.get("/support/").content.decode()

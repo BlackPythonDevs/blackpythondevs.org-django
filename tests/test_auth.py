@@ -4,6 +4,7 @@ These regression-test the template lookups that used to 500 there.
 """
 
 import pytest
+from django.core import mail
 
 pytestmark = pytest.mark.django_db
 
@@ -43,15 +44,11 @@ def test_signup_creates_user_with_generated_username(client, site):
 
 def test_login_uses_email(client, site):
     User.objects.create_user(username="someone", email="someone@example.com", password="s3cure-passphrase!")
-    response = client.post(
-        "/accounts/login/", {"login": "someone@example.com", "password": "s3cure-passphrase!"}
-    )
+    response = client.post("/accounts/login/", {"login": "someone@example.com", "password": "s3cure-passphrase!"})
     assert response.status_code == 302
 
 
 def test_signup_emails_a_verification_code(client, site):
-    from django.core import mail
-
     response = client.post("/accounts/signup/", {"email": "brandnew@example.com"}, follow=True)
     assert response.redirect_chain[-1][0] == "/accounts/confirm-email/"
     assert "verification code" in mail.outbox[-1].body
@@ -61,8 +58,6 @@ def test_signup_emails_a_verification_code(client, site):
 def test_signup_with_existing_email_sends_a_login_code_not_a_password_reset(client, site):
     """The site is passwordless: signing up again with a registered address
     should email a sign-in code, never allauth's "reset your password" notice."""
-    from django.core import mail
-
     User.objects.create_user(username="existing", email="existing@example.com", password="unused-pw")
     mail.outbox.clear()
 
@@ -83,8 +78,6 @@ def test_can_resend_confirmation_code(client, site):
     rate-limits it) — someone who lets their signup code expire has no way
     back in short of cancelling the stage and starting over.
     """
-    from django.core import mail
-
     client.post("/accounts/signup/", {"email": "pending@example.com"})
     assert len(mail.outbox) == 1
     mail.outbox.clear()
