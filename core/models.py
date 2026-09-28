@@ -211,12 +211,25 @@ class Sponsor(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
+        previous_invoice_paid_date = None
+        if self.pk:
+            previous_invoice_paid_date = (
+                Sponsor.objects.filter(pk=self.pk).values_list("invoice_paid_date", flat=True).first()
+            )
+
         # Keep expires_at in step with its source. Only overwrite when
         # invoice_paid_date is present so rows without one keep whatever
         # they already have.
         if self.invoice_paid_date:
             self.expires_at = self.invoice_paid_date + relativedelta(years=1)
         super().save(*args, **kwargs)
+
+        # Imported lazily: blog imports core.blocks, so importing blog at
+        # module load time here would be circular.
+        if self.invoice_paid_date and self.invoice_paid_date != previous_invoice_paid_date:
+            from blog.sponsors import draft_sponsor_announcement
+
+            draft_sponsor_announcement(self)
 
 
 @register_snippet
