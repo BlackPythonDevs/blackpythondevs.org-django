@@ -1,0 +1,10 @@
+{% if authenticated %}
+  <li class="menu-item notification-bell" role="menuitem">
+    <a href="{% url 'notifications:inbox' %}">
+      <i class="iconoir-bell" aria-hidden="true"></i>&nbsp;Notifications
+      {% if unread_count %}
+        <span class="notification-bell-count">{{ unread_count }}</span>
+      {% endif %}
+    </a>
+  </li>
+{% endif %}

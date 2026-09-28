@@ -26,6 +26,7 @@ from checklists.mentions import find_mentioned_users, render_mentions
 from checklists.models import Note, Task
 from checklists.permissions import display_label
 from core.models import Sponsor
+from notifications.models import UserNotification
 from sponsorships.models import SponsorshipRequest
 
 pytestmark = pytest.mark.django_db
@@ -354,6 +355,23 @@ class TestMentions:
         client.post(url, {"action": "add_note", "body": f"@{member.username} fyi"})
 
         assert len(mail.outbox) == 0
+
+    def test_add_note_with_mention_creates_an_in_app_notification(self, client, executor, other_executor, sponsor):
+        client.force_login(executor)
+        url = f"/checklists/core/sponsor/{sponsor.pk}/"
+        client.post(url, {"action": "add_note", "body": f"@{other_executor.username} can you take this one?"})
+
+        note = UserNotification.objects.get(recipient=other_executor)
+        assert note.actor == executor
+        assert note.is_read is False
+        assert note.url == url
+
+    def test_mentioning_yourself_creates_no_in_app_notification(self, client, executor, sponsor):
+        client.force_login(executor)
+        url = f"/checklists/core/sponsor/{sponsor.pk}/"
+        client.post(url, {"action": "add_note", "body": f"@{executor.username} note to self"})
+
+        assert not UserNotification.objects.filter(recipient=executor).exists()
 
 
 class TestMentionSuggestions:

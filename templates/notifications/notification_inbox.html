@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Your notifications{% endblock %}
+
+{% block content %}
+  <section>
+    <p><a href="{% url 'members' %}">&larr; My account</a></p>
+
+    <h1>Your notifications</h1>
+    <p class="lead">Things that mention or involve you directly, newest first.</p>
+
+    {% if user_notifications %}
+      <form method="post" action="{% url 'notifications:inbox' %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="mark_all_read" />
+        <button type="submit" class="btn secondary">Mark all as read</button>
+      </form>
+
+      <ul class="notification-inbox-list">
+        {% for notification in user_notifications %}
+          <li class="{% if not notification.is_read %}is-unread{% endif %}">
+            <div>
+              {% if notification.url %}
+                <a href="{{ notification.url }}">{{ notification.message }}</a>
+              {% else %}
+                {{ notification.message }}
+              {% endif %}
+              <br />
+              <small>{{ notification.created_at|date:"d M Y H:i" }}</small>
+            </div>
+            {% if not notification.is_read %}
+              <form method="post" action="{% url 'notifications:inbox' %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="mark_read" />
+                <input type="hidden" name="notification_id" value="{{ notification.pk }}" />
+                <button type="submit" class="btn secondary">Mark read</button>
+              </form>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>Nothing here yet.</p>
+    {% endif %}
+  </section>
+
+  {% if is_paginated %}
+    <section>
+      <div class="pagination">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}">Previous</a>
+        {% endif %}
+        <span class="current">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}">Next</a>
+        {% endif %}
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

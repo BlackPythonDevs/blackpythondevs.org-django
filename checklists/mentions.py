@@ -56,11 +56,19 @@ def render_mentions(body):
 
 
 def notify_mentioned_users(*, note, request, obj, app_label, model_name, task=None):
-    """Email every user @mentioned in `note.body`, once, as a single bcc'd
-    message (same synchronous, no-task-queue idiom as
-    nominations.models.notify_onboarding_team and notifications.Notification.send).
-    Never emails the author for mentioning themselves.
+    """Notify every user @mentioned in `note.body`: one in-app notification
+    each (see notifications.models.notify, issue #98) plus, if they have an
+    email on file, a single bcc'd email (same synchronous, no-task-queue
+    idiom as nominations.models.notify_onboarding_team and
+    notifications.Notification.send). Never notifies the author for
+    mentioning themselves.
     """
+    # Local import: checklists stays a generic app that doesn't depend on
+    # any consumer's models, but `notifications` is site-wide infrastructure
+    # (like django-auditlog), not a business model this app would need to
+    # stay portable away from.
+    from notifications.models import notify as notify_in_app
+
     recipients = [user for user in find_mentioned_users(note.body) if user != note.created_by]
     if not recipients:
         return
@@ -70,6 +78,9 @@ def notify_mentioned_users(*, note, request, obj, app_label, model_name, task=No
     )
     where = f'on "{task.title}"' if task is not None else f"on {obj}"
     short_message = f"{display_label(note.created_by)} mentioned you {where}"
+
+    for user in recipients:
+        notify_in_app(user, short_message, actor=note.created_by, url=path)
 
     emails = [user.email for user in recipients if user.email]
     if not emails:

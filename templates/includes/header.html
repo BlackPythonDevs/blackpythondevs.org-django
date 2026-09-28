@@ -1,4 +1,4 @@
-{% load static wagtailsettings_tags %}
+{% load static wagtailsettings_tags notifications_tags %}
 {% get_settings use_default_site=True as site_settings %}
 <header class="site-header" role="banner">
   <h1 class="site-title">
@@ -17,6 +17,8 @@
             </a>
           </li>
         {% endfor %}
+
+        {% notification_bell %}
 
         <li class="menu-item" role="menuitem">
           {% if request.user.is_authenticated %}
