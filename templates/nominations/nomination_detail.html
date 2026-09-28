@@ -46,5 +46,57 @@
         <button type="submit" class="secondary">Withdraw this nomination</button>
       </form>
     {% endif %}
+
+    {% if can_second %}
+      <form method="post" action="{% url 'nominations:second' object.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn">Second this nomination</button>
+      </form>
+    {% endif %}
+
+    {% if object.status == "seconded" %}
+      <div class="card">
+        <p>
+          Seconded by {{ object.seconded_by }} on {{ object.seconded_at|date:"d M Y H:i" }}.
+          Objections can be raised until {{ object.objection_window_closes_at|date:"d M Y H:i" }} UTC.
+        </p>
+
+        {% if can_object %}
+          <p><a role="button" class="secondary" href="{% url 'nominations:object' object.pk %}">Raise an objection</a></p>
+        {% endif %}
+
+        <form method="post" action="{% url 'nominations:confirm' object.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn" {% if not object.ready_to_confirm %}disabled{% endif %}>
+            Send confirmation email
+          </button>
+          {% if not object.ready_to_confirm %}
+            <small>Available once the objection window closes.</small>
+          {% endif %}
+        </form>
+      </div>
+    {% endif %}
+
+    {% if objections %}
+      <div class="card">
+        <h3>Objections</h3>
+        <ul>
+          {% for objection in objections %}
+            <li>
+              {{ objection.submitted_by }} — {{ objection.reason }}
+              <small>({{ objection.created_at|date:"d M Y H:i" }})</small>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    {% if object.status == "confirmation_sent" %}
+      <p>Confirmation email sent to {{ object.nominee_email }} on {{ object.confirmation_sent_at|date:"d M Y H:i" }}.</p>
+    {% elif object.status == "accepted_pending_onboarding" %}
+      <p>{{ object.nominee_name }} accepted and is completing their profile and photo.</p>
+    {% elif object.status == "accepted" %}
+      <p>Onboarding complete{% if object.announcement_page_id %} — the announcement draft is ready in Wagtail{% endif %}.</p>
+    {% endif %}
   </section>
 {% endblock %}
