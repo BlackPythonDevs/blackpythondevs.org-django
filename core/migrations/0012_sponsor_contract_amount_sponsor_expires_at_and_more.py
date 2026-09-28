@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0009_consolidate_leadership_groups'),
+        ('core', '0011_onboarding_group'),
     ]
 
     operations = [
