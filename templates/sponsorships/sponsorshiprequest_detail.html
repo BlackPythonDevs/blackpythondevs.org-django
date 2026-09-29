@@ -9,10 +9,6 @@
 
 {% block title %}{{ object.name }}{% endblock %}
 
-{% block extra_css %}
-  <link rel="stylesheet" href="{% static 'css/checklists.css' %}" />
-{% endblock %}
-
 {% block content %}
   <section>
     <p><a href="{% url 'sponsorships-list' %}">&larr; All sponsorship requests</a></p>
@@ -20,6 +16,7 @@
     <h1>
       {{ object.name }}
       {% if not object.paid %}<span class="badge badge-community">community</span>{% endif %}
+      {% checklist_link object %}
       <a class="icon-action update" href="{% url 'sponsorships-update' object.pk %}" title="Edit" aria-label="Edit">
         <i class="iconoir-edit-pencil" aria-hidden="true"></i>
       </a>
@@ -67,13 +64,5 @@
       </dl>
     </div>
 
-    {% checklist_widget object %}
-    {% task_activity object %}
   </section>
-{% endblock %}
-
-{% block extra_js %}
-  <script src="{% static 'js/htmx.min.js' %}"></script>
-  <script src="{% static 'js/checklist-dragdrop.js' %}"></script>
-  <script src="{% static 'js/checklist-mentions.js' %}"></script>
 {% endblock %}
