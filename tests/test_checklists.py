@@ -177,7 +177,7 @@ class TestDisplayLabel:
 
 
 class TestTaskAssignment:
-    """Clicking a task (the <details> in widget.html) reveals a due-date and
+    """Clicking a task (opens a <dialog> in widget.html) reveals a due-date and
     assignee editor. "Assignable" is deliberately not "the Executor group" by
     name — see checklists/permissions.py — but in this project that group is
     exactly who holds checklists.change_task, so it should resolve to the
@@ -246,7 +246,7 @@ class TestTaskAssignment:
 
 
 class TestTaskComments:
-    """Per-task comments (widget.html's per-task <details>) reuse Note's own
+    """Per-task comments (widget.html's per-task <dialog>) reuse Note's own
     generic relation, just pointed at the Task itself instead of at the
     checklist's own object — see views.py's add_task_comment branch."""
 
