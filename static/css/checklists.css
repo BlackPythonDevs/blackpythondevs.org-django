@@ -39,6 +39,12 @@
 .checklist-task-details {
   flex: 1;
   min-width: 0;
+  /* The card already supplies the border; drop the details' own box. */
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  margin: 0;
 }
 
 .checklist-task-details summary {

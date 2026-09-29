@@ -1386,6 +1386,23 @@ a[role="button"].update:hover,
   color: #fff;
   opacity: 0.85;
 }
+/* Light mode: a light-blue chip with a deep-blue glyph so the icon reads. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .icon-action.checklist {
+    background: #bfdbfe;
+    color: #1e3a8a;
+  }
+  :root:not([data-theme="dark"]) .icon-action.checklist:hover {
+    color: #1e3a8a;
+  }
+}
+[data-theme="light"] .icon-action.checklist {
+  background: #bfdbfe;
+  color: #1e3a8a;
+}
+[data-theme="light"] .icon-action.checklist:hover {
+  color: #1e3a8a;
+}
 .icon-action.danger {
   background: var(--bpd-danger);
 }
