@@ -7,6 +7,7 @@
   <section>
     <p><a href="{% url 'sponsors-list' %}">&larr; All sponsors</a></p>
 
+    <small>{{ object.get_status_display }}</small>
     <h1>
       {{ object.name }}
       {% if object.active %}<i class="iconoir-globe published-glyph" role="img" title="Published" aria-label="Published"></i>{% endif %}
@@ -18,7 +19,6 @@
         <i class="iconoir-trash" aria-hidden="true"></i>
       </a>
     </h1>
-    <p class="lead">{{ object.get_status_display }}</p>
 
     <div class="card">
       <dl>
