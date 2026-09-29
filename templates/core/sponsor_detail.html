@@ -13,7 +13,13 @@
 
     <h1>
       {{ object.name }}
-      {% if object.active %}<span class="badge">on site</span>{% endif %}
+      {% if object.active %}<i class="iconoir-globe published-glyph" role="img" title="Published" aria-label="Published"></i>{% endif %}
+      <a class="icon-action update" href="{% url 'sponsors-update' object.pk %}" title="Edit" aria-label="Edit">
+        <i class="iconoir-edit-pencil" aria-hidden="true"></i>
+      </a>
+      <a class="icon-action danger" href="{% url 'sponsors-delete' object.pk %}" title="Delete" aria-label="Delete">
+        <i class="iconoir-trash" aria-hidden="true"></i>
+      </a>
     </h1>
     <p class="lead">{{ object.get_status_display }}</p>
 
@@ -49,11 +55,6 @@
         </dd>
       </dl>
     </div>
-
-    <p>
-      <a role="button" class="btn" href="{% url 'sponsors-update' object.pk %}">Edit</a>
-      <a role="button" class="secondary" href="{% url 'sponsors-delete' object.pk %}">Delete</a>
-    </p>
 
     {% checklist_widget object %}
     {% task_activity object %}

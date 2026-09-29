@@ -1350,6 +1350,43 @@ a[role="button"].update:hover,
   background: var(--bpd-update-dim);
 }
 
+/* Compact icon links beside a page title (edit / delete). Same fills as the
+   .update / .danger buttons. */
+.published-glyph {
+  margin-left: 0.3rem;
+  vertical-align: middle;
+  font-size: 1.1rem;
+  color: var(--bpd-cyan);
+}
+.icon-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  margin-left: 0.3rem;
+  vertical-align: middle;
+  font-size: 0.75rem;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 6px;
+  transition: background 0.3s ease;
+}
+.icon-action.update {
+  background: var(--bpd-update);
+}
+.icon-action.update:hover {
+  color: #fff;
+  background: var(--bpd-update-dim);
+}
+.icon-action.danger {
+  background: var(--bpd-danger);
+}
+.icon-action.danger:hover {
+  color: #fff;
+  background: var(--bpd-danger-dim);
+}
+
 a[role="button"].outline,
 .btn.outline {
   color: var(--bpd-cyan);
