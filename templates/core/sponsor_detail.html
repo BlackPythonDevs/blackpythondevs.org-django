@@ -13,7 +13,7 @@
 
     <h1>
       {{ object.name }}
-      {% if object.active %}<span class="badge">on site</span>{% endif %}
+      {% if object.active %}<i class="iconoir-globe published-glyph" role="img" title="Published" aria-label="Published"></i>{% endif %}
       <a class="icon-action update" href="{% url 'sponsors-update' object.pk %}" title="Edit" aria-label="Edit">
         <i class="iconoir-edit-pencil" aria-hidden="true"></i>
       </a>

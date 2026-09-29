@@ -1352,6 +1352,12 @@ a[role="button"].update:hover,
 
 /* Compact icon links beside a page title (edit / delete). Same fills as the
    .update / .danger buttons. */
+.published-glyph {
+  margin-left: 0.3rem;
+  vertical-align: middle;
+  font-size: 1.1rem;
+  color: var(--bpd-cyan);
+}
 .icon-action {
   display: inline-flex;
   align-items: center;
