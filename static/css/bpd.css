@@ -1379,6 +1379,13 @@ a[role="button"].update:hover,
   color: #fff;
   background: var(--bpd-update-dim);
 }
+.icon-action.checklist {
+  background: var(--bpd-cyan);
+}
+.icon-action.checklist:hover {
+  color: #fff;
+  opacity: 0.85;
+}
 .icon-action.danger {
   background: var(--bpd-danger);
 }

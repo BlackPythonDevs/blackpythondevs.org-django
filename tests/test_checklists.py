@@ -238,9 +238,9 @@ class TestTaskAssignment:
         task.refresh_from_db()
         assert task.assigned_to is None
 
-    def test_assignee_dropdown_lists_executors_on_the_sponsor_page(self, client, executor, member, sponsor):
+    def test_assignee_dropdown_lists_executors_on_the_checklist_page(self, client, executor, member, sponsor):
         client.force_login(executor)
-        content = client.get(f"/sponsors/{sponsor.pk}/").content.decode()
+        content = client.get(f"/checklists/core/sponsor/{sponsor.pk}/").content.decode()
         assert executor.username in content
         assert f'value="{member.pk}"' not in content
 
@@ -503,10 +503,19 @@ class TestWidgetEmbedding:
         )
         assert titles == SPONSORSHIP_REQUEST_STEPS
 
-    def test_widget_renders_on_the_neapolitan_detail_page(self, client, executor, sponsorship_request):
+    def test_neapolitan_detail_page_links_to_the_checklist_instead_of_embedding_it(
+        self, client, executor, sponsorship_request
+    ):
         client.force_login(executor)
         response = client.get(f"/sponsorships/{sponsorship_request.pk}/")
         assert response.status_code == 200
+        content = response.content.decode()
+        assert f'href="/checklists/sponsorships/sponsorshiprequest/{sponsorship_request.pk}/"' in content
+        assert "Prospectus reviewed" not in content
+
+    def test_checklist_page_renders_the_widget(self, client, executor, sponsorship_request):
+        client.force_login(executor)
+        response = client.get(f"/checklists/sponsorships/sponsorshiprequest/{sponsorship_request.pk}/")
         content = response.content.decode()
         assert "Event sponsorship checklist" in content
         assert "Prospectus reviewed" in content

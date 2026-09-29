@@ -140,38 +140,28 @@ class TestChecklistWidgetIsTheCorporateOne:
     SponsorshipRequest's — each model's checklist is independent (separate
     content_type/object_id rows), but this pins the visible behavior."""
 
-    def test_detail_page_shows_corporate_sponsor_steps(self, client, executor, sponsor):
+    def test_checklist_page_shows_corporate_sponsor_steps(self, client, executor, sponsor):
         client.force_login(executor)
-        response = client.get(f"/sponsors/{sponsor.pk}/")
+        response = client.get(f"/checklists/core/sponsor/{sponsor.pk}/")
         content = response.content.decode()
         assert "Corporate sponsor checklist" in content
         assert "Contract sent" in content
         assert "Prospectus reviewed" not in content
 
+    def test_detail_page_links_to_the_checklist_instead_of_embedding_it(self, client, executor, sponsor):
+        client.force_login(executor)
+        content = client.get(f"/sponsors/{sponsor.pk}/").content.decode()
+        assert f'href="/checklists/core/sponsor/{sponsor.pk}/"' in content
+        assert "Contract sent" not in content
 
-class TestTaskActivityOnTheSponsorPage:
+
+class TestTaskActivityOnTheChecklistPage:
     """django-auditlog already tracks every model; {% task_activity %} on the
-    sponsor page itself (not the checklist widget — see checklists_tags.py)
+    checklist page itself (not the checklist widget — see checklists_tags.py)
     surfaces Task's own history inline rather than sending Executors to the
     superuser-only django-admin audit log (core/admin_auditlog.py)."""
 
-    def test_toggling_a_task_shows_up_as_activity_on_the_sponsor_page(self, client, executor, sponsor):
-        client.force_login(executor)
-        content_type = ContentType.objects.get_for_model(Sponsor)
-        task = Task.objects.filter(content_type=content_type, object_id=sponsor.pk).first()
-
-        client.post(f"/checklists/core/sponsor/{sponsor.pk}/", {"action": "toggle", "task_id": task.pk})
-
-        response = client.get(f"/sponsors/{sponsor.pk}/")
-        content = response.content.decode()
-        assert "Task activity" in content
-        assert task.title in content
-        assert executor.username in content
-        assert "is done" in content
-
-    def test_activity_does_not_appear_on_the_generic_checklists_page(self, client, executor, sponsor):
-        """Confirms the activity log is opted into per-page, not baked into
-        the reusable checklist widget itself."""
+    def test_toggling_a_task_shows_up_as_activity_on_the_checklist_page(self, client, executor, sponsor):
         client.force_login(executor)
         content_type = ContentType.objects.get_for_model(Sponsor)
         task = Task.objects.filter(content_type=content_type, object_id=sponsor.pk).first()
@@ -179,4 +169,8 @@ class TestTaskActivityOnTheSponsorPage:
         client.post(f"/checklists/core/sponsor/{sponsor.pk}/", {"action": "toggle", "task_id": task.pk})
 
         response = client.get(f"/checklists/core/sponsor/{sponsor.pk}/")
-        assert "Task activity" not in response.content.decode()
+        content = response.content.decode()
+        assert "Task activity" in content
+        assert task.title in content
+        assert executor.username in content
+        assert "is done" in content

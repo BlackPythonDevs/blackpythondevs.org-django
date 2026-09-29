@@ -85,6 +85,25 @@ def checklist_widget(context, obj):
     }
 
 
+@register.inclusion_tag("checklists/includes/link.html")
+def checklist_link(obj):
+    """A checklist glyph linking to `obj`'s checklist page; renders nothing if
+    `obj`'s model has no registered checklist."""
+    if registry.get_definition(obj._meta.label_lower) is None:
+        return {"url": None}
+    content_type = ContentType.objects.get_for_model(obj)
+    return {
+        "url": reverse(
+            "checklists-detail",
+            kwargs={
+                "app_label": content_type.app_label,
+                "model_name": content_type.model,
+                "object_id": obj.pk,
+            },
+        )
+    }
+
+
 @register.inclusion_tag("checklists/includes/task_activity.html")
 def task_activity(obj):
     content_type = ContentType.objects.get_for_model(obj)
