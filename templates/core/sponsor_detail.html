@@ -50,9 +50,9 @@
       </dl>
     </div>
 
-    <p>
-      <a role="button" class="btn" href="{% url 'sponsors-update' object.pk %}">Edit</a>
-      <a role="button" class="secondary" href="{% url 'sponsors-delete' object.pk %}">Delete</a>
+    <p class="button-row">
+      <a role="button" class="btn update" href="{% url 'sponsors-update' object.pk %}">Edit</a>
+      <a role="button" class="btn danger" href="{% url 'sponsors-delete' object.pk %}">Delete</a>
     </p>
 
     {% checklist_widget object %}

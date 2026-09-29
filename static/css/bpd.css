@@ -1350,6 +1350,14 @@ a[role="button"].update:hover,
   background: var(--bpd-update-dim);
 }
 
+/* A row of action buttons after a card: gap between them and above. */
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
 a[role="button"].outline,
 .btn.outline {
   color: var(--bpd-cyan);
