@@ -1927,3 +1927,13 @@ section [class*="w-block-"]:last-child {
 [data-theme="light"] .leadership-photo-container:hover {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
+
+/* Modal dialogs are centered in the viewport by default. A global margin
+ * reset would otherwise pin them to the top-left; the hand-rolled full-screen
+ * overlays (service-award.css, elections.css) override this with their own
+ * inset/flex layout. */
+dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+}

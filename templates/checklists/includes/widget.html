@@ -14,7 +14,7 @@
       </form>
       <ol class="checklist-task-list">
         {% for task in tasks %}
-          <li class="checklist-task-card" draggable="true">
+          <li class="checklist-task-card">
             <input type="hidden" name="task_id" value="{{ task.pk }}" form="checklist-reorder-form" />
             <span class="checklist-task-handle" aria-hidden="true">&#8942;&#8942;</span>
 
@@ -32,8 +32,7 @@
               />
             </form>
 
-            <details class="checklist-task-details">
-              <summary>
+            <button type="button" class="checklist-task-open" data-dialog="checklist-task-dialog-{{ task.pk }}">
                 {% if task.is_done %}<s>{{ task.title }}</s>{% else %}{{ task.title }}{% endif %}
                 {% if not task.is_default %}<small>(custom)</small>{% endif %}
                 {% if task.due_date %}
@@ -50,7 +49,24 @@
                 {% if task.is_done %}
                   <small>&mdash; done {{ task.done_at|date:"d M Y H:i" }}{% if task.done_by %} by {{ task.done_by|checklist_person }}{% endif %}</small>
                 {% endif %}
-              </summary>
+            </button>
+
+            <dialog id="checklist-task-dialog-{{ task.pk }}" class="checklist-task-dialog">
+              <header>
+                <div>
+                  <h3>{% if task.is_done %}<s>{{ task.title }}</s>{% else %}{{ task.title }}{% endif %}</h3>
+                  <p class="checklist-task-dialog-status{% if task.is_done %} is-done{% endif %}">
+                    {% if task.is_done %}
+                      Done {{ task.done_at|date:"d M Y H:i" }}{% if task.done_by %} by {{ task.done_by|checklist_person }}{% endif %}
+                    {% else %}
+                      Open
+                    {% endif %}
+                  </p>
+                </div>
+                <button type="button" class="checklist-task-close" aria-label="Close">&times;</button>
+              </header>
+
+              <h4 class="checklist-task-dialog-heading">Details</h4>
               <form
                 method="post" action="{{ post_url }}" class="checklist-task-assign-form"
                 hx-post="{{ post_url }}" hx-target="closest .checklist-widget" hx-swap="outerHTML"
@@ -78,6 +94,7 @@
               </form>
 
               <div class="checklist-task-comments">
+                <h4 class="checklist-task-dialog-heading">Comments{% if task.comments %} ({{ task.comments|length }}){% endif %}</h4>
                 {% if task.comments %}
                   <ul class="checklist-task-comment-list">
                     {% for comment in task.comments %}
@@ -103,7 +120,7 @@
                   <button type="submit" class="btn secondary">Comment</button>
                 </form>
               </div>
-            </details>
+            </dialog>
 
             <span class="checklist-task-moves">
               <button type="button" class="btn secondary checklist-task-move-up">&#9650;</button>

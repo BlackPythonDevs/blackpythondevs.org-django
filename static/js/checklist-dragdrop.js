@@ -58,6 +58,20 @@
     if (form) form.requestSubmit();
   });
 
+  // The <li> isn't draggable by default: it contains a modal <dialog> with
+  // text inputs, which a draggable ancestor would keep from selecting text.
+  // Only the handle arms dragging.
+  document.addEventListener("mousedown", function (event) {
+    var handle = event.target.closest(".checklist-task-handle");
+    if (handle) handle.closest(".checklist-task-card").draggable = true;
+  });
+
+  document.addEventListener("mouseup", function () {
+    Array.prototype.slice.call(document.querySelectorAll(".checklist-task-card[draggable]")).forEach(function (card) {
+      card.removeAttribute("draggable");
+    });
+  });
+
   var dragged = null;
   var dragImage = null;
 
@@ -85,6 +99,7 @@
     if (dragged) {
       var list = dragged.parentElement;
       dragged.classList.remove("is-dragging");
+      dragged.removeAttribute("draggable");
       refreshButtons(list);
       var form = reorderForm(list);
       if (form) form.requestSubmit();
