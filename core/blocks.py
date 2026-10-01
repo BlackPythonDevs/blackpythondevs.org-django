@@ -79,9 +79,9 @@ class AmbassadorApplyBlock(blocks.StructBlock):
 class DonateBlock(blocks.StructBlock):
     """Embedded CommitChange donation form.
 
-    `tag` is passed to CommitChange as the gift's designation, so money raised
-    from this spot on the site shows up under that label in the payments
-    export and can be matched to the campaign it was raised for.
+    `tag` goes to CommitChange's `data-tags` (added to the supporter record)
+    and `campaign_id` to `data-campaign-id`, so money raised from this spot
+    on the site can be matched to the campaign it was raised for.
     """
 
     heading = blocks.CharBlock(required=False)
@@ -89,7 +89,12 @@ class DonateBlock(blocks.StructBlock):
     tag = blocks.CharBlock(
         required=False,
         max_length=100,
-        help_text="Label recorded with each gift made here (e.g. 'pycon-2027'), for aligning funds raised.",
+        help_text="Tag(s) added to each supporter who gives here, comma-separated (e.g. 'pycon-2027').",
+    )
+    campaign_id = blocks.CharBlock(
+        required=False,
+        max_length=20,
+        help_text="CommitChange campaign ID, shown on the campaign page when signed in as an admin.",
     )
     amounts = blocks.CharBlock(
         required=False,
