@@ -91,6 +91,16 @@ class DonateBlock(blocks.StructBlock):
         max_length=100,
         help_text="Fund the gifts are designated to (e.g. 'Leadership Summit').",
     )
+    amounts = blocks.CharBlock(
+        required=False,
+        default="15,25,50,100,250,500",
+        help_text="Comma-separated suggested amounts in dollars.",
+    )
+    disable_monthly = blocks.BooleanBlock(
+        required=False,
+        label="Disable monthly giving",
+        help_text="Make every gift through this form one-time. Leave unchecked to let donors choose.",
+    )
 
     class Meta:
         icon = "pick"
