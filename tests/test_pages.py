@@ -251,9 +251,10 @@ class TestDonateBlock:
         from home.models import StandardPage
 
         page = StandardPage.objects.get(slug="student-ambassador-program")
-        page.body = [("donate", {"heading": "Give", "designation": "Leadership Summit"})]
+        page.body = [("donate", {"heading": "Give", "designation": "Leadership Summit", "amounts": "10,20"})]
         page.save_revision().publish()
 
         html = client.get(page.url).content.decode()
         assert 'class="commitchange-donate"' in html
         assert 'data-designation="Leadership Summit"' in html
+        assert 'data-custom-amounts="10,20"' in html
