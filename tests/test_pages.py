@@ -244,3 +244,17 @@ class TestSupporterImport:
         path = roster([("Grace Hopper", "grace@example.com", 2023, "listed")])
         call_command("import_foundational_supporters", str(path), "--replace", "--dry-run", verbosity=0)
         assert FoundationalSupport.objects.count() == before
+
+
+class TestDonateBlock:
+    def test_block_embeds_commitchange_with_tag(self, client, bootstrapped_site):
+        from home.models import StandardPage
+
+        page = StandardPage.objects.get(slug="student-ambassador-program")
+        page.body = [("donate", {"heading": "Give", "tag": "pycon-2027", "amounts": "10,20"})]
+        page.save_revision().publish()
+
+        html = client.get(page.url).content.decode()
+        assert 'class="commitchange-donate"' in html
+        assert 'data-designation="pycon-2027"' in html
+        assert 'data-amounts="10,20"' in html

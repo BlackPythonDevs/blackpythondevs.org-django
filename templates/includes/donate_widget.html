@@ -3,7 +3,8 @@ CommitChange embedded donation form. The script injects an iframe that ships
 without a title, so we add one for screen readers once it appears.
 {% endcomment %}
 <a class="commitchange-donate"
-   data-amounts="{% firstof page.donation_amounts '15,25,50,100,250,500' %}"
+   data-amounts="{% firstof amounts page.donation_amounts '15,25,50,100,250,500' %}"
+   {% if tag %}data-designation="{{ tag }}"{% endif %}
    data-embedded=""></a>
 <script>
   (function () {
@@ -16,11 +17,12 @@ without a title, so we add one for screen readers once it appears.
     first.parentNode.insertBefore(script, first);
 
     setTimeout(function () {
-      var iframe = document.querySelector(".commitchange-iframe-embedded");
-      if (iframe && !iframe.hasAttribute("title")) {
-        iframe.setAttribute("title", "Donation form for Black Python Devs");
-        iframe.setAttribute("aria-label", "Donation form for Black Python Devs");
-      }
+      document.querySelectorAll(".commitchange-iframe-embedded").forEach(function (iframe) {
+        if (!iframe.hasAttribute("title")) {
+          iframe.setAttribute("title", "Donation form for Black Python Devs");
+          iframe.setAttribute("aria-label", "Donation form for Black Python Devs");
+        }
+      });
     }, 1000);
   })();
 </script>
