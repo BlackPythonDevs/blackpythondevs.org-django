@@ -3,9 +3,8 @@ CommitChange embedded donation form. The script injects an iframe that ships
 without a title, so we add one for screen readers once it appears.
 {% endcomment %}
 <a class="commitchange-donate"
-   data-custom-amounts="{% firstof amounts page.donation_amounts '15,25,50,100,250,500' %}"
-   {% if tag %}data-tags="{{ tag }}"{% endif %}
-   {% if campaign_id %}data-campaign-id="{{ campaign_id }}"{% endif %}
+   data-amounts="{% firstof page.donation_amounts '15,25,50,100,250,500' %}"
+   {% if designation %}data-designation="{{ designation }}"{% endif %}
    data-embedded=""></a>
 <script>
   (function () {

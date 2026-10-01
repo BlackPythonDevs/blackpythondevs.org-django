@@ -247,15 +247,13 @@ class TestSupporterImport:
 
 
 class TestDonateBlock:
-    def test_block_embeds_commitchange_with_tag(self, client, bootstrapped_site):
+    def test_block_embeds_commitchange_with_designation(self, client, bootstrapped_site):
         from home.models import StandardPage
 
         page = StandardPage.objects.get(slug="student-ambassador-program")
-        page.body = [("donate", {"heading": "Give", "tag": "pycon-2027", "campaign_id": "619", "amounts": "10,20"})]
+        page.body = [("donate", {"heading": "Give", "designation": "Leadership Summit"})]
         page.save_revision().publish()
 
         html = client.get(page.url).content.decode()
         assert 'class="commitchange-donate"' in html
-        assert 'data-tags="pycon-2027"' in html
-        assert 'data-campaign-id="619"' in html
-        assert 'data-custom-amounts="10,20"' in html
+        assert 'data-designation="Leadership Summit"' in html
