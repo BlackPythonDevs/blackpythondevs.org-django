@@ -46,7 +46,13 @@ def election_detail(request):
 
     context = {"election": election}
     if election is not None:
-        context["candidacies"] = election.candidacies.select_related("user", "user__leader_profile")
+        candidacies = election.candidacies.select_related("user", "user__leader_profile")
+        context["candidacies"] = candidacies
+        # Same continent -> region grouping the ballot uses.
+        by_region = {}
+        for candidacy in candidacies:
+            by_region.setdefault(candidacy.user.region or "Unspecified region", []).append(candidacy)
+        context["sections"] = group_by_continent(by_region)
         context["years"] = Election.objects.order_by("-year").values_list("year", flat=True)
         next_deadline = election.next_deadline
         if next_deadline is not None:
@@ -165,7 +171,9 @@ class BallotCastView(VotingWindowRequiredMixin, View):
     """
 
     def get_candidacies(self):
-        return self.election.candidacies.select_related("user").order_by("user__region", "user__display_name")
+        return self.election.candidacies.select_related("user", "user__leader_profile").order_by(
+            "user__region", "user__display_name"
+        )
 
     def get_sections(self, form):
         """Candidates grouped by region and then by continent — see

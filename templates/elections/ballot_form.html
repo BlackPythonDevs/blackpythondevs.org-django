@@ -36,7 +36,9 @@
             {% for candidacy, field in rows %}
               <li class="ballot-card" draggable="true" data-region="{{ region }}">
                 <span class="ballot-card-handle" aria-hidden="true">&#9776;</span>
-                <label class="ballot-card-name" for="{{ field.id_for_label }}">{{ candidacy.user.display_name }}</label>
+                <span class="ballot-card-name">
+                  <button type="button" class="link-button" data-open-modal="statement-modal-{{ candidacy.pk }}">{{ candidacy.user.display_name }}</button>
+                </span>
                 <span class="ballot-card-rank" aria-hidden="true"></span>
                 <button type="button" class="ballot-card-move-up" aria-label="Move up">&#9650;</button>
                 <button type="button" class="ballot-card-move-down" aria-label="Move down">&#9660;</button>
@@ -50,6 +52,8 @@
 
       <button type="submit" class="btn">Submit ballot</button>
     </form>
+
+    {% for candidacy in form.candidacies %}{% include "includes/candidacy_statement_modal.html" %}{% endfor %}
   </section>
 {% endblock %}
 
@@ -59,4 +63,5 @@
 
 {% block extra_js %}
   <script src="{% static 'js/ballot-dragdrop.js' %}"></script>
+  <script src="{% static 'js/statement-modal.js' %}"></script>
 {% endblock %}

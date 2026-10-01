@@ -53,9 +53,16 @@
 
       {% if candidacies %}
         <h2>Candidates</h2>
-        <div class="grid" style="margin: auto;">
-          {% for candidacy in candidacies %}{% include "includes/candidacy_card.html" %}{% endfor %}
-        </div>
+        {% for continent, regions in sections %}
+          <h3 class="ballot-continent">{{ continent }}</h3>
+          <hr />
+          {% for region, region_candidacies in regions %}
+            <h4>{{ region }}</h4>
+            <div class="grid" style="margin: auto;">
+              {% for candidacy in region_candidacies %}{% include "includes/candidacy_card.html" %}{% endfor %}
+            </div>
+          {% endfor %}
+        {% endfor %}
       {% else %}
         <p>No candidacy statements yet.</p>
       {% endif %}

@@ -29,7 +29,14 @@ class BallotForm(forms.Form):
             self.fields[f"rank_{candidacy.pk}"] = forms.IntegerField(
                 required=False,
                 min_value=1,
-                widget=forms.NumberInput(attrs={"min": 1, "inputmode": "numeric", "class": "ballot-card-input"}),
+                widget=forms.NumberInput(
+                    attrs={
+                        "min": 1,
+                        "inputmode": "numeric",
+                        "class": "ballot-card-input",
+                        "aria-label": f"Rank for {candidacy.user.display_name}",
+                    }
+                ),
             )
 
     def clean(self):
