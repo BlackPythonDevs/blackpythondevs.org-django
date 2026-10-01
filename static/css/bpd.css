@@ -1552,10 +1552,33 @@ img.donation-photo {
   max-width: 20rem;
   border-radius: 10px;
 }
-img.featured-image {
-  max-height: 20rem;
+/* Featured images are never cropped: they are letterboxed (`contain`) inside
+   a frame. The frame has a light backdrop so transparent PNGs with dark
+   artwork stay readable in dark mode. */
+.featured-image-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f4f1ea;
   border-radius: 12px;
-  object-fit: cover;
+  overflow: hidden;
+}
+.featured-image-frame--card {
+  aspect-ratio: 3 / 2;
+}
+.featured-image-frame--hero {
+  margin-bottom: 2rem;
+}
+img.featured-image {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  height: auto;
+  object-fit: contain;
+}
+.featured-image-frame--hero img.featured-image {
+  max-height: 32rem;
+  width: auto;
 }
 ul.speaking-list {
   padding-left: 2rem;

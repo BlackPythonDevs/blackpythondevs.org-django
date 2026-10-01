@@ -61,7 +61,16 @@ class BlogPage(SEOMixin, Page):
     date = models.DateField("post date")
     description = models.TextField(blank=True, help_text="Shown in listings and as the meta description.")
     featured_image = models.ForeignKey(
-        "core.CustomImage", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+        "core.CustomImage",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        help_text=(
+            "Shown uncropped, letterboxed in a 3:2 frame in listings. Use a 3:2 image "
+            "(e.g. 1200x800) to fill the frame. Transparent PNGs appear on a light "
+            "background, so avoid white artwork."
+        ),
     )
     authors = ParentalManyToManyField("core.Author", blank=True, related_name="posts")
     body = StreamField(BodyStreamBlock(), blank=True, use_json_field=True)

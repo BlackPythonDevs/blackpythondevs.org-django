@@ -10,7 +10,7 @@
     {% for post in posts %}
       <article class="card grid" style="align-items: center; gap: 2rem;">
         {% if post.featured_image %}
-          <div>{% image post.featured_image fill-640x420 class="featured-image" style="width:100%; border-radius: 10px; object-fit:cover;" alt=post.title %}</div>
+          <div class="featured-image-frame featured-image-frame--card">{% image post.featured_image max-640x420 class="featured-image" alt=post.title %}</div>
         {% endif %}
         <div>
           <h2 style="margin-bottom: .4rem;"><a href="{% pageurl post %}">{{ post.title }}</a></h2>
