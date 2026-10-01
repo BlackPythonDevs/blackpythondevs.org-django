@@ -76,6 +76,28 @@ class AmbassadorApplyBlock(blocks.StructBlock):
         template = "core/blocks/ambassador_apply.html"
 
 
+class DonateBlock(blocks.StructBlock):
+    """Embedded CommitChange donation form.
+
+    `designation` goes to CommitChange's `data-designation`, so every gift made
+    through this form is recorded under that fund and funds raised can be
+    aligned with it.
+    """
+
+    heading = blocks.CharBlock(required=False)
+    text = blocks.RichTextBlock(required=False)
+    designation = blocks.CharBlock(
+        required=False,
+        max_length=100,
+        help_text="Fund the gifts are designated to (e.g. 'Leadership Summit').",
+    )
+
+    class Meta:
+        icon = "pick"
+        label = "Donate form"
+        template = "core/blocks/donate.html"
+
+
 class BodyStreamBlock(blocks.StreamBlock):
     heading = blocks.CharBlock(form_classname="title", template="core/blocks/heading.html")
     paragraph = blocks.RichTextBlock()
@@ -86,6 +108,7 @@ class BodyStreamBlock(blocks.StreamBlock):
     callout = CalloutBlock()
     card_grid = CardGridBlock()
     ambassador_apply = AmbassadorApplyBlock()
+    donate = DonateBlock()
     html = blocks.RawHTMLBlock(
         help_text="Raw HTML — available to editors with the required permission only.",
     )
