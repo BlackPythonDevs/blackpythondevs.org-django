@@ -536,6 +536,15 @@ class TestBallotCasting:
         assert "open right now" in response.content.decode()
         assert Ballot.objects.count() == 0
 
+    def test_ballot_names_open_each_candidates_statement(self, client, council_member):
+        election = make_election(phase="voting")
+        candidacy = Candidacy.objects.create(election=election, user=council_member, statement="Pick me, truly.")
+        client.force_login(council_member)
+        html = client.get("/elections/vote/").content.decode()
+        assert f'data-open-modal="statement-modal-{candidacy.pk}"' in html
+        assert f'<dialog id="statement-modal-{candidacy.pk}"' in html
+        assert "Pick me, truly." in html
+
     def test_council_member_can_cast_a_ranked_ballot(self, client, council_member):
         election = make_election(phase="voting")
         first = council_member
@@ -845,3 +854,22 @@ class TestResultsView:
             BallotRanking(ballot=ballot, candidacy=candidacy, rank=rank)
             for rank, candidacy in enumerate(candidacies, start=1)
         )
+
+
+@pytest.mark.django_db
+def test_election_page_groups_candidates_by_continent_and_region(client):
+    from elections.models import Candidacy, Election, default_election_year
+
+    User = get_user_model()
+    election = Election.objects.create(
+        year=default_election_year(),
+        **{f"{k}_at": timezone.now() for k in ("nomination_opens", "nomination_closes", "voting_opens", "voting_closes")},
+    )
+    for name, country in [("Ada Lagos", "NG"), ("Bo Rio", "BR"), ("Cy Accra", "GH")]:
+        user = User.objects.create(email=f"{name[:2].lower()}@example.com", username=name, display_name=name, country=country)
+        Candidacy.objects.create(election=election, user=user, statement="x")
+
+    html = client.get("/elections/").content.decode()
+    assert html.index("Africa") < html.index("Western Africa") < html.index("Ada Lagos")
+    assert html.index("South America") < html.index("Bo Rio")
+    assert html.index("Ada Lagos") < html.index("Cy Accra")  # same region stays together
