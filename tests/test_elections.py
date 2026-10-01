@@ -863,10 +863,15 @@ def test_election_page_groups_candidates_by_continent_and_region(client):
     User = get_user_model()
     election = Election.objects.create(
         year=default_election_year(),
-        **{f"{k}_at": timezone.now() for k in ("nomination_opens", "nomination_closes", "voting_opens", "voting_closes")},
+        nomination_opens_at=timezone.now(),
+        nomination_closes_at=timezone.now(),
+        voting_opens_at=timezone.now(),
+        voting_closes_at=timezone.now(),
     )
     for name, country in [("Ada Lagos", "NG"), ("Bo Rio", "BR"), ("Cy Accra", "GH")]:
-        user = User.objects.create(email=f"{name[:2].lower()}@example.com", username=name, display_name=name, country=country)
+        user = User.objects.create(
+            email=f"{name[:2].lower()}@example.com", username=name, display_name=name, country=country
+        )
         Candidacy.objects.create(election=election, user=user, statement="x")
 
     html = client.get("/elections/").content.decode()

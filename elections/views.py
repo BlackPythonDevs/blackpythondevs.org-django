@@ -171,7 +171,9 @@ class BallotCastView(VotingWindowRequiredMixin, View):
     """
 
     def get_candidacies(self):
-        return self.election.candidacies.select_related("user", "user__leader_profile").order_by("user__region", "user__display_name")
+        return self.election.candidacies.select_related("user", "user__leader_profile").order_by(
+            "user__region", "user__display_name"
+        )
 
     def get_sections(self, form):
         """Candidates grouped by region and then by continent — see
