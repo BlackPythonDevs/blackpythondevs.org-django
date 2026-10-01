@@ -30,7 +30,7 @@
       </header>
 
       {% if page.featured_image %}
-        {% image page.featured_image width-1200 class="featured-image" style="border-radius:10px; margin-bottom:2rem;" alt=page.title %}
+        <div class="featured-image-frame featured-image-frame--hero">{% image page.featured_image max-1200x800 class="featured-image" alt=page.title %}</div>
       {% endif %}
 
       <div class="post-content e-content" itemprop="articleBody" style="font-size: 1.05rem; line-height: 1.82;">
