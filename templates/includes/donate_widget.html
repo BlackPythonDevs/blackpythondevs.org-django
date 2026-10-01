@@ -5,6 +5,7 @@ without a title, so we add one for screen readers once it appears.
 <a class="commitchange-donate"
    data-custom-amounts="{% firstof amounts page.donation_amounts '15,25,50,100,250,500' %}"
    {% if designation %}data-designation="{{ designation }}"{% endif %}
+   {% if disable_monthly %}data-type="one-time"{% endif %}
    data-embedded=""></a>
 <script>
   (function () {

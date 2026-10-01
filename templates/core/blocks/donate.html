@@ -2,5 +2,5 @@
 <div class="donate-block" style="margin: 2rem 0;">
   {% if value.heading %}<h3>{{ value.heading }}</h3>{% endif %}
   {% if value.text %}{{ value.text|richtext }}{% endif %}
-  {% include "includes/donate_widget.html" with designation=value.designation amounts=value.amounts %}
+  {% include "includes/donate_widget.html" with designation=value.designation amounts=value.amounts disable_monthly=value.disable_monthly %}
 </div>
