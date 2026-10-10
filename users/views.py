@@ -74,20 +74,32 @@ def members(request):
 
 
 def _leader_for_roster(user):
-    """Get-or-create the `Leader` roster entry for a Leadership-and-above
-    member, so they can set their own photo and affiliations. Council members
-    land on the roster as Council; Executor group members land as Executor.
+    """The `Leader` roster entry for a Leadership-and-above member, so they can
+    set their own photo and affiliations. Returns the saved entry if there is
+    one, otherwise an unsaved one for the form to fill in (None for everyone
+    else). Council members land on the roster as Council; Executor group
+    members land as Executor. See `_save_roster_entry` for when it's saved.
     """
     if not is_leadership_or_above(user):
         return None
+    existing = Leader.objects.filter(user=user).first()
+    if existing:
+        return existing
     role = Leader.COUNCIL if is_council_member(user) else Leader.EXECUTOR
-    leader, _ = Leader.objects.get_or_create(
-        user=user,
-        defaults={
-            "name": user.get_full_name() or user.display_name or user.email,
-            "role": role,
-        },
-    )
+    return Leader(user=user, role=role)
+
+
+def _save_roster_entry(leader, user):
+    """Save a roster entry, naming a new one after the user's display name.
+
+    A member with no display name is skipped (None) rather than listed publicly
+    under their email address.
+    """
+    if not leader.pk:
+        if not user.display_name:
+            return None
+        leader.name = user.display_name
+    leader.save()
     return leader
 
 
@@ -131,8 +143,9 @@ def onboarding(request):
                 photo_file = council_form.cleaned_data.get("photo")
                 if photo_file:
                     council_leader.photo = CustomImage.objects.create(title=photo_file.name, file=photo_file)
-                council_leader.save()
-                _finalize_pending_nomination(user, council_leader, request)
+                council_leader = _save_roster_entry(council_leader, user)
+                if council_leader:
+                    _finalize_pending_nomination(user, council_leader, request)
 
             messages.success(request, "Thanks — your profile is all set.")
             return redirect("members")
@@ -167,8 +180,9 @@ def profile(request):
                 photo_file = council_form.cleaned_data.get("photo")
                 if photo_file:
                     roster_leader.photo = CustomImage.objects.create(title=photo_file.name, file=photo_file)
-                roster_leader.save()
-                _finalize_pending_nomination(request.user, roster_leader, request)
+                roster_leader = _save_roster_entry(roster_leader, request.user)
+                if roster_leader:
+                    _finalize_pending_nomination(request.user, roster_leader, request)
             messages.success(request, "Your profile has been updated.")
             return redirect("members")
     else:

@@ -450,3 +450,22 @@ class TestAcceptanceAndOnboarding:
         assert nomination.status == CouncilNomination.ACCEPTED_PENDING_ONBOARDING
         assert nomination.announcement_page is None
         assert mail.outbox == []
+
+
+class TestRosterNaming:
+    def test_roster_entry_is_named_after_the_display_name_not_the_email(self, client, db):
+        council = make_user("named", COUNCIL_GROUP_NAME, display_name="Nia Named")
+        client.force_login(council)
+        response = client.post(
+            "/profile/", {"display_name": "Nia Named", "member_type": get_user_model().MEMBER, "country": "US"}
+        )
+        assert response.status_code == 302, response.context["form"].errors
+        assert Leader.objects.get(user=council).name == "Nia Named"
+
+    def test_leader_without_a_display_name_is_skipped(self, client, db):
+        council = make_user("nameless", COUNCIL_GROUP_NAME)
+        client.force_login(council)
+        client.get("/profile/")
+        client.post("/profile/", {"display_name": "", "member_type": get_user_model().MEMBER, "country": "US"})
+        assert not Leader.objects.filter(user=council).exists()
+        assert not Leader.objects.filter(name__contains="@").exists()
