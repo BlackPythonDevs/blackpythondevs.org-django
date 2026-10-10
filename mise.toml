@@ -100,13 +100,14 @@ echo "Built $IMG"
 '''
 
 [tasks.prod-deploy]
-description = "Build web and roll it out with zero downtime. Does not migrate — run prod-migrate after."
+description = "Build web, roll it out with zero downtime, then prune old images. Does not migrate — run prod-migrate after."
 run = '''
 #!/usr/bin/env bash
 set -euo pipefail
 IMG="bpd-web:$(git rev-parse --short HEAD)"
 docker build --target production -t "$IMG" -t bpd-web:latest .
 fnox exec -- env WEB_IMAGE="$IMG" docker stack deploy -c compose.swarm.yaml blackpythondevs-prod
+mise run clean-images
 '''
 
 [tasks.prod-rollback]
@@ -160,6 +161,41 @@ run = "docker exec $(docker ps -q -f name=blackpythondevs-prod_caddy | head -1) 
 [tasks.prod-gunicorn-reload]
 description = "Gracefully restart gunicorn workers in place (env change, no new code)"
 run = "docker kill -s HUP $(docker ps -q -f name=blackpythondevs-prod_web | head -1)"
+
+# ── Cleanup ───────────────────────────────────────────────────────────────
+# prod-build tags every image with a commit hash, so they pile up (~1.7GB each
+# unpruned). Running containers' images are never removed by these tasks.
+
+[tasks.docker-df]
+description = "Show how much disk Docker is using (images, volumes, build cache)"
+run = "docker system df"
+
+[tasks.clean-images]
+description = "Remove old bpd-web:<commit> images, keeping the newest N (default 3) and any in use. Usage: mise run clean-images -- 5"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+KEEP="${1:-3}"
+in_use="$(docker ps -a --format '{% raw %}{{.Image}}{% endraw %}' | sort -u)"
+docker images bpd-web --format '{% raw %}{{.CreatedAt}}|{{.Repository}}:{{.Tag}}{% endraw %}' \
+  | sort -r | cut -d'|' -f2 \
+  | grep -v ':latest$' | tail -n +"$((KEEP + 1))" \
+  | while read -r img; do
+      if grep -qx "$img" <<<"$in_use"; then echo "keep (in use): $img"; else docker rmi "$img" || true; fi
+    done
+'''
+
+[tasks.clean-dangling]
+description = "Remove dangling (untagged) images and unused build cache older than 7 days"
+run = ["docker image prune -f", "docker builder prune -f --filter until=168h"]
+
+[tasks.clean]
+description = "Routine cleanup: old bpd-web images + dangling images + stale build cache"
+depends = ["clean-images", "clean-dangling"]
+
+[tasks.clean-all]
+description = "Aggressive: remove ALL unused images and build cache (not volumes). Next build will be cold."
+run = ["docker image prune -a -f", "docker builder prune -a -f"]
 
 [tasks.prod-down]
 description = "Tear down the production stack (keeps named volumes)"
