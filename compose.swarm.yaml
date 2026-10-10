@@ -31,8 +31,15 @@
 #   - No top-level `name:` — `docker stack deploy` rejects it; the stack name
 #     comes from the CLI argument instead.
 
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   caddy:
+    logging: *default-logging
     image: caddy:2-alpine
     environment:
       DOMAIN: ${DOMAIN:-blackpythondevs.org}
@@ -67,6 +74,7 @@ services:
         condition: any
 
   web:
+    logging: *default-logging
     # Built and tagged by `mise run prod-deploy`; passed in here rather than
     # built inline because `docker stack deploy` has no build step.
     image: ${WEB_IMAGE:-bpd-web:latest}
@@ -132,6 +140,7 @@ services:
         delay: 5s
 
   db:
+    logging: *default-logging
     image: postgres:17-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-bpd}
@@ -150,6 +159,7 @@ services:
         condition: any
 
   valkey:
+    logging: *default-logging
     image: valkey/valkey:8-alpine
     command: valkey-server --save 60 1 --loglevel warning
     volumes:
