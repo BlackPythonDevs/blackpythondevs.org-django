@@ -40,6 +40,9 @@ services:
     depends_on:
       - web
 
+    networks:
+      - frontend
+
   web:
     logging: *default-logging
     build:
@@ -104,6 +107,10 @@ services:
       valkey:
         condition: service_healthy
 
+    networks:
+      - frontend
+      - backend
+
   db:
     logging: *default-logging
     image: postgres:17-alpine
@@ -120,6 +127,9 @@ services:
       timeout: 5s
       retries: 10
 
+    networks:
+      - backend
+
   valkey:
     logging: *default-logging
     image: valkey/valkey:8-alpine
@@ -132,6 +142,17 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+    networks:
+      - backend
+
+networks:
+  frontend:
+  # internal: no gateway, so nothing here is reachable from outside the stack
+  # and containers on it have no route out. Only web joins it alongside
+  # frontend, which is what gives web its egress (SMTP, S3, Discord).
+  backend:
+    internal: true
 
 volumes:
   postgres_data:
