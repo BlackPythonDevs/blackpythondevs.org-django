@@ -22,7 +22,7 @@ production access or secrets.
 | `mise run migrate` | Apply migrations |
 | `mise run makemigrations` | Generate migrations (files land in your checkout — commit them) |
 | `mise run bootstrap` | Create page tree, site settings, snippets (idempotent) |
-| `mise run test` | Run pytest on the host against the containerised db and valkey |
+| `mise run test` | Run pytest on the host against the containerised db and valkey (parallel via pytest-xdist; `mise run test -- -n 0` for serial) |
 | `mise run lint` | Ruff check + format check |
 | `mise run manage -- <cmd>` | Any `manage.py` command, e.g. `mise run manage -- shell` |
 | `mise run restart` | Restart web (after settings changes or a wedged worker) |
