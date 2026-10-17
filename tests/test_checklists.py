@@ -76,9 +76,7 @@ def member(db):
 
 @pytest.fixture
 def sponsorship_request(db):
-    return SponsorshipRequest.objects.create(
-        name="PyCon Somewhere", start_date=datetime.date(2026, 5, 1), country="NG"
-    )
+    return SponsorshipRequest.objects.create(name="PyCon Somewhere", start_date=datetime.date(2026, 5, 1), country="NG")
 
 
 def sponsor_urls(sponsor):
@@ -93,9 +91,9 @@ class TestRegistration:
     def test_creating_sponsor_seeds_default_checklist(self, sponsor):
         content_type = ContentType.objects.get_for_model(Sponsor)
         titles = list(
-            Task.objects.filter(content_type=content_type, object_id=sponsor.pk).order_by("order").values_list(
-                "title", flat=True
-            )
+            Task.objects.filter(content_type=content_type, object_id=sponsor.pk)
+            .order_by("order")
+            .values_list("title", flat=True)
         )
         assert titles == SPONSOR_STEPS
         assert all(task.is_default for task in Task.objects.filter(content_type=content_type, object_id=sponsor.pk))
@@ -281,9 +279,7 @@ class TestTaskComments:
     def test_commenting_on_a_task_from_another_object_404s(self, client, executor, sponsor, sponsorship_request):
         client.force_login(executor)
         other_content_type = ContentType.objects.get_for_model(SponsorshipRequest)
-        foreign_task = Task.objects.filter(
-            content_type=other_content_type, object_id=sponsorship_request.pk
-        ).first()
+        foreign_task = Task.objects.filter(content_type=other_content_type, object_id=sponsorship_request.pk).first()
 
         url = f"/checklists/core/sponsor/{sponsor.pk}/"
         response = client.post(url, {"action": "add_task_comment", "task_id": foreign_task.pk, "body": "Nope"})
@@ -292,7 +288,7 @@ class TestTaskComments:
 
 
 class TestMentions:
-    """"@username" in a note or task comment body (mentions.py) — scoped to
+    """ "@username" in a note or task comment body (mentions.py) — scoped to
     assignable_users(), the same pool as the assignee dropdown, so a mention
     can only ever reach someone already allowed to act on this checklist."""
 
@@ -453,9 +449,9 @@ class TestReorder:
         client.post(url, {"action": "reorder", "task_id": [str(task.pk) for task in new_order]})
 
         reordered_titles = list(
-            Task.objects.filter(content_type=content_type, object_id=sponsor.pk).order_by("order").values_list(
-                "title", flat=True
-            )
+            Task.objects.filter(content_type=content_type, object_id=sponsor.pk)
+            .order_by("order")
+            .values_list("title", flat=True)
         )
         assert reordered_titles == [task.title for task in new_order]
 
@@ -467,9 +463,7 @@ class TestReorder:
         sponsor_tasks = list(
             Task.objects.filter(content_type=sponsor_content_type, object_id=sponsor.pk).order_by("order")
         )
-        foreign_task = Task.objects.filter(
-            content_type=other_content_type, object_id=sponsorship_request.pk
-        ).first()
+        foreign_task = Task.objects.filter(content_type=other_content_type, object_id=sponsorship_request.pk).first()
 
         url = f"/checklists/core/sponsor/{sponsor.pk}/"
         client.post(
@@ -484,9 +478,9 @@ class TestReorder:
         assert foreign_task.order == 0
 
         reordered_titles = list(
-            Task.objects.filter(content_type=sponsor_content_type, object_id=sponsor.pk).order_by(
-                "order"
-            ).values_list("title", flat=True)
+            Task.objects.filter(content_type=sponsor_content_type, object_id=sponsor.pk)
+            .order_by("order")
+            .values_list("title", flat=True)
         )
         assert reordered_titles == [task.title for task in reversed(sponsor_tasks)]
 
@@ -520,9 +514,7 @@ class TestWidgetEmbedding:
         assert "Event sponsorship checklist" in content
         assert "Prospectus reviewed" in content
 
-    def test_toggling_from_the_widget_redirects_back_to_the_embedding_page(
-        self, client, executor, sponsorship_request
-    ):
+    def test_toggling_from_the_widget_redirects_back_to_the_embedding_page(self, client, executor, sponsorship_request):
         client.force_login(executor)
         content_type = ContentType.objects.get_for_model(SponsorshipRequest)
         task = Task.objects.filter(content_type=content_type, object_id=sponsorship_request.pk).first()
@@ -536,9 +528,7 @@ class TestWidgetEmbedding:
         task.refresh_from_db()
         assert task.is_done is True
 
-    def test_unsafe_next_falls_back_to_the_checklists_own_detail_page(
-        self, client, executor, sponsorship_request
-    ):
+    def test_unsafe_next_falls_back_to_the_checklists_own_detail_page(self, client, executor, sponsorship_request):
         client.force_login(executor)
         content_type = ContentType.objects.get_for_model(SponsorshipRequest)
         task = Task.objects.filter(content_type=content_type, object_id=sponsorship_request.pk).first()

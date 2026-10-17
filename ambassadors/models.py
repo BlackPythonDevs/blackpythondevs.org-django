@@ -53,9 +53,7 @@ class StudentAmbassador(models.Model):
     school = models.CharField(max_length=200, help_text="School, college, or university.")
     country = CountryField(blank=True, help_text="Where the applicant is based.")
     field_of_study = models.CharField(max_length=200, blank=True)
-    graduation_year = models.PositiveIntegerField(
-        null=True, blank=True, help_text="Expected year of graduation."
-    )
+    graduation_year = models.PositiveIntegerField(null=True, blank=True, help_text="Expected year of graduation.")
     motivation = models.TextField(
         help_text="Why the applicant wants to be a Black Python Devs student ambassador.",
     )

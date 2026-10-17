@@ -30,9 +30,7 @@ class Command(BaseCommand):
         for definition in registry.definitions():
             model = definition["model"]
             content_type = ContentType.objects.get_for_model(model)
-            already = set(
-                Task.objects.filter(content_type=content_type).values_list("object_id", flat=True).distinct()
-            )
+            already = set(Task.objects.filter(content_type=content_type).values_list("object_id", flat=True).distinct())
             missing = model._default_manager.exclude(pk__in=already)
             count = missing.count()
             if count:
