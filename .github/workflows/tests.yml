@@ -37,6 +37,10 @@ jobs:
     env:
       DATABASE_URL: postgres://bpd:bpd@localhost:5432/bpd
       VALKEY_URL: redis://localhost:6379/0
+      # Match the production image (Dockerfile: python:3.14-slim). Without this,
+      # uv picks the newest Python allowed by requires-python, which can be a
+      # release dependencies don't publish wheels for yet.
+      UV_PYTHON: "3.14"
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

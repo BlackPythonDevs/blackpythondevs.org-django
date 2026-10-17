@@ -15,6 +15,7 @@ but no ballot logic lives here.
 
 import datetime as dt
 import secrets
+import uuid
 
 import bleach
 import markdown
@@ -226,11 +227,21 @@ class Ballot(models.Model):
     deliberate — from "who voted" to "how they ranked candidates".
     `elections.views.BallotCastView` creates both rows in the same request,
     but nothing in the schema itself connects them afterward.
+
+    Nothing indirect connects them either:
+
+    - The primary key is a random UUID, not a sequence. Sequential ids would
+      line up with `VoteRecord`'s: the Nth ballot would belong to the Nth voter.
+    - There is no timestamp. It would match `VoteRecord.voted_at` to the
+      millisecond.
+    - The model is excluded from django-auditlog (see
+      `AUDITLOG_EXCLUDE_TRACKING_MODELS`). The audit log records the request's
+      user as the actor of every write, which would name the voter.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     election = models.ForeignKey(Election, on_delete=models.CASCADE, related_name="ballots")
     token = models.CharField(max_length=64, unique=True, default=_ballot_token, editable=False)
-    submitted_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         verbose_name = "ballot"
@@ -251,8 +262,11 @@ class BallotRanking(models.Model):
     not at the database level, since region lives on `candidacy.user`
     rather than on this row); the same number can and does recur across
     different regions on the same ballot.
+
+    UUID-keyed and excluded from auditing for the same reasons as `Ballot`.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     ballot = models.ForeignKey(Ballot, on_delete=models.CASCADE, related_name="rankings")
     candidacy = models.ForeignKey(Candidacy, on_delete=models.CASCADE, related_name="rankings")
     rank = models.PositiveSmallIntegerField()
