@@ -57,9 +57,9 @@ description = "Run any manage.py command in the dev web container, e.g. mise run
 run = "docker compose exec web python manage.py"
 
 [tasks.test]
-description = "Run pytest on the host against the containerised db and valkey"
+description = "Run pytest on the host against the containerised db and valkey (parallel via pytest-xdist; append `-n 0` for serial)"
 env = { DATABASE_URL = "postgres://bpd:bpd@localhost:5432/bpd", VALKEY_URL = "redis://localhost:6379/0" }
-run = ["docker compose up -d db valkey", "uv run pytest"]
+run = ["docker compose up -d db valkey", "uv run pytest -n auto"]
 
 [tasks.lint]
 description = "Ruff check and format --check"
