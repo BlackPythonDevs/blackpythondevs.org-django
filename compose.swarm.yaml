@@ -68,7 +68,10 @@ services:
     deploy:
       replicas: 1
       update_config:
-        order: start-first
+        # Host-mode ports 80/443 can't be bound twice on one node, so the old
+        # task must stop before the new one starts (a few seconds of downtime
+        # only when Caddy itself is redeployed).
+        order: stop-first
         delay: 5s
       restart_policy:
         condition: any
