@@ -73,6 +73,9 @@ services:
       restart_policy:
         condition: any
 
+    networks:
+      - frontend
+
   web:
     logging: *default-logging
     # Built and tagged by `mise run prod-deploy`; passed in here rather than
@@ -139,6 +142,10 @@ services:
         condition: any
         delay: 5s
 
+    networks:
+      - frontend
+      - backend
+
   db:
     logging: *default-logging
     image: postgres:17-alpine
@@ -158,6 +165,9 @@ services:
       restart_policy:
         condition: any
 
+    networks:
+      - backend
+
   valkey:
     logging: *default-logging
     image: valkey/valkey:8-alpine
@@ -173,6 +183,17 @@ services:
       replicas: 1
       restart_policy:
         condition: any
+
+    networks:
+      - backend
+
+networks:
+  frontend:
+  # internal: no gateway, so nothing here is reachable from outside the stack
+  # and containers on it have no route out. Only web joins it alongside
+  # frontend, which is what gives web its egress (SMTP, S3, Discord).
+  backend:
+    internal: true
 
 volumes:
   postgres_data:
