@@ -247,3 +247,14 @@
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
   transform: rotate(-2deg) scale(1.03);
 }
+
+/* ── Notes ─────────────────────────────────────────────────── */
+
+/* A plain div, not <footer> — the site's global `footer` selector (bpd.css
+ * §21: page-footer background, margin-top: 5rem, 4.5rem padding) would
+ * otherwise bleed into every note card and add a huge dark box under each
+ * one (issue #106). Same workaround as service-award.css modal actions. */
+.checklist-note-meta {
+  margin-top: 0.5rem;
+  color: var(--bpd-muted, var(--pico-muted-color));
+}

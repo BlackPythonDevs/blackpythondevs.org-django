@@ -169,11 +169,11 @@
     </form>
 
     {% for note in notes %}
-      <article class="card">
+      <article class="card checklist-note">
         <p>{{ note.body|mentionify|linebreaksbr }}</p>
-        <footer>
+        <div class="checklist-note-meta">
           <small>{{ note.created_at|date:"d M Y H:i" }}{% if note.created_by %} &middot; {{ note.created_by|checklist_person }}{% endif %}</small>
-        </footer>
+        </div>
       </article>
     {% endfor %}
   </section>
