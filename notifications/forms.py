@@ -55,10 +55,6 @@ class NotificationForm(forms.ModelForm):
                 del self.fields["roles"]
                 del self.fields["regions"]
                 own = set(sender.subcommunities)
-                self.fields["affinities"].choices = [
-                    choice for choice in User.SUBCOMMUNITY_CHOICES if choice[0] in own
-                ]
+                self.fields["affinities"].choices = [choice for choice in User.SUBCOMMUNITY_CHOICES if choice[0] in own]
                 self.fields["affinities"].required = True
-                self.fields["affinities"].help_text = (
-                    "You can only message the subcommunities you're part of yourself."
-                )
+                self.fields["affinities"].help_text = "You can only message the subcommunities you're part of yourself."

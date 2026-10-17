@@ -73,9 +73,7 @@ def notify_mentioned_users(*, note, request, obj, app_label, model_name, task=No
     if not recipients:
         return
 
-    path = reverse(
-        "checklists-detail", kwargs={"app_label": app_label, "model_name": model_name, "object_id": obj.pk}
-    )
+    path = reverse("checklists-detail", kwargs={"app_label": app_label, "model_name": model_name, "object_id": obj.pk})
     where = f'on "{task.title}"' if task is not None else f"on {obj}"
     short_message = f"{display_label(note.created_by)} mentioned you {where}"
 
@@ -87,7 +85,7 @@ def notify_mentioned_users(*, note, request, obj, app_label, model_name, task=No
         return
     message = EmailMultiAlternatives(
         subject=f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX}{short_message}",
-        body=f'{display_label(note.created_by)} mentioned you in a comment {where}:\n\n'
+        body=f"{display_label(note.created_by)} mentioned you in a comment {where}:\n\n"
         f'"{note.body}"\n\nView it: {request.build_absolute_uri(path)}',
         from_email=settings.DEFAULT_FROM_EMAIL,
         to=[settings.DEFAULT_FROM_EMAIL],

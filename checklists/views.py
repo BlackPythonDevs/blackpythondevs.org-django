@@ -165,9 +165,7 @@ class ChecklistDetailView(ChecklistsAccessMixin, View):
                     .first()
                     or 0
                 )
-                Task.objects.create(
-                    content_type=content_type, object_id=obj.pk, title=title, order=last_order + 1
-                )
+                Task.objects.create(content_type=content_type, object_id=obj.pk, title=title, order=last_order + 1)
         elif action == "add_note":
             body = request.POST.get("body", "").strip()
             if body:

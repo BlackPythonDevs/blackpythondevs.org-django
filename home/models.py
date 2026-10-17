@@ -119,7 +119,7 @@ class AboutPage(SEOMixin, Page):
 
 
 class MembershipPage(SEOMixin, Page):
-    """"Become a Member": the pitch, plus the passwordless signup form.
+    """ "Become a Member": the pitch, plus the passwordless signup form.
 
     The form posts to allauth's signup view, so validation and rate limiting
     stay in allauth's hands; this page owns the copy, which editors control.

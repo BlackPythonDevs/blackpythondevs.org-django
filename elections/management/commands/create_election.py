@@ -26,9 +26,7 @@ def _parse_date(name, raw):
     try:
         return datetime.date.fromisoformat(raw)
     except ValueError as exc:
-        raise CommandError(
-            f"--{name.replace('_', '-')} must be a date (YYYY-MM-DD), got {raw!r}"
-        ) from exc
+        raise CommandError(f"--{name.replace('_', '-')} must be a date (YYYY-MM-DD), got {raw!r}") from exc
 
 
 class Command(BaseCommand):
@@ -52,35 +50,22 @@ class Command(BaseCommand):
             required=True,
             help="Date (YYYY-MM-DD), AOE — ends everywhere.",
         )
-        parser.add_argument(
-            "--voting-opens", required=True, help="Date (YYYY-MM-DD) — begins anywhere."
-        )
+        parser.add_argument("--voting-opens", required=True, help="Date (YYYY-MM-DD) — begins anywhere.")
         parser.add_argument(
             "--voting-closes",
             required=True,
             help="Date (YYYY-MM-DD), AOE — ends everywhere.",
         )
-        parser.add_argument(
-            "--intro", default="", help="Optional blurb shown on the election page."
-        )
+        parser.add_argument("--intro", default="", help="Optional blurb shown on the election page.")
 
     @transaction.atomic
     def handle(self, *args, **options):
-        year = (
-            options["year"] if options["year"] is not None else default_election_year()
-        )
+        year = options["year"] if options["year"] is not None else default_election_year()
         dates = {name: _parse_date(name, options[name]) for name in WINDOW_ARGS}
 
-        instants, errors = election_window_instants(
-            *(dates[name] for name in WINDOW_ARGS)
-        )
+        instants, errors = election_window_instants(*(dates[name] for name in WINDOW_ARGS))
         if errors:
-            raise CommandError(
-                " ".join(
-                    f"--{name.replace('_', '-')}: {message}"
-                    for name, message in errors.items()
-                )
-            )
+            raise CommandError(" ".join(f"--{name.replace('_', '-')}: {message}" for name, message in errors.items()))
         if instants["voting_opens"] < instants["nomination_closes"]:
             # Expected, not a mistake: opens use the earliest timezone and
             # closes use the latest, so adjacent dates overlap by design —
