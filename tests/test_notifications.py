@@ -10,6 +10,7 @@ redirect.
 import base64
 
 import pytest
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core import mail
@@ -221,9 +222,27 @@ class TestMarkdownAndImages:
         assert '<a href="https://example.com">site</a>' in notification.body_html
 
         sent = mail.outbox[0]
-        assert sent.body == notification.body  # plain-text fallback stays raw Markdown
+        # Plain text wraps the raw Markdown source with the preamble/footer
+        # (issue #132) rather than replacing it.
+        assert notification.body in sent.body
+        assert f"This is a Notification sent by {notification.sender} via BlackPythonDevs.org" in sent.body
+        assert f"You can view the notification at: {notification.view_url}" in sent.body
+        assert "replies to these messages are automatically deleted" in sent.body
         html_alternative = next(content for content, mimetype in sent.alternatives if mimetype == "text/html")
         assert "<strong>new</strong>" in html_alternative
+        assert f'href="{notification.view_url}"' in html_alternative
+        assert "replies to these messages are automatically deleted" in html_alternative
+
+    def test_view_url_points_at_the_detail_page(self, client, staff_member):
+        client.force_login(staff_member)
+        client.post("/notifications/new/", FORM_DATA)
+
+        notification = Notification.objects.get()
+        assert notification.view_url == f"{settings.WAGTAILADMIN_BASE_URL}/notifications/{notification.pk}/"
+        # And the page it points at exists for a recipient.
+        plain_member = make_user("viewer")
+        client.force_login(plain_member)
+        assert client.get(f"/notifications/{notification.pk}/").status_code == 200
 
     def test_uploaded_image_is_appended_to_the_body_as_markdown(self, client, staff_member):
         client.force_login(staff_member)
@@ -241,3 +260,48 @@ class TestMarkdownAndImages:
         assert response.status_code == 302
 
         assert Notification.objects.get().body == FORM_DATA["body"]
+
+
+class TestDetailPage:
+    """The on-site page notification emails link to (issue #132)."""
+
+    def make_notification(self, **kwargs):
+        sender = make_user("sender", is_staff=True)
+        return Notification.objects.create(sender=sender, **kwargs)
+
+    def test_anonymous_is_redirected_to_login(self, client):
+        notification = self.make_notification(subject="Hi", body="Body.")
+        response = client.get(f"/notifications/{notification.pk}/")
+        assert response.status_code == 302
+        assert "/accounts/login/" in response["Location"]
+
+    def test_recipient_can_view(self, client, staff_member, plain_member):
+        client.force_login(staff_member)
+        client.post("/notifications/new/", FORM_DATA)
+        notification = Notification.objects.get()
+
+        client.force_login(plain_member)
+        response = client.get(f"/notifications/{notification.pk}/")
+        assert response.status_code == 200
+        assert "Just saying hi." in response.content.decode()
+
+    def test_member_outside_the_filters_gets_a_404(self, client, staff_member):
+        """A member the announcement wasn't sent to can't read it by guessing
+        the URL — sponsors' announcements shouldn't leak to non-targeted
+        members."""
+        client.force_login(staff_member)
+        client.post("/notifications/new/", {**FORM_DATA, "affinities": ["latam"]})
+        notification = Notification.objects.get()
+
+        outsider = make_user("outsider")
+        client.force_login(outsider)
+        assert client.get(f"/notifications/{notification.pk}/").status_code == 404
+
+    def test_senders_and_staff_can_view(self, client, staff_member, sponsor):
+        client.force_login(staff_member)
+        client.post("/notifications/new/", {**FORM_DATA, "regions": ["Western Africa"]})
+        notification = Notification.objects.get()
+
+        # The sponsor doesn't match the region filter, but senders can view.
+        client.force_login(sponsor)
+        assert client.get(f"/notifications/{notification.pk}/").status_code == 200

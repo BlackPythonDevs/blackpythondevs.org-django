@@ -28,19 +28,61 @@ create one with `notify(...)` without this app needing to know what it's
 about — the same reasoning as checklists.models.Note's generic relation.
 """
 
+import bleach
 import markdown
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.contrib.postgres.fields import ArrayField
 from django.core.mail import EmailMultiAlternatives
 from django.db import models
+from django.urls import reverse
 from django.utils import timezone
+from django.utils.html import escape
 
+from core.mail import UNMANAGED_MAILBOX_FOOTER, absolute_url
 from users.models import User
 
 # Same extension set as the static-site markdown import (see
 # core.management.commands.import_content) so authoring conventions match.
 MARKDOWN_EXTENSIONS = ["fenced_code", "tables", "attr_list"]
+
+# Tags/attributes the composer's Markdown pipeline (MARKDOWN_EXTENSIONS) can
+# actually produce: paragraphs, inline formatting, links, fenced code, lists,
+# tables, and the composer's own inserted images. Anything else — in
+# particular raw HTML a sender typed, or attributes slipped in via the
+# `attr_list` extension (e.g. `onerror=`) — is stripped by `body_html_safe`
+# before ever reaching a viewer's browser. Shared with
+# community_messages, whose composer is the same markdown-with-preview form.
+ALLOWED_MESSAGE_HTML_TAGS = [
+    "p",
+    "br",
+    "strong",
+    "em",
+    "a",
+    "code",
+    "pre",
+    "ul",
+    "ol",
+    "li",
+    "blockquote",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "table",
+    "thead",
+    "tbody",
+    "tr",
+    "th",
+    "td",
+    "img",
+]
+ALLOWED_MESSAGE_HTML_ATTRIBUTES = {
+    "a": ["href", "title"],
+    "img": ["src", "alt", "title"],
+}
 
 # Membership groups, like COUNCIL_GROUP_NAME in core.models: no permissions of
 # their own, provisioned by a data migration, granted by hand in the admin.
@@ -121,6 +163,49 @@ class Notification(models.Model):
         """`body` rendered from Markdown, for the HTML half of the email."""
         return markdown.markdown(self.body, extensions=MARKDOWN_EXTENSIONS)
 
+    @property
+    def body_html_safe(self):
+        """`body_html`, sanitized for rendering on a page.
+
+        The outgoing email can use `body_html` as-is (a mail client is the
+        only reader), but this detail page — the one the email links back to
+        — renders in a browser, so raw HTML the sender typed must be stripped
+        first. Same pipeline as community_messages.CommunityMessage.
+        """
+        return bleach.clean(
+            self.body_html,
+            tags=ALLOWED_MESSAGE_HTML_TAGS,
+            attributes=ALLOWED_MESSAGE_HTML_ATTRIBUTES,
+            strip=True,
+        )
+
+    @property
+    def view_url(self):
+        """Absolute URL of the on-site page for this notification (issue #132)."""
+        return absolute_url(reverse("notifications:detail", args=[self.pk]))
+
+    def email_parts(self):
+        """The email's plain-text and HTML bodies, preamble and footer wrapped
+        around the message itself (issue #132): these emails come from one
+        unmanaged mailbox, so every one says what it is, who sent it, where to
+        read it on the site, and that replies are discarded."""
+        plain = (
+            f"This is a Notification sent by {self.sender} via BlackPythonDevs.org\n"
+            f"You can view the notification at: {self.view_url}\n"
+            f"\n"
+            f"{self.body}\n"
+            f"\n"
+            f"--\n"
+            f"{UNMANAGED_MAILBOX_FOOTER}"
+        )
+        html = (
+            f"<p>This is a Notification sent by {escape(str(self.sender))} via BlackPythonDevs.org<br>"
+            f'You can view the notification at: <a href="{self.view_url}">{self.view_url}</a></p>'
+            f"{self.body_html}"
+            f"<p>{escape(UNMANAGED_MAILBOX_FOOTER)}</p>"
+        )
+        return plain, html
+
     def recipients(self):
         """The `User` queryset matching this notification's filters."""
         qs = User.objects.filter(is_active=True).exclude(email="")
@@ -141,14 +226,15 @@ class Notification(models.Model):
         """
         emails = list(self.recipients().values_list("email", flat=True))
         if emails:
+            plain, html = self.email_parts()
             message = EmailMultiAlternatives(
                 subject=f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX}{self.subject}",
-                body=self.body,  # plain-text fallback: the raw Markdown source
+                body=plain,  # plain text: preamble, raw-Markdown body, footer
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 to=[settings.DEFAULT_FROM_EMAIL],
                 bcc=emails,
             )
-            message.attach_alternative(self.body_html, "text/html")
+            message.attach_alternative(html, "text/html")
             message.send()
         self.recipient_count = len(emails)
         self.sent_at = timezone.now()

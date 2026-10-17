@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}{{ notification.subject }}{% endblock %}
+
+{% block content %}
+  <section>
+    <p><a href="{% url 'notifications:inbox' %}">&larr; Your inbox</a></p>
+
+    <h1>{{ notification.subject }}</h1>
+    <p class="lead">Sent by {{ notification.sender }}</p>
+
+    <div class="card">
+      <dl>
+        <dt>Message</dt>
+        <dd>{{ notification.body_html|safe }}</dd>
+
+        <dt>Recipients</dt>
+        <dd>{{ notification.recipient_count }}</dd>
+
+        <dt>Sent</dt>
+        <dd>{{ notification.sent_at|date:"d M Y H:i"|default:"Not sent" }}</dd>
+      </dl>
+    </div>
+  </section>
+{% endblock %}

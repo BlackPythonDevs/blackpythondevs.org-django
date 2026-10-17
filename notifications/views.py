@@ -10,10 +10,11 @@ login-required — it only ever shows a member their own notifications.
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.http import Http404
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.utils import timezone
-from django.views.generic import CreateView, ListView
+from django.views.generic import CreateView, DetailView, ListView
 
 from core.models import CustomImage
 from users.regions import PARENT_REGIONS, SUBREGION_COUNTRIES
@@ -81,6 +82,32 @@ class SendNotificationView(NotificationSenderRequiredMixin, CreateView):
         else:
             messages.warning(self.request, "No members matched those filters — nothing was sent.")
         return response
+
+
+class NotificationDetailView(LoginRequiredMixin, DetailView):
+    """A sent notification, readable on the site (the email links here).
+
+    Readable by the people it was sent to — anyone matching the recipient
+    filters, the same queryset `send()` emailed — plus whoever could have
+    sent it. Anyone else gets a 404, so untargeted members can't enumerate
+    announcements that weren't meant for them.
+    """
+
+    model = Notification
+    template_name = "notifications/notification_detail.html"
+    context_object_name = "notification"
+
+    def get_queryset(self):
+        return Notification.objects.select_related("sender")
+
+    def get_object(self, queryset=None):
+        notification = super().get_object(queryset)
+        if (
+            can_send_notifications(self.request.user)
+            or notification.recipients().filter(pk=self.request.user.pk).exists()
+        ):
+            return notification
+        raise Http404
 
 
 class NotificationInboxView(LoginRequiredMixin, ListView):

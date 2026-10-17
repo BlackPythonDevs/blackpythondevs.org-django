@@ -268,9 +268,15 @@ class TestMarkdownAndImages:
         assert '<a href="https://example.com">site</a>' in sent_message.body_html
 
         sent = mail.outbox[0]
-        assert sent.body == sent_message.body  # plain-text fallback stays raw Markdown
+        # Plain text wraps the raw Markdown source with the preamble/footer
+        # (issue #132) rather than replacing it.
+        assert sent_message.body in sent.body
+        assert f"This is a Notification sent by {sent_message.community.name} via BlackPythonDevs.org" in sent.body
+        assert f"You can view the notification at: {sent_message.view_url}" in sent.body
+        assert "replies to these messages are automatically deleted" in sent.body
         html_alternative = next(content for content, mimetype in sent.alternatives if mimetype == "text/html")
         assert "<strong>new</strong>" in html_alternative
+        assert f'href="{sent_message.view_url}"' in html_alternative
 
     def test_uploaded_image_is_appended_to_the_body_as_markdown(self, client, admin_user, community):
         client.force_login(admin_user)
