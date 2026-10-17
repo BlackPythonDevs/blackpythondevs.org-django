@@ -97,6 +97,11 @@ AUDITLOG_EXCLUDE_TRACKING_MODELS = (
     "contenttypes.ContentType",
     "auth.Permission",
     "admin.LogEntry",
+    # Anonymous ballots: every audit entry records the request's user as the
+    # actor, which would name the voter on their own ballot. VoteRecord (who
+    # voted, not how) stays audited. See elections.models.Ballot.
+    "elections.Ballot",
+    "elections.BallotRanking",
 )
 
 ROOT_URLCONF = "bpd.urls"

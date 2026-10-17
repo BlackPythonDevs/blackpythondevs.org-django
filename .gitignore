@@ -16,3 +16,6 @@ bpd.dump
 *.prod*
 fnox.toml
 .playwright-mcp/
+
+# Database snapshots from `mise run prod-db-snapshot`
+backups/

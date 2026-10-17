@@ -48,9 +48,12 @@ class BallotAdmin(admin.ModelAdmin):
     here identifies who cast it (see `elections.models.Ballot`), so there's
     nothing to edit — only to inspect for the tally."""
 
-    list_display = ("token", "election", "submitted_at")
+    list_display = ("token", "election")
     list_filter = ("election",)
-    readonly_fields = ("election", "token", "submitted_at")
+    # Random order: the token is random, so sorting by it can't reflect
+    # when (and so by whom) a ballot was cast.
+    ordering = ("token",)
+    readonly_fields = ("election", "token")
     inlines = [BallotRankingInline]
 
     def has_add_permission(self, request):

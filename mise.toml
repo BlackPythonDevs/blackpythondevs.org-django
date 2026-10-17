@@ -138,6 +138,44 @@ run = "docker exec -it $(docker ps -q -f name=blackpythondevs-prod_web | head -1
 description = "Apply migrations against the production database"
 run = "docker exec $(docker ps -q -f name=blackpythondevs-prod_web | head -1) python manage.py migrate"
 
+[tasks.prod-db-snapshot]
+description = "Dump the production database to backups/bpd-<time>-<commit>.dump (pg_dump custom format). Run before prod-migrate."
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+DB="$(docker ps -q -f name=blackpythondevs-prod_db | head -1)"
+[ -n "$DB" ] || { echo "No running blackpythondevs-prod_db container" >&2; exit 1; }
+mkdir -p backups
+chmod 700 backups
+OUT="backups/bpd-$(date -u +%Y%m%dT%H%M%SZ)-$(git rev-parse --short HEAD).dump"
+# The dump holds member data, so it is never world-readable, even mid-write.
+umask 077
+# No -t: a TTY would mangle the binary dump.
+docker exec "$DB" pg_dump -U bpd -d bpd -Fc > "$OUT.partial"
+# Prove the archive is readable before calling it a snapshot.
+docker exec -i "$DB" pg_restore --list < "$OUT.partial" > /dev/null
+mv "$OUT.partial" "$OUT"
+echo "Snapshot: $OUT ($(du -h "$OUT" | cut -f1))"
+'''
+
+[tasks.prod-db-restore]
+description = "Restore a prod-db-snapshot dump over the production database. Usage: mise run prod-db-restore -- backups/<file>.dump"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+FILE="${1:?Usage: mise run prod-db-restore -- backups/<file>.dump}"
+[ -f "$FILE" ] || { echo "No such file: $FILE" >&2; exit 1; }
+DB="$(docker ps -q -f name=blackpythondevs-prod_db | head -1)"
+[ -n "$DB" ] || { echo "No running blackpythondevs-prod_db container" >&2; exit 1; }
+echo "This replaces EVERY table in the production database with $FILE."
+echo "If the snapshot predates a migration, also run prod-rollback so web's code matches the restored schema."
+read -r -p "Type 'restore' to continue: " answer
+[ "$answer" = "restore" ] || { echo "Aborted; nothing changed."; exit 1; }
+# One transaction: if anything fails, the database is left exactly as it was.
+docker exec -i "$DB" pg_restore -U bpd -d bpd --clean --if-exists --no-owner --no-privileges --single-transaction < "$FILE"
+echo "Restored $FILE"
+'''
+
 [tasks.prod-bootstrap]
 description = "Create the page tree, site settings, and snippets in production (idempotent)"
 run = "docker exec $(docker ps -q -f name=blackpythondevs-prod_web | head -1) python manage.py bootstrap_site"
