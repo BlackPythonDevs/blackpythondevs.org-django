@@ -21,6 +21,7 @@ from notifications.models import (
     COMMUNITY_PARTNER_GROUP_NAME,
     SPONSOR_GROUP_NAME,
     Notification,
+    UserNotification,
 )
 
 # A 1x1 transparent PNG, for tests that need a real (if tiny) uploaded image.
@@ -239,6 +240,50 @@ class TestSending:
         notification = Notification.objects.get()
         assert notification.recipient_count == 0
         assert len(mail.outbox) == 0
+
+
+class TestInboxEntries:
+    """Every recipient gets an inbox entry linking to the on-site detail page
+    (issue #133) — before, broadcasts lived only in email, so a member's inbox
+    showed nothing for an announcement sent to them."""
+
+    def test_each_recipient_gets_an_inbox_entry(self, client, staff_member, plain_member):
+        client.force_login(staff_member)
+        client.post("/notifications/new/", FORM_DATA)
+        notification = Notification.objects.get()
+
+        entry = UserNotification.objects.get(recipient=plain_member)
+        assert entry.message == notification.subject
+        assert entry.url == f"/notifications/{notification.pk}/"
+        assert entry.is_read is False
+
+        # The sending staff member matched their own no-filter broadcast too.
+        assert UserNotification.objects.filter(recipient=staff_member).count() == 1
+
+    def test_non_recipient_gets_no_inbox_entry(self, client, staff_member):
+        outsider = make_user("outsider", region="Western Africa")
+        client.force_login(staff_member)
+        client.post("/notifications/new/", {**FORM_DATA, "regions": ["Northern America"]})
+
+        assert UserNotification.objects.filter(recipient=outsider).exists() is False
+
+    def test_inbox_entry_links_to_a_viewable_detail_page(self, client, staff_member, plain_member):
+        client.force_login(staff_member)
+        client.post("/notifications/new/", FORM_DATA)
+
+        client.force_login(plain_member)
+        entry = UserNotification.objects.get(recipient=plain_member)
+        response = client.get(entry.url)
+        assert response.status_code == 200
+        assert "Just saying hi." in response.content.decode()
+
+    def test_inbox_entry_shows_up_in_the_members_inbox_html(self, client, staff_member, plain_member):
+        client.force_login(staff_member)
+        client.post("/notifications/new/", FORM_DATA)
+
+        client.force_login(plain_member)
+        content = client.get("/notifications/").content.decode()
+        assert Notification.objects.get().subject in content
 
 
 class TestMarkdownAndImages:
