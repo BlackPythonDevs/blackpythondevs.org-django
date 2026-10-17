@@ -81,13 +81,16 @@ FORM_DATA = {"subject": "Hello", "body": "Just saying hi."}
 
 
 class TestAccess:
-    @pytest.mark.parametrize("path", ["/notifications/", "/notifications/new/"])
+    # /notifications/ is the member inbox now (issue #133) — login-required,
+    # not sender-gated — so the sender-gated paths are /sent/ and /new/. The
+    # old /notifications/inbox/ path redirects first, so it isn't listed here.
+    @pytest.mark.parametrize("path", ["/notifications/", "/notifications/sent/", "/notifications/new/"])
     def test_anonymous_is_redirected_to_login(self, client, path):
         response = client.get(path)
         assert response.status_code == 302
         assert "/accounts/login/" in response["Location"]
 
-    @pytest.mark.parametrize("path", ["/notifications/", "/notifications/new/"])
+    @pytest.mark.parametrize("path", ["/notifications/sent/", "/notifications/new/"])
     def test_plain_member_is_forbidden(self, client, plain_member, path):
         client.force_login(plain_member)
         assert client.get(path).status_code == 403
@@ -96,6 +99,35 @@ class TestAccess:
     def test_permitted_senders_get_in(self, client, request, fixture):
         client.force_login(request.getfixturevalue(fixture))
         assert client.get("/notifications/new/").status_code == 200
+        assert client.get("/notifications/sent/").status_code == 200
+
+    def test_plain_member_sees_their_inbox_at_notifications_root(self, client, plain_member):
+        """Issue #133: /notifications/ is the member's own inbox, not the
+        sender-facing broadcast archive, and any signed-in member can open it."""
+        client.force_login(plain_member)
+        response = client.get("/notifications/")
+        assert response.status_code == 200
+        assert "Your notifications" in response.content.decode()
+
+    def test_old_inbox_url_redirects_to_the_inbox(self, client, plain_member):
+        client.force_login(plain_member)
+        response = client.get("/notifications/inbox/")
+        assert response.status_code == 302
+        assert response["Location"] == "/notifications/"
+
+
+class TestSentList:
+    """The sender-facing archive of broadcasts, moved to /sent/ (issue #133)."""
+
+    def test_lists_sent_notifications_with_links_to_each(self, client, staff_member):
+        client.force_login(staff_member)
+        client.post("/notifications/new/", FORM_DATA)
+        notification = Notification.objects.get()
+
+        response = client.get("/notifications/sent/")
+        content = response.content.decode()
+        assert notification.subject in content
+        assert f'href="/notifications/{notification.pk}/"' in content
 
 
 class TestFormRestrictions:

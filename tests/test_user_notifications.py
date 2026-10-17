@@ -50,16 +50,24 @@ class TestNotifyHelper:
 
 
 class TestNotificationInboxView:
+    # /notifications/ is the canonical inbox URL since issue #133; the old
+    # /notifications/inbox/ path redirects there.
     def test_anonymous_is_redirected(self, client):
+        response = client.get("/notifications/")
+        assert response.status_code == 302
+
+    def test_old_inbox_url_redirects_to_the_canonical_one(self, client, user):
+        client.force_login(user)
         response = client.get("/notifications/inbox/")
         assert response.status_code == 302
+        assert response["Location"] == "/notifications/"
 
     def test_shows_only_the_signed_in_users_own_notifications(self, client, user, other_user):
         mine = notify(user, "for me")
         notify(other_user, "not for me")
         client.force_login(user)
 
-        response = client.get("/notifications/inbox/")
+        response = client.get("/notifications/")
         content = response.content.decode()
         assert mine.message in content
         assert "not for me" not in content
@@ -68,7 +76,7 @@ class TestNotificationInboxView:
         note = notify(user, "for me")
         client.force_login(user)
 
-        client.post("/notifications/inbox/", {"action": "mark_read", "notification_id": note.pk})
+        client.post("/notifications/", {"action": "mark_read", "notification_id": note.pk})
 
         note.refresh_from_db()
         assert note.is_read is True
@@ -77,7 +85,7 @@ class TestNotificationInboxView:
         note = notify(other_user, "not yours")
         client.force_login(user)
 
-        client.post("/notifications/inbox/", {"action": "mark_read", "notification_id": note.pk})
+        client.post("/notifications/", {"action": "mark_read", "notification_id": note.pk})
 
         note.refresh_from_db()
         assert note.is_read is False
@@ -87,7 +95,7 @@ class TestNotificationInboxView:
         notify(user, "two")
         client.force_login(user)
 
-        client.post("/notifications/inbox/", {"action": "mark_all_read"})
+        client.post("/notifications/", {"action": "mark_all_read"})
 
         assert not UserNotification.objects.filter(recipient=user, read_at__isnull=True).exists()
 
