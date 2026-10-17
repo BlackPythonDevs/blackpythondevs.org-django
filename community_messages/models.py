@@ -21,11 +21,18 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.db import models
 from django.db.models import Q
+from django.urls import reverse
 from django.utils import timezone
+from django.utils.html import escape
 
 from communities.models import Community
+from core.mail import UNMANAGED_MAILBOX_FOOTER, absolute_url
 from core.models import COUNCIL_GROUP_NAME
-from notifications.models import MARKDOWN_EXTENSIONS
+from notifications.models import (
+    ALLOWED_MESSAGE_HTML_ATTRIBUTES,
+    ALLOWED_MESSAGE_HTML_TAGS,
+    MARKDOWN_EXTENSIONS,
+)
 from users.models import User
 
 # Tags/attributes the composer's Markdown pipeline (MARKDOWN_EXTENSIONS) can
@@ -33,37 +40,8 @@ from users.models import User
 # tables, and the composer's own inserted images. Anything else — in
 # particular raw HTML a sender typed, or attributes slipped in via the
 # `attr_list` extension (e.g. `onerror=`) — is stripped by body_html_safe
-# before ever reaching another viewer's browser.
-ALLOWED_MESSAGE_HTML_TAGS = [
-    "p",
-    "br",
-    "strong",
-    "em",
-    "a",
-    "code",
-    "pre",
-    "ul",
-    "ol",
-    "li",
-    "blockquote",
-    "h1",
-    "h2",
-    "h3",
-    "h4",
-    "h5",
-    "h6",
-    "table",
-    "thead",
-    "tbody",
-    "tr",
-    "th",
-    "td",
-    "img",
-]
-ALLOWED_MESSAGE_HTML_ATTRIBUTES = {
-    "a": ["href", "title"],
-    "img": ["src", "alt", "title"],
-}
+# before it's ever marked `|safe`. The allow-list itself lives in
+# notifications.models, next to the MARKDOWN_EXTENSIONS it describes.
 
 
 def is_leadership(user):
@@ -134,6 +112,33 @@ class CommunityMessage(models.Model):
             strip=True,
         )
 
+    @property
+    def view_url(self):
+        """Absolute URL of the on-site page for this message (issue #132)."""
+        return absolute_url(reverse("community_messages:detail", args=[self.pk]))
+
+    def email_parts(self):
+        """The email's plain-text and HTML bodies, preamble and footer wrapped
+        around the message itself (issue #132), matching
+        notifications.Notification.email_parts. The message is from the
+        community (see recipients()), so that's the sender named up front."""
+        plain = (
+            f"This is a Notification sent by {self.community.name} via BlackPythonDevs.org\n"
+            f"You can view the notification at: {self.view_url}\n"
+            f"\n"
+            f"{self.body}\n"
+            f"\n"
+            f"--\n"
+            f"{UNMANAGED_MAILBOX_FOOTER}"
+        )
+        html = (
+            f"<p>This is a Notification sent by {escape(self.community.name)} via BlackPythonDevs.org<br>"
+            f'You can view the notification at: <a href="{self.view_url}">{self.view_url}</a></p>'
+            f"{self.body_html}"
+            f"<p>{escape(UNMANAGED_MAILBOX_FOOTER)}</p>"
+        )
+        return plain, html
+
     def recipients(self):
         """Leadership members in the community's region.
 
@@ -150,14 +155,15 @@ class CommunityMessage(models.Model):
     def send(self):
         emails = list(self.recipients().values_list("email", flat=True))
         if emails:
+            plain, html = self.email_parts()
             message = EmailMultiAlternatives(
                 subject=f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX}[{self.community.name}] {self.subject}",
-                body=self.body,
+                body=plain,
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 to=[settings.DEFAULT_FROM_EMAIL],
                 bcc=emails,
             )
-            message.attach_alternative(self.body_html, "text/html")
+            message.attach_alternative(html, "text/html")
             message.send()
         self.recipient_count = len(emails)
         self.sent_at = timezone.now()

@@ -7,5 +7,6 @@ app_name = "notifications"
 urlpatterns = [
     path("", views.NotificationListView.as_view(), name="list"),
     path("new/", views.SendNotificationView.as_view(), name="send"),
+    path("<int:pk>/", views.NotificationDetailView.as_view(), name="detail"),
     path("inbox/", views.NotificationInboxView.as_view(), name="inbox"),
 ]
