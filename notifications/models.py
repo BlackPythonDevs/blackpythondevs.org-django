@@ -18,14 +18,13 @@ widget: Sponsors and Community Partners send from here too, and they don't
 have Wagtail admin access, which Draftail's own image chooser requires. A
 plain textarea plus a client-side preview works the same for every sender.
 
-`UserNotification` (see issue #98) is a different, smaller thing: one item in
-a single member's own in-app feed — "so-and-so mentioned you" — rather than a
-staff-composed broadcast to many. `User.app_communication_preferences`
-(added in #34) implied an in-app delivery channel already existed; it didn't,
-until this. Deliberately generic (a plain message + optional link + optional
-actor, no typed "kind" field) so a new feature anywhere in the project can
-create one with `notify(...)` without this app needing to know what it's
-about — the same reasoning as checklists.models.Note's generic relation.
+`UserNotification` (see issue #98) is one item in a single member's own
+in-app feed — "so-and-so mentioned you", or (since #133) an announcement
+broadcast they were a recipient of. Deliberately generic (a plain message +
+optional link + optional actor, no typed "kind" field) so a new feature
+anywhere in the project can create one with `notify(...)` without this app
+needing to know what it's about — the same reasoning as
+checklists.models.Note's generic relation.
 """
 
 import bleach
@@ -223,8 +222,14 @@ class Notification(models.Model):
         Recipients go in `bcc` (with the message addressed to the sending
         address itself) so members targeted by the same announcement don't
         see each other's addresses.
+
+        Each recipient also gets an entry in their in-app inbox (issue #133):
+        before, broadcasts existed only as email and on the sender-facing
+        archive, so /notifications/ showed an announcement the recipient's
+        own inbox had no trace of.
         """
-        emails = list(self.recipients().values_list("email", flat=True))
+        recipients = list(self.recipients())
+        emails = [user.email for user in recipients]
         if emails:
             plain, html = self.email_parts()
             message = EmailMultiAlternatives(
@@ -239,6 +244,16 @@ class Notification(models.Model):
         self.recipient_count = len(emails)
         self.sent_at = timezone.now()
         self.save(update_fields=["recipient_count", "sent_at"])
+
+        # bulk_create rather than per-recipient notify() calls — one query
+        # instead of N for what can be the whole membership. Like the email
+        # half, this ignores app_communication_preferences: there's no switch
+        # for it yet (see issue #98's "out of scope" note).
+        if recipients:
+            detail_url = reverse("notifications:detail", args=[self.pk])
+            UserNotification.objects.bulk_create(
+                UserNotification(recipient=user, message=self.subject, url=detail_url) for user in recipients
+            )
         return len(emails)
 
 

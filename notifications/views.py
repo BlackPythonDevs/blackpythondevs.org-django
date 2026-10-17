@@ -33,7 +33,11 @@ class NotificationSenderRequiredMixin(UserPassesTestMixin):
 
 
 class NotificationListView(NotificationSenderRequiredMixin, ListView):
-    """Everything sent so far, newest first."""
+    """Everything sent so far, newest first (the sender-facing archive).
+
+    Lives at /notifications/sent/ — /notifications/ itself is the member's
+    own inbox, so the two can't be confused again (issue #133).
+    """
 
     model = Notification
     template_name = "notifications/notification_list.html"
@@ -50,7 +54,7 @@ class SendNotificationView(NotificationSenderRequiredMixin, CreateView):
     model = Notification
     form_class = NotificationForm
     template_name = "notifications/notification_form.html"
-    success_url = reverse_lazy("notifications:list")
+    success_url = reverse_lazy("notifications:sent")
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -111,7 +115,10 @@ class NotificationDetailView(LoginRequiredMixin, DetailView):
 
 
 class NotificationInboxView(LoginRequiredMixin, ListView):
-    """The signed-in member's own in-app notifications, newest first."""
+    """The signed-in member's own in-app notifications, newest first.
+
+    Serves both /notifications/ and (via redirect) /notifications/inbox/.
+    """
 
     model = UserNotification
     template_name = "notifications/notification_inbox.html"
