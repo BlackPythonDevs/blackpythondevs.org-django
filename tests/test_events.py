@@ -119,22 +119,24 @@ class TestConcludedEvents:
 
     def test_concluded_events_are_listed_in_a_collapsed_past_section(self, client, events_index, concluded):
         html = client.get(events_index.url).content.decode()
-        assert '<details class="past-events">' in html
+        assert '<details class="past-events" style="background: none; border: none;">' in html
         assert "Past events" in html
         assert "Finished Conf" in html  # still findable, just demoted
         # De-emphasised: no raised card chrome (background, border, hover glow).
-        past_section = html.split('<details class="past-events">')[1].split("</details>")[0]
+        past_section = html.split('<details class="past-events" style="background: none; border: none;">')[1].split(
+            "</details>"
+        )[0]
         assert 'class="card"' not in past_section
 
     def test_current_events_render_outside_the_past_section(self, client, events_index, concluded):
         make_event(events_index, "Current Conf", start_date=datetime.date(2030, 1, 1))
         html = client.get(events_index.url).content.decode()
         current_pos = html.index("Current Conf")
-        past_section_pos = html.index('<details class="past-events">')
+        past_section_pos = html.index('<details class="past-events"')
         # The current event's card precedes the past-events section, which
         # renders collapsed (no `open` attribute).
         assert current_pos < past_section_pos
-        assert '<details class="past-events">' in html
+        assert '<details class="past-events"' in html
 
     def test_no_past_section_until_an_event_is_marked_concluded(self, client, events_index):
         make_event(events_index, "Future Conf", start_date=datetime.date(2030, 1, 1))
@@ -166,7 +168,9 @@ class TestConcludedEvents:
         )
         html = client.get(events_index.url).content.decode()
         assert "Summit-Past" in html
-        past_section = html.split('<details class="past-events">')[1].split("</details>")[0]
+        past_section = html.split('<details class="past-events" style="background: none; border: none;">')[1].split(
+            "</details>"
+        )[0]
         assert "Summit-Past" in past_section
 
 
