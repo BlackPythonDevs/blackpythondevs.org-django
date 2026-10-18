@@ -152,6 +152,46 @@ class TestPublicIntake:
         assert created.notes == ""
         assert not created.is_published
 
+    def test_member_organiser_links_to_their_account(self, client, member):
+        """A request filed with a member's email links to that account, so
+        the organiser can get reminders and updates once approved (issue
+        #144)."""
+        response = client.post(
+            "/sponsorships/request/",
+            {
+                "name": "PyCon Nairobi",
+                "url": "https://example.org",
+                "prospectus_url": "",
+                "start_date": "2027-03-02",
+                "country": "KE",
+                "amount_requested": "1000",
+                "contact_name": "Mem Ber",
+                "contact_email": "Member@Example.com",
+            },
+        )
+        assert response.status_code == 302
+        created = SponsorshipRequest.objects.get(name="PyCon Nairobi")
+        assert created.contact_user == member
+
+    def test_unknown_contact_email_stays_unlinked(self, client):
+        """No account yet — the record keeps the bare email until one exists."""
+        client.post(
+            "/sponsorships/request/",
+            {
+                "name": "PyCon Nairobi",
+                "url": "",
+                "prospectus_url": "",
+                "start_date": "2027-03-02",
+                "country": "KE",
+                "amount_requested": "",
+                "contact_name": "Out Sider",
+                "contact_email": "outsider@example.com",
+            },
+        )
+        created = SponsorshipRequest.objects.get(name="PyCon Nairobi")
+        assert created.contact_email == "outsider@example.com"
+        assert created.contact_user is None
+
     def test_thanks_page_renders(self, client):
         assert client.get("/sponsorships/request/thanks/").status_code == 200
 

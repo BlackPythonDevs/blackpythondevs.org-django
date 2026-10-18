@@ -151,6 +151,24 @@ class TestNominate:
         assert "nominee_user" not in html
         assert "Their site account" not in html
 
+    def test_recipient_admin_form_links_recipient_user_by_email(self, db):
+        """Recording a winner in the admin links their account by email
+        (issue #144), so the exclusion check also matches by account."""
+        from service_award.admin import ServiceAwardRecipientForm
+
+        recipient_user = get_user_model().objects.create_user(username="nia", email="Nia@Example.com", password="pw")
+        form = ServiceAwardRecipientForm(
+            data={
+                "recipient_name": "Nia Nominee",
+                "recipient_email": "nia@example.com",
+                "award_year": current_award_year() - 1,
+                "notes": "",
+            }
+        )
+        assert form.is_valid(), form.errors
+        recipient = form.save()
+        assert recipient.recipient_user == recipient_user
+
     def test_previous_recipient_is_not_eligible(self, client, executor):
         ServiceAwardRecipient.objects.create(
             recipient_name="Nia Nominee", recipient_email="nia@example.com", award_year=current_award_year() - 1

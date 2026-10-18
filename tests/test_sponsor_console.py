@@ -93,6 +93,50 @@ class TestConsoleWrites:
         assert response.status_code == 302
         assert Sponsor.objects.filter(name="New Sponsor Co").exists()
 
+    def test_contact_email_links_to_member_account(self, client, executor, member):
+        """A sponsor POC who's also a member is linked by their email, so the
+        sponsor can reach a community record for reminders/updates (issue
+        #144)."""
+        client.force_login(executor)
+        client.post(
+            "/sponsors/new/",
+            {
+                "name": "Linked Sponsor Co",
+                "url": "",
+                "logo_static_path": "",
+                "sort_order": 0,
+                "active": "on",
+                "status": Sponsor.STATUS_ACTIVE,
+                "invoice_paid_date": "",
+                "contract_amount": "",
+                "primary_contact_name": "Mem Ber",
+                "primary_contact_email": "MEMBER@example.com",
+            },
+        )
+        sponsor = Sponsor.objects.get(name="Linked Sponsor Co")
+        assert sponsor.primary_contact_user == member
+
+    def test_unknown_contact_email_stays_unlinked(self, client, executor):
+        client.force_login(executor)
+        client.post(
+            "/sponsors/new/",
+            {
+                "name": "Unlinked Sponsor Co",
+                "url": "",
+                "logo_static_path": "",
+                "sort_order": 0,
+                "active": "on",
+                "status": Sponsor.STATUS_ACTIVE,
+                "invoice_paid_date": "",
+                "contract_amount": "",
+                "primary_contact_name": "Pat",
+                "primary_contact_email": "pat@corp.example.com",
+            },
+        )
+        sponsor = Sponsor.objects.get(name="Unlinked Sponsor Co")
+        assert sponsor.primary_contact_email == "pat@corp.example.com"
+        assert sponsor.primary_contact_user is None
+
     def test_executor_can_delete(self, client, executor, sponsor):
         client.force_login(executor)
         response = client.post(f"/sponsors/{sponsor.pk}/delete/")

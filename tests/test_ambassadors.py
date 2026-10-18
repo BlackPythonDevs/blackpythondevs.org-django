@@ -102,6 +102,27 @@ class TestApplyView:
         assert app.status == StudentAmbassador.APPLIED
         assert app.school == "State University"
 
+    def test_application_cannot_use_another_members_email(self, client, member, ambassadors_group):
+        """The application ties to the signed-in member, so its email must
+        not point at someone else's account (issue #144)."""
+        get_user_model().objects.create_user(username="other", email="other@example.com", password="pw")
+        client.force_login(member)
+        response = client.post(
+            "/student-ambassadors/apply/",
+            {
+                "name": "Stu Dent",
+                "email": "other@example.com",
+                "school": "State University",
+                "field_of_study": "Computer Science",
+                "graduation_year": 2027,
+                "country": "US",
+                "motivation": "I want to grow the community.",
+            },
+        )
+        assert response.status_code == 200
+        assert "belongs to another member" in response.content.decode()
+        assert not StudentAmbassador.objects.exists()
+
     def test_second_application_redirects_to_status(self, client, member, ambassadors_group):
         make(user=member)
         client.force_login(member)
