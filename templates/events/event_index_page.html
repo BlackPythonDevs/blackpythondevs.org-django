@@ -23,6 +23,14 @@
           </div>
         {% endif %}
         {% if concluded_events %}
+          {# The design system gives every <details> a raised box and the
+             summary a hover highlight; past events should stay quiet, so
+             the box is overridden inline and the hover rule here. #}
+          <style>
+            .past-events > summary:hover {
+              background: none;
+            }
+          </style>
           <details class="past-events" style="background: none; border: none;">
             <summary>Past events</summary>
             <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 320px))">

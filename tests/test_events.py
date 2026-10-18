@@ -120,6 +120,8 @@ class TestConcludedEvents:
     def test_concluded_events_are_listed_in_a_collapsed_past_section(self, client, events_index, concluded):
         html = client.get(events_index.url).content.decode()
         assert '<details class="past-events" style="background: none; border: none;">' in html
+        # And no hover highlight on its summary.
+        assert ".past-events > summary:hover" in html
         assert "Past events" in html
         assert "Finished Conf" in html  # still findable, just demoted
         # De-emphasised: no raised card chrome (background, border, hover glow).
