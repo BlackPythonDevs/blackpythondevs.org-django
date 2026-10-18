@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Your account has been deleted{% endblock %}
+
+{% block content %}
+  <section class="auth-panel">
+    <h1>Your account has been deleted</h1>
+    <p class="auth-intro">
+      Your Black Python Devs account and its member records have been deleted,
+      and you've been signed out. You're always welcome back — sign up again any
+      time at <a href="{% url 'account_signup' %}">blackpythondevs.org</a>.
+    </p>
+  </section>
+{% endblock %}
