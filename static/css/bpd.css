@@ -1339,6 +1339,16 @@ a[role="button"].danger:hover,
   background: var(--bpd-danger-dim);
 }
 
+/* A plain text link for destructive actions (e.g. "Delete your account"),
+   when a button is too heavy — same color tokens as the .danger buttons. */
+a.link-danger {
+  color: var(--bpd-danger);
+}
+
+a.link-danger:hover {
+  color: var(--bpd-danger-dim);
+}
+
 a[role="button"].update,
 .btn.update {
   color: #fff;
