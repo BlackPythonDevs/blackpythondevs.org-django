@@ -142,6 +142,26 @@ class TestNominate:
         assert nomination.term_year == current_term_year()
         assert nomination.nominee_consulted is True
 
+    def test_nominee_with_an_account_is_linked_on_submit(self, client, leader):
+        """A nominee who's already a member is linked by email (issue #144)."""
+        nominee = make_user("nia")
+        client.force_login(leader)
+        response = client.post("/council/nominations/new/", FORM_DATA)
+        assert response.status_code == 302
+        nomination = CouncilNomination.objects.get()
+        assert nomination.nominee_user == nominee
+
+    def test_nominee_email_matches_case_insensitively(self, client, leader):
+        nominee = get_user_model().objects.create_user(username="nia", email="Nia@Example.com", password="pw")
+        client.force_login(leader)
+        client.post("/council/nominations/new/", FORM_DATA)
+        assert CouncilNomination.objects.get().nominee_user == nominee
+
+    def test_nominee_without_an_account_stays_unlinked(self, client, leader):
+        client.force_login(leader)
+        client.post("/council/nominations/new/", FORM_DATA)
+        assert CouncilNomination.objects.get().nominee_user is None
+
     def test_duplicate_nomination_is_a_form_error_not_a_crash(self, client, leader):
         make_nomination(leader)
         client.force_login(leader)

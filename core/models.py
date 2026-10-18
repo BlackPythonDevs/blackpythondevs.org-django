@@ -177,6 +177,18 @@ class Sponsor(models.Model):
     )
     primary_contact_name = models.CharField(max_length=200, blank=True)
     primary_contact_email = models.EmailField(blank=True)
+    # Derived from primary_contact_email on save(); not edited directly
+    # (issue #144). The POC usually isn't a member when the contract starts,
+    # but if the email matches one, the sponsor links to that account so
+    # reminders and updates have a community record to reach.
+    primary_contact_user = models.ForeignKey(
+        "users.User",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="sponsored_for",
+        help_text="The member matching the primary contact email, if they have an account.",
+    )
 
     class Meta:
         ordering = ["sort_order", "name"]
@@ -196,6 +208,20 @@ class Sponsor(models.Model):
         # they already have.
         if self.invoice_paid_date:
             self.expires_at = self.invoice_paid_date + relativedelta(years=1)
+
+        # Link the primary contact to their member account when one exists
+        # (issue #144) — the same email lookup allauth uses. Runs on every
+        # save so the console, admin, and imports all stay in step; a cleared
+        # email clears the link.
+        if self.primary_contact_email:
+            from django.contrib.auth import get_user_model
+
+            self.primary_contact_user = (
+                get_user_model().objects.filter(email__iexact=self.primary_contact_email).first()
+            )
+        else:
+            self.primary_contact_user = None
+
         super().save(*args, **kwargs)
 
         # Imported lazily: blog imports core.blocks, so importing blog at

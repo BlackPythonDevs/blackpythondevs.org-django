@@ -13,6 +13,7 @@ amount requested. `year` and `region` are derived on save (from `start_date` and
 without anyone typing those by hand.
 """
 
+from django.conf import settings
 from django.db import models
 from django_countries.fields import CountryField
 
@@ -36,6 +37,24 @@ class SponsorshipRequest(models.Model):
     name = models.CharField(max_length=200)
     url = models.URLField(blank=True, help_text="The event's website.")
     prospectus_url = models.URLField(blank=True, help_text="Link to the event's sponsorship prospectus.")
+
+    # The person asking on the event's behalf. Corporate sponsors and event
+    # organisers aren't required to have an account to file a request, so
+    # these start as plain contact details — but the email is matched against
+    # member accounts on save (issue #144): if the POC already has one, the
+    # request links to it so they can get reminders and updates once the
+    # request is approved.
+    contact_name = models.CharField(max_length=200, blank=True, help_text="The person to contact about this request.")
+    contact_email = models.EmailField(blank=True, help_text="Best contact email for this request.")
+    # Derived from contact_email on save(); not edited directly.
+    contact_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="sponsorship_requests_contact",
+        help_text="The member matching the contact email, if they already have an account.",
+    )
 
     start_date = models.DateField(
         null=True,
@@ -92,6 +111,17 @@ class SponsorshipRequest(models.Model):
             self.year = self.start_date.year
         if self.country:
             self.region = region_for_country(self.country.code) or self.region
+        # Link the contact to their member account when one exists (issue
+        # #144). Matching here covers the public form, the staff console, and
+        # admin edits alike; matching by email — the way allauth does — means
+        # an account created later with the same address won't relink this
+        # record, but the council can re-save to refresh the link.
+        if self.contact_email:
+            from django.contrib.auth import get_user_model
+
+            self.contact_user = get_user_model().objects.filter(email__iexact=self.contact_email).first()
+        else:
+            self.contact_user = None
         super().save(*args, **kwargs)
 
     @property

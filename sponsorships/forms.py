@@ -6,7 +6,17 @@ from .models import SponsorshipRequest
 class SponsorshipRequestForm(forms.ModelForm):
     class Meta:
         model = SponsorshipRequest
-        fields = ["name", "url", "prospectus_url", "start_date", "country", "amount_requested", "notes"]
+        fields = [
+            "name",
+            "url",
+            "prospectus_url",
+            "start_date",
+            "country",
+            "amount_requested",
+            "contact_name",
+            "contact_email",
+            "notes",
+        ]
         widgets = {
             # Native date picker instead of a bare text input.
             "start_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
@@ -31,7 +41,11 @@ class PublicSponsorshipRequestForm(SponsorshipRequestForm):
             "url": "Event website",
             "prospectus_url": "Sponsorship prospectus",
             "amount_requested": "Amount you're asking for",
+            "contact_name": "Your name",
+            "contact_email": "Your email",
         }
         help_texts = {
             "amount_requested": "Optional. Include the currency if it isn't USD.",
+            "contact_email": "We'll use this for updates about your request. If you're already a member, "
+            "use your member email and the request links to your account.",
         }

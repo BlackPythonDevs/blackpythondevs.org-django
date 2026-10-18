@@ -32,6 +32,13 @@ class ApplyView(LoginRequiredMixin, CreateView):
         user = self.request.user
         return {"name": user.get_full_name() or user.display_name, "email": user.email}
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        # So the form can check the email isn't another member's (see
+        # AmbassadorApplicationForm.clean_email).
+        kwargs["user"] = self.request.user
+        return kwargs
+
     def form_valid(self, form):
         form.instance.user = self.request.user
         return super().form_valid(form)
