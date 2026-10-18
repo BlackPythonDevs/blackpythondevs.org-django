@@ -130,6 +130,28 @@ class TestConcludedEvents:
         )[0]
         assert 'class="card"' not in past_section
 
+    def test_current_events_show_a_small_banner(self, client, events_index):
+        """Active events preview their banner image, rendered small on the card."""
+        import io
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        from core.models import CustomImage
+
+        thumb = io.BytesIO()
+        from PIL import Image
+
+        Image.new("RGB", (4, 4), "cyan").save(thumb, format="PNG")
+        image = CustomImage.objects.create(
+            title="Conf banner",
+            file=SimpleUploadedFile("banner.png", thumb.getvalue(), content_type="image/png"),
+        )
+        event = make_event(events_index, "Bannered Conf", start_date=datetime.date(2030, 1, 1), banner=image)
+
+        html = client.get(events_index.url).content.decode()
+        assert f'alt="{event.title}"' in html  # the card renders the banner
+        assert 'fill-300x120' in html or ".300x120" in html  # small rendition, not the original
+
     def test_current_events_render_outside_the_past_section(self, client, events_index, concluded):
         make_event(events_index, "Current Conf", start_date=datetime.date(2030, 1, 1))
         html = client.get(events_index.url).content.decode()
