@@ -1,8 +1,11 @@
 from allauth.account.internal.flows.login_by_code import LoginCodeVerificationProcess
 from allauth.core.internal.httpkit import headed_redirect_response
 from allauth.socialaccount.models import SocialAccount
+from auditlog.context import set_actor
+from auditlog.models import LogEntry
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -24,7 +27,7 @@ from notifications.models import can_send_notifications
 from service_award.models import can_nominate as can_nominate_service_award
 
 from .discord import is_configured, login_available
-from .forms import CouncilProfileForm, OnboardingForm, ProfileForm
+from .forms import CouncilProfileForm, DeleteAccountForm, OnboardingForm, ProfileForm
 from .models import INVITE_SESSION_KEY, InviteLink
 
 
@@ -194,6 +197,41 @@ def profile(request):
         "users/profile.html",
         {"form": form, "council_form": council_form, "notification_rows": _notification_rows(form)},
     )
+
+
+@login_required
+def delete_account(request):
+    """Lets a member delete their own account (issue #143).
+
+    The member types their email address to confirm, then the account and its
+    related records go away and they're signed out immediately. Staff and
+    superusers are excluded: those accounts manage CMS content and other
+    members, and deleting the last one can lock everyone out.
+    """
+    if request.user.is_staff or request.user.is_superuser:
+        messages.error(request, "Staff accounts can't be deleted here — ask another maintainer to remove it.")
+        return redirect("members")
+
+    if request.method == "POST":
+        form = DeleteAccountForm(request.POST, user=request.user)
+        if form.is_valid():
+            user = request.user
+            # Auditlog would attribute everything deleted here (including the
+            # deletion of the account itself) to the account being deleted,
+            # leaving a dangling actor foreign key. Clear the actor first so
+            # the audit trail records the deletion anonymously, then null out
+            # any residual references.
+            with set_actor(None):
+                user.delete()
+            LogEntry.objects.filter(actor_id=user.pk).update(actor=None, actor_email="")
+            logout(request)
+            # Session is flushed by logout, so a flash message wouldn't
+            # survive the redirect — render the goodbye page directly.
+            return render(request, "users/account_deleted.html")
+    else:
+        form = DeleteAccountForm(user=request.user)
+
+    return render(request, "users/account_delete.html", {"form": form})
 
 
 def invite_accept(request, token):

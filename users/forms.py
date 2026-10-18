@@ -25,6 +25,31 @@ from core.models import Leader
 from .models import InviteLink, User
 
 
+class DeleteAccountForm(forms.Form):
+    """Confirmation for self-service account deletion (see users.views.delete_account).
+
+    Deleting an account can't be undone, so instead of a checkbox that's easy
+    to hit on the way past, the member types their email address back to us.
+    """
+
+    confirm = forms.CharField(
+        label="Your email address",
+        help_text="Type your email address to confirm.",
+        max_length=254,
+        widget=forms.TextInput(attrs={"autocomplete": "off"}),
+    )
+
+    def __init__(self, *args, user, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_confirm(self):
+        confirm = self.cleaned_data["confirm"].strip().lower()
+        if confirm != self.user.email.lower():
+            raise forms.ValidationError("That doesn't match your email address — nothing has been deleted.")
+        return confirm
+
+
 class SignupForm(AllauthSignupForm):
     def try_save(self, request):
         if self.account_already_exists:

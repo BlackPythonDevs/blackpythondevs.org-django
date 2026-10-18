@@ -27,6 +27,8 @@ urlpatterns = [
     path("members/", user_views.members, name="members"),
     path("onboarding/", user_views.onboarding, name="onboarding"),
     path("profile/", user_views.profile, name="profile"),
+    # Self-service account deletion (issue #143).
+    path("members/delete/", user_views.delete_account, name="account-delete"),
     # Staff-generated one-time invite links (see users.models.InviteLink).
     path("invite/<str:token>/", user_views.invite_accept, name="invite-accept"),
     path("student-ambassadors/", include("ambassadors.urls")),
