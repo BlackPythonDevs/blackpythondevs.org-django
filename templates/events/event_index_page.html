@@ -57,8 +57,22 @@
         <p><em>Note: Some events listed here are community sponsorships in which no money was transferred between
           parties. These reflect partnerships where Black Python Devs contributed visibility, volunteer time, or
           other non-monetary support.</em></p>
+        {% comment %}
+          The design system gives every <details> a raised box and the summary
+          a hover highlight. These year groupings are reference material, so
+          the chrome is overridden inline and the hover rule below — for every
+          year, including the current one.
+        {% endcomment %}
+        <style>
+          .sponsored-year > summary:hover {
+            background: none;
+          }
+          .sponsored-year[open] > summary {
+            border-bottom: none;
+          }
+        </style>
         {% for year, regions in sponsored_by_year %}
-          <details {% if year == current_year %}open{% endif %}>
+          <details class="sponsored-year" style="background: none; border: none;" {% if year == current_year %}open{% endif %}>
             <summary>{{ year }}</summary>
             <section class="grid">
               {% for region, entries in regions %}
