@@ -124,11 +124,26 @@ tests/               pytest suite
 
 ## Workflow for changes
 
-1. Branch from `main`.
-2. Make the change; add or update tests in `tests/`.
-3. If you changed models, run `mise run makemigrations` and commit the files.
-4. Run `mise run lint` and `mise run test`; fix everything they report.
-5. Open a pull request describing what changed and why.
+1. **Work in a git worktree, always** — keep your main checkout on `main`:
+
+   ```bash
+   git worktree add ../blackpythondevs.org-django-<issue> -b <branch> main
+   cd ../blackpythondevs.org-django-<issue>
+   ```
+
+2. One-time setup per new worktree:
+   - `mise trust` — mise refuses to run tasks from a config file it hasn't
+     trusted, so `mise run <task>` fails with "Config files ... are not trusted"
+     until you do.
+   - `cp ../blackpythondevs.org-django/.env .env` — `.env` is gitignored, so a
+     fresh worktree doesn't have it.
+   - `uv sync` — creates the worktree's own `.venv` (uv manages it there; the
+     dev db/valkey containers are shared over localhost, so nothing else is
+     needed to run `mise run test`).
+3. Make the change; add or update tests in `tests/`.
+4. If you changed models, run `mise run makemigrations` and commit the files.
+5. Run `mise run lint` and `mise run test`; fix everything they report.
+6. Open a pull request describing what changed and why.
 
 Further reading: `README.md` (architecture, deployment, content model) and
 `CONTRIBUTING.md` (contributor-focused versions of the above).
