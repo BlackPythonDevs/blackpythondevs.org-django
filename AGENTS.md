@@ -55,7 +55,7 @@ mise run test
 mise run lint
 ```
 
-- Tests live in `tests/` (pytest + pytest-django + factory-boy). Add or update
+- Tests live in `tests/` (pytest + pytest-django). Add or update
   tests in `tests/` for any new behavior.
 - Tests run on the host with `uv run pytest`, requiring the containerised
   db and valkey (`mise run test` handles both). Env:

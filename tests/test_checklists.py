@@ -547,27 +547,21 @@ class TestCreateTestExecutorsCommand:
     here passes force=True except the one that means to exercise the guard
     itself."""
 
-    def test_creates_accounts_in_the_executor_group(self):
+    def test_creates_accounts_in_the_executor_group_idempotently(self):
+        CreateTestExecutorsCommand().handle(force=True)
         CreateTestExecutorsCommand().handle(force=True)
 
         group = Group.objects.get(name="Executor")
         for username, _email in TEST_EXECUTORS:
             user = get_user_model().objects.get(username=username)
             assert group in user.groups.all()
-
-    def test_is_idempotent(self):
-        CreateTestExecutorsCommand().handle(force=True)
-        CreateTestExecutorsCommand().handle(force=True)
-
         assert get_user_model().objects.filter(username=TEST_EXECUTORS[0][0]).count() == 1
 
-    def test_refuses_to_run_outside_debug_without_force(self, settings):
+    def test_debug_guard_and_force_override(self, settings):
         settings.DEBUG = False
         with pytest.raises(CommandError):
             CreateTestExecutorsCommand().handle(force=False)
 
-    def test_force_overrides_the_debug_guard(self, settings):
-        settings.DEBUG = False
         CreateTestExecutorsCommand().handle(force=True)
         assert get_user_model().objects.filter(username=TEST_EXECUTORS[0][0]).exists()
 

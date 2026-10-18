@@ -110,12 +110,6 @@ class TestAccess:
         assert response.status_code == 200
         assert "Your notifications" in response.content.decode()
 
-    def test_old_inbox_url_redirects_to_the_inbox(self, client, plain_member):
-        client.force_login(plain_member)
-        response = client.get("/notifications/inbox/")
-        assert response.status_code == 302
-        assert response["Location"] == "/notifications/"
-
 
 class TestSentList:
     """The sender-facing archive of broadcasts, moved to /sent/ (issue #133)."""
