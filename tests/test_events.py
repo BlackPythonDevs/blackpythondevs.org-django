@@ -122,6 +122,9 @@ class TestConcludedEvents:
         assert '<details class="past-events">' in html
         assert "Past events" in html
         assert "Finished Conf" in html  # still findable, just demoted
+        # De-emphasised: no raised card chrome (background, border, hover glow).
+        past_section = html.split('<details class="past-events">')[1].split("</details>")[0]
+        assert 'class="card"' not in past_section
 
     def test_current_events_render_outside_the_past_section(self, client, events_index, concluded):
         make_event(events_index, "Current Conf", start_date=datetime.date(2030, 1, 1))
