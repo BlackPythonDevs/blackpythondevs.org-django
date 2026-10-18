@@ -35,14 +35,14 @@
           </style>
           <details class="past-events" style="background: none; border: none;">
             <summary>Past events</summary>
-            <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 320px))">
+            <ul style="color: var(--bpd-muted);">
               {% for event in concluded_events %}
-                <div style="padding: 1.25rem 1.5rem; color: var(--bpd-muted);">
+                <li>
                   <a href="{% pageurl event %}" style="color: var(--bpd-muted);">{{ event.title }}</a>
-                  {% if event.start_date %}<br /><small style="color:var(--bpd-muted);">{{ event.start_date|date:"d M Y" }}</small>{% endif %}
-                </div>
+                  {% if event.start_date %}<small> — {{ event.start_date|date:"d M Y" }}</small>{% endif %}
+                </li>
               {% endfor %}
-            </div>
+            </ul>
           </details>
         {% endif %}
       </section>
