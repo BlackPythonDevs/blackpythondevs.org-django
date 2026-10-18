@@ -35,7 +35,7 @@
           </style>
           <details class="past-events" style="background: none; border: none;">
             <summary>Past events</summary>
-            <ul style="color: var(--bpd-muted);">
+            <ul style="color: var(--bpd-muted); list-style: none; padding-inline-start: 0;">
               {% for event in concluded_events %}
                 <li>
                   <a href="{% pageurl event %}" style="color: var(--bpd-muted);">{{ event.title }}</a>
