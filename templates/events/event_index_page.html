@@ -23,9 +23,11 @@
           </div>
         {% endif %}
         {% if concluded_events %}
-          {# The design system gives every <details> a raised box and the
-             summary a hover highlight; past events should stay quiet, so
-             the box is overridden inline and the hover rule here. #}
+          {% comment %}
+            The design system gives every <details> a raised box and the
+            summary a hover highlight; past events should stay quiet, so
+            the box is overridden inline and the hover rule here.
+          {% endcomment %}
           <style>
             .past-events > summary:hover {
               background: none;
