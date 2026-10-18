@@ -9,17 +9,32 @@
       {% include_block page.body %}
     </section>
 
-    {% if bpd_events %}
+    {% if bpd_events or concluded_events %}
       <section>
         <h2>BPD Organized Events</h2>
-        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 320px))">
-          {% for event in bpd_events %}
-            <div class="card" style="padding: 1.25rem 1.5rem">
-              <a href="{% pageurl event %}">{{ event.title }}</a>
-              {% if event.start_date %}<br /><small style="color:var(--bpd-muted);">{{ event.start_date|date:"d M Y" }}</small>{% endif %}
+        {% if bpd_events %}
+          <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 320px))">
+            {% for event in bpd_events %}
+              <div class="card" style="padding: 1.25rem 1.5rem">
+                <a href="{% pageurl event %}">{{ event.title }}</a>
+                {% if event.start_date %}<br /><small style="color:var(--bpd-muted);">{{ event.start_date|date:"d M Y" }}</small>{% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+        {% if concluded_events %}
+          <details class="past-events">
+            <summary>Past events</summary>
+            <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 320px))">
+              {% for event in concluded_events %}
+                <div class="card" style="padding: 1.25rem 1.5rem; color: var(--bpd-muted);">
+                  <a href="{% pageurl event %}" style="color: var(--bpd-muted);">{{ event.title }}</a>
+                  {% if event.start_date %}<br /><small style="color:var(--bpd-muted);">{{ event.start_date|date:"d M Y" }}</small>{% endif %}
+                </div>
+              {% endfor %}
             </div>
-          {% endfor %}
-        </div>
+          </details>
+        {% endif %}
       </section>
     {% endif %}
 

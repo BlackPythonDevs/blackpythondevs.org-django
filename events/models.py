@@ -81,7 +81,11 @@ class EventIndexPage(SEOMixin, Page):
         from sponsorships.models import SponsorshipRequest
 
         context = super().get_context(request, *args, **kwargs)
-        context["bpd_events"] = EventPage.objects.child_of(self).live().public().order_by("-start_date")
+        # Editors tick `completed` once an event is over (BPD-129): until then it
+        # gets the prominent card grid; afterwards it recedes into the details.
+        events = EventPage.objects.child_of(self).live().public().order_by("-start_date")
+        context["bpd_events"] = events.filter(completed=False)
+        context["concluded_events"] = events.filter(completed=True)
 
         # Group completed sponsorships year → region → [entry], newest first.
         # Requested, approved, and cancelled support stays internal to the admin.
@@ -100,6 +104,14 @@ class EventPage(SEOMixin, Page):
 
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
+    completed = models.BooleanField(
+        default=False,
+        verbose_name="has concluded",
+        help_text=(
+            "Tick once the event is over. Concluded events move into the past-events "
+            "section on the events page, keeping upcoming and current ones prominent."
+        ),
+    )
     location = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
     banner = models.ForeignKey("core.CustomImage", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
@@ -109,7 +121,7 @@ class EventPage(SEOMixin, Page):
 
     content_panels = Page.content_panels + [
         MultiFieldPanel(
-            [FieldPanel("start_date"), FieldPanel("end_date"), FieldPanel("location")],
+            [FieldPanel("start_date"), FieldPanel("end_date"), FieldPanel("location"), FieldPanel("completed")],
             heading="When and where",
         ),
         FieldPanel("description"),
@@ -219,7 +231,12 @@ class LeadershipSummitPage(EventPage):
         MultiFieldPanel(
             # A summit is a single day, so `end_date` is kept off the form and
             # mirrored from `start_date` on save (see below).
-            [FieldPanel("start_date", heading="Date"), FieldPanel("location"), FieldPanel("city")],
+            [
+                FieldPanel("start_date", heading="Date"),
+                FieldPanel("location"),
+                FieldPanel("city"),
+                FieldPanel("completed"),
+            ],
             heading="When and where",
         ),
         MultiFieldPanel(
