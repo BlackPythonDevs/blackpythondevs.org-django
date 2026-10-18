@@ -51,6 +51,40 @@ def editor(db):
     return get_user_model().objects.create_superuser(username="cms", email="cms@example.com", password="pw")
 
 
+class TestSponsoredSectionChrome:
+    """BPD-163: the sponsored-by-year groupings are quiet reference material."""
+
+    @pytest.fixture
+    def sponsored(self, events_index):
+        make(events_index, "Some Conf")
+        return events_index
+
+    def test_every_year_is_flat_including_the_current_one(self, client, sponsored):
+        import re
+
+        html = client.get(sponsored.url).content.decode()
+        details_tags = re.findall(r"<details[^>]*>", html)
+        assert details_tags  # the section rendered
+        # Every <details> on the page is a sponsored-year group, stripped of
+        # the design system's raised box — current and past years alike.
+        assert all(
+            'class="sponsored-year"' in tag and "background: none" in tag and "border: none" in tag
+            for tag in details_tags
+        )
+
+    def test_the_current_year_still_opens_by_default(self, client, sponsored):
+        from django.utils import timezone
+
+        make(sponsored, "Current Year Conf", year=timezone.localdate().year)
+        html = client.get(sponsored.url).content.decode()
+        open_tag = '<details class="sponsored-year" style="background: none; border: none;" open>'
+        assert open_tag in html
+
+    def test_the_summary_has_no_hover_wash(self, client, sponsored):
+        html = client.get(sponsored.url).content.decode()
+        assert ".sponsored-year > summary:hover" in html
+
+
 class TestPublishing:
     @pytest.mark.parametrize(
         ("status", "shown"),
