@@ -100,6 +100,104 @@ class TestModel:
         assert "secret internal note" not in html
 
 
+def make_event(index, name, slug=None, **kwargs):
+    from events.models import EventPage
+
+    slug = slug or name.lower().replace(" ", "-")
+    page = EventPage(title=name, slug=slug, **kwargs)
+    index.add_child(instance=page)
+    page.save_revision().publish()
+    return page
+
+
+class TestConcludedEvents:
+    """BPD-129: a ticked-off event recedes so current ones stand out."""
+
+    @pytest.fixture
+    def concluded(self, events_index):
+        return make_event(events_index, "Finished Conf", start_date=datetime.date(2024, 6, 1), completed=True)
+
+    def test_concluded_events_are_listed_in_a_collapsed_past_section(self, client, events_index, concluded):
+        html = client.get(events_index.url).content.decode()
+        assert '<details class="past-events" style="background: none; border: none;">' in html
+        # And no hover highlight on its summary.
+        assert ".past-events > summary:hover" in html
+        assert "Past events" in html
+        assert "Finished Conf" in html  # still findable, just demoted
+        # De-emphasised: no raised card chrome (background, border, hover glow).
+        past_section = html.split('<details class="past-events" style="background: none; border: none;">')[1].split(
+            "</details>"
+        )[0]
+        assert 'class="card"' not in past_section
+
+    def test_current_events_show_a_small_banner(self, client, events_index):
+        """Active events preview their banner image, rendered small on the card."""
+        import io
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        from core.models import CustomImage
+
+        thumb = io.BytesIO()
+        from PIL import Image
+
+        Image.new("RGB", (4, 4), "cyan").save(thumb, format="PNG")
+        image = CustomImage.objects.create(
+            title="Conf banner",
+            file=SimpleUploadedFile("banner.png", thumb.getvalue(), content_type="image/png"),
+        )
+        event = make_event(events_index, "Bannered Conf", start_date=datetime.date(2030, 1, 1), banner=image)
+
+        html = client.get(events_index.url).content.decode()
+        assert f'alt="{event.title}"' in html  # the card renders the banner
+        assert 'fill-300x120' in html or ".300x120" in html  # small rendition, not the original
+
+    def test_current_events_render_outside_the_past_section(self, client, events_index, concluded):
+        make_event(events_index, "Current Conf", start_date=datetime.date(2030, 1, 1))
+        html = client.get(events_index.url).content.decode()
+        current_pos = html.index("Current Conf")
+        past_section_pos = html.index('<details class="past-events"')
+        # The current event's card precedes the past-events section, which
+        # renders collapsed (no `open` attribute).
+        assert current_pos < past_section_pos
+        assert '<details class="past-events"' in html
+
+    def test_no_past_section_until_an_event_is_marked_concluded(self, client, events_index):
+        make_event(events_index, "Future Conf", start_date=datetime.date(2030, 1, 1))
+        html = client.get(events_index.url).content.decode()
+        assert "past-events" not in html
+        assert "Future Conf" in html
+
+    def test_concluded_is_opt_in_not_date_derived(self, events_index):
+        """An unchecked past-dated event stays prominent — only the checkbox concludes it."""
+        page = make_event(events_index, "Not Ticked Yet", start_date=datetime.date(2001, 1, 1))
+        assert page.completed is False
+
+    def test_concluded_event_page_says_so(self, client, concluded):
+        html = client.get(concluded.url).content.decode()
+        assert "This event has concluded." in html
+
+    def test_current_event_page_does_not_say_concluded(self, client, events_index):
+        page = make_event(events_index, "Still On", start_date=datetime.date(2030, 1, 1))
+        html = client.get(page.url).content.decode()
+        assert "This event has concluded." not in html
+
+    def test_concluded_summit_also_recedes(self, client, events_index):
+        """LeadershipSummitPage inherits the checkbox — summits conclude too."""
+        make_summit(
+            events_index,
+            "summit-past",
+            start_date=datetime.date(2024, 6, 1),
+            completed=True,
+        )
+        html = client.get(events_index.url).content.decode()
+        assert "Summit-Past" in html
+        past_section = html.split('<details class="past-events" style="background: none; border: none;">')[1].split(
+            "</details>"
+        )[0]
+        assert "Summit-Past" in past_section
+
+
 SUMMIT_SLUG = "black-python-devs-leadership-summit-2027-at-pytexas"
 
 

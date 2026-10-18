@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load wagtailcore_tags %}
+{% load wagtailcore_tags wagtailimages_tags %}
 
 {% block content %}
   <article>
@@ -9,17 +9,45 @@
       {% include_block page.body %}
     </section>
 
-    {% if bpd_events %}
+    {% if bpd_events or concluded_events %}
       <section>
         <h2>BPD Organized Events</h2>
-        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 320px))">
-          {% for event in bpd_events %}
-            <div class="card" style="padding: 1.25rem 1.5rem">
-              <a href="{% pageurl event %}">{{ event.title }}</a>
-              {% if event.start_date %}<br /><small style="color:var(--bpd-muted);">{{ event.start_date|date:"d M Y" }}</small>{% endif %}
-            </div>
-          {% endfor %}
-        </div>
+        {% if bpd_events %}
+          <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 320px))">
+            {% for event in bpd_events %}
+              <div class="card" style="padding: 1.25rem 1.5rem">
+                {% if event.banner %}
+                  {% image event.banner fill-300x120 alt=event.title style="border-radius:8px; margin-bottom:0.75rem; width:100%; height:auto;" %}
+                {% endif %}
+                <a href="{% pageurl event %}">{{ event.title }}</a>
+                {% if event.start_date %}<br /><small style="color:var(--bpd-muted);">{{ event.start_date|date:"d M Y" }}</small>{% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+        {% if concluded_events %}
+          {% comment %}
+            The design system gives every <details> a raised box and the
+            summary a hover highlight; past events should stay quiet, so
+            the box is overridden inline and the hover rule here.
+          {% endcomment %}
+          <style>
+            .past-events > summary:hover {
+              background: none;
+            }
+          </style>
+          <details class="past-events" style="background: none; border: none;">
+            <summary>Past events</summary>
+            <ul style="color: var(--bpd-muted); list-style: none; padding-inline-start: 0;">
+              {% for event in concluded_events %}
+                <li>
+                  <a href="{% pageurl event %}" style="color: var(--bpd-muted);">{{ event.title }}</a>
+                  {% if event.start_date %}<small> — {{ event.start_date|date:"d M Y" }}</small>{% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          </details>
+        {% endif %}
       </section>
     {% endif %}
 
