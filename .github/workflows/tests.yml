@@ -44,7 +44,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
-      - run: uv sync
+      # setup-uv replaces mise here: this workflow only needs uv itself, and
+      # setup-uv caches uv's package cache and Python toolchain keyed on
+      # uv.lock, cutting most of the CI setup time.
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+          cache-python: true
+      - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run pytest -n auto
