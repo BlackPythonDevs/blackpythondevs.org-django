@@ -238,3 +238,30 @@ run = ["docker image prune -a -f", "docker builder prune -a -f"]
 [tasks.prod-down]
 description = "Tear down the production stack (keeps named volumes)"
 run = "docker stack rm blackpythondevs-prod"
+
+# ── Factory / CI (no docker: expects DATABASE_URL and VALKEY_URL to point at running services) ──
+
+[tasks.ci-test]
+description = "pytest against whatever DATABASE_URL / VALKEY_URL point at (no docker)"
+run = "uv run pytest -n auto"
+
+[tasks.ci-lint]
+description = "Ruff check and format --check (same as lint)"
+depends = ["lint"]
+
+[tasks.ci-migrate-check]
+description = "Models match migrations; migrations apply; this branch's new migrations reverse and reapply"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+uv run python manage.py makemigrations --check --dry-run
+uv run python manage.py migrate --noinput
+base="${FACTORY_BASE:-origin/main}"
+for app in $(git diff --name-only --diff-filter=A "$base"...HEAD -- '*/migrations/0*.py' | cut -d/ -f1 | sort -u); do
+  first=$(git diff --name-only --diff-filter=A "$base"...HEAD -- "$app/migrations/0*.py" | sort | head -1)
+  prev=$(ls "$app"/migrations/0*.py | sort | grep -B1 -F "$first" | head -1)
+  target=$([ "$prev" = "$first" ] && echo zero || basename "$prev" .py)
+  uv run python manage.py migrate "$app" "$target" --noinput
+  uv run python manage.py migrate --noinput
+done
+'''
