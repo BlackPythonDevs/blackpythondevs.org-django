@@ -7,8 +7,10 @@ tests exercise the inbox/bell machinery on its own.
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.utils import timezone
 
+from core.models import COUNCIL_GROUP_NAME
 from notifications.models import UserNotification, notify
 
 pytestmark = pytest.mark.django_db
@@ -98,6 +100,48 @@ class TestNotificationInboxView:
         client.post("/notifications/", {"action": "mark_all_read"})
 
         assert not UserNotification.objects.filter(recipient=user, read_at__isnull=True).exists()
+
+
+class TestMembersPagePanels:
+    """Issue #114: community-sent messages belong inside the single
+    Notifications panel on /members/, not in a section of their own."""
+
+    @pytest.fixture
+    def leader(self, db):
+        group, _ = Group.objects.get_or_create(name=COUNCIL_GROUP_NAME)
+        user = get_user_model().objects.create_user(
+            username="lou", email="lou@example.com", password="pw", onboarding_completed_at=timezone.now()
+        )
+        user.groups.add(group)
+        return user
+
+    def test_leadership_sees_community_messages_inside_the_notifications_panel(self, client, leader):
+        client.force_login(leader)
+
+        html = client.get("/members/").content.decode()
+        assert 'href="/communities/messages/inbox/"' in html
+        assert "Messages from communities" not in html
+        assert html.count("<h2>Notifications</h2>") == 1
+
+    def test_leadership_without_sending_rights_gets_no_send_links(self, client, leader):
+        client.force_login(leader)
+
+        html = client.get("/members/").content.decode()
+        assert 'href="/notifications/new/"' not in html
+        assert 'href="/notifications/sent/"' not in html
+
+    def test_senders_do_not_get_the_community_inbox_link(self, client, db):
+        group, _ = Group.objects.get_or_create(name="Sponsors")
+        user = get_user_model().objects.create_user(
+            username="sponsor", email="sponsor@example.com", password="pw", onboarding_completed_at=timezone.now()
+        )
+        user.groups.add(group)
+        client.force_login(user)
+
+        html = client.get("/members/").content.decode()
+        assert 'href="/notifications/new/"' in html
+        assert 'href="/communities/messages/inbox/"' not in html
+        assert html.count("<h2>Notifications</h2>") == 1
 
 
 class TestNotificationBell:
