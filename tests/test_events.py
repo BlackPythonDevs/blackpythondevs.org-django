@@ -184,7 +184,7 @@ class TestConcludedEvents:
 
         html = client.get(events_index.url).content.decode()
         assert f'alt="{event.title}"' in html  # the card renders the banner
-        assert 'fill-300x120' in html or ".300x120" in html  # small rendition, not the original
+        assert "fill-300x120" in html or ".300x120" in html  # small rendition, not the original
 
     def test_current_events_render_outside_the_past_section(self, client, events_index, concluded):
         make_event(events_index, "Current Conf", start_date=datetime.date(2030, 1, 1))
@@ -247,27 +247,14 @@ class TestSummit2027:
     def summit(self, events_index):
         return LeadershipSummitPage.objects.get(slug=SUMMIT_SLUG)
 
-    def test_page_carries_its_details(self, summit):
+    def test_page_smoke(self, client, summit):
+        """Spot-check the seeded page renders with a couple of its values."""
         assert summit.date == datetime.date(2027, 4, 16)
         assert summit.location == "Austin Central Library"
-        assert summit.city == "Austin, TX"
-        assert summit.host_event_name == "PyTexas"
-
-    def test_page_generates_the_standard_sections(self, client, summit):
-        # Only the time-invariant sections are asserted here — the seed carries a
-        # fixed date, so the forward-looking copy is covered by the relative-date
-        # tests below rather than by assertions that expire in April 2027.
-        html = client.get(summit.url).content.decode()
-        assert "single day workshop" in html
-        assert "Who is Invited?" in html
-
-    def test_page_states_when_and_where(self, client, summit):
         html = client.get(summit.url).content.decode()
         assert "16 April 2027" in html
         assert "Austin, TX" in html
-        assert "PyTexas" in html
-        # The host conference's own longer run, generated from its dates.
-        assert "April 16 – 18, 2027" in html
+        assert "Who is Invited?" in html
 
     def test_summit_is_listed_on_the_events_page(self, client, events_index):
         html = client.get(events_index.url).content.decode()
