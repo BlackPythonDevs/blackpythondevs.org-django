@@ -8,6 +8,8 @@ file only checks that *this* console's own steps ("Corporate sponsor") show
 up here and not the event-sponsorship ones.
 """
 
+from datetime import timedelta
+
 import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -197,6 +199,84 @@ class TestChecklistWidgetIsTheCorporateOne:
         content = client.get(f"/sponsors/{sponsor.pk}/").content.decode()
         assert f'href="/checklists/core/sponsor/{sponsor.pk}/"' in content
         assert "Contract sent" not in content
+
+
+class TestListHealthColumns:
+    """The list itself shows sponsor health at a glance (issue #85): status,
+    expiry date, and internal contract amount without opening each record."""
+
+    def test_list_shows_status_expiry_and_contract_amount(self, client, executor, sponsor):
+        sponsor.status = Sponsor.STATUS_EXPIRING_SOON
+        sponsor.expires_at = timezone.localdate() + timedelta(days=20)
+        sponsor.contract_amount = "1250.00"
+        sponsor.save()
+
+        client.force_login(executor)
+        content = client.get("/sponsors/").content.decode()
+        assert "Expiring soon" in content
+        assert sponsor.expires_at.strftime("%d %b %Y") in content
+        assert "1250.00" in content
+
+    def test_contract_amount_is_only_visible_to_the_console(self, client, member, executor, sponsor):
+        """contract_amount is internal; the console is executor-only, and the
+        sponsor strip the public sees must never render it."""
+        sponsor.contract_amount = "1250.00"
+        sponsor.save()
+
+        client.force_login(executor)
+        assert "1250.00" in client.get("/sponsors/").content.decode()
+
+        client.force_login(member)
+        assert client.get("/sponsors/").status_code == 403
+
+
+class TestExpiryWindowFilter:
+    """?expires_within=30|60 pulls up sponsors expiring soon so Executors
+    don't have to open each one to check (issue #85)."""
+
+    @pytest.fixture
+    def sponsors_at_each_horizon(self, db):
+        today = timezone.localdate()
+        horizons = {"soon": 10, "mid": 45, "far": 120, "past": -1}
+        return {
+            key: Sponsor.objects.create(name=f"{key} corp", expires_at=today + timedelta(days=days))
+            for key, days in horizons.items()
+        }
+
+    @pytest.mark.parametrize("window,visible", [("30", ["soon"]), ("60", ["soon", "mid"])])
+    def test_window_filters_to_expiring_within_n_days(
+        self, client, executor, sponsors_at_each_horizon, window, visible
+    ):
+        client.force_login(executor)
+        names = [s.name for s in Sponsor.objects.filter(pk__in=[sponsors_at_each_horizon[k].pk for k in visible])]
+        content = client.get(f"/sponsors/?expires_within={window}").content.decode()
+        for name in names:
+            assert name in content
+        for hidden in set(sponsors_at_each_horizon) - set(visible):
+            assert sponsors_at_each_horizon[hidden].name not in content
+
+    def test_invalid_window_is_ignored(self, client, executor, sponsors_at_each_horizon):
+        """A bogus querystring value never reaches the ORM; the list just
+        renders unfiltered."""
+        client.force_login(executor)
+        response = client.get("/sponsors/", {"expires_within": "<script>"})
+        assert response.status_code == 200
+        content = response.content.decode()
+        for sponsor in sponsors_at_each_horizon.values():
+            assert sponsor.name in content
+
+    def test_window_filter_combines_with_status_filter(self, client, executor, sponsors_at_each_horizon):
+        soon = sponsors_at_each_horizon["soon"]
+        soon.status = Sponsor.STATUS_ACTIVE
+        soon.save()
+        mid = sponsors_at_each_horizon["mid"]
+        mid.status = Sponsor.STATUS_EXPIRING_SOON
+        mid.save()
+
+        client.force_login(executor)
+        content = client.get("/sponsors/?expires_within=60&status=expiring_soon").content.decode()
+        assert mid.name in content
+        assert soon.name not in content
 
 
 class TestTaskActivityOnTheChecklistPage:
