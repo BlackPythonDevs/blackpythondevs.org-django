@@ -171,7 +171,8 @@ class TestMembersPageLink:
         content = client.get("/members/").content.decode()
         assert "Corporate sponsors" in content
         assert 'href="/sponsors/"' in content
-        assert "Event sponsorship requests" in content
+        # The command center labels the link "Sponsorship requests" (issue #174).
+        assert "Sponsorship requests" in content
         assert 'href="/sponsorships/"' in content
 
     def test_ordinary_member_does_not_see_the_links(self, client, onboarded_member):

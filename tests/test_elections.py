@@ -328,7 +328,7 @@ class TestMemberAreaElectionsPanel:
         html = client.get("/members/").content.decode()
         assert "Executorship Election" in html
         assert "Write your statement" not in html
-        assert "See the election page" in html
+        assert "Election page" in html
 
     def test_no_election_yet_still_shows_the_panel_without_a_write_cta(self, client, council_member):
         client.force_login(council_member)
