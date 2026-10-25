@@ -90,17 +90,25 @@ def test_year_keyed_json_is_accepted(db, roster):
 
 
 def test_a_bad_row_aborts_the_whole_import(db, roster):
-    before = FoundationalSupport.objects.count()
+    User = get_user_model()
+    # Seed an existing roster entry so the aborted import must leave it intact.
+    placeholder, _ = get_or_create_supporter_user(User, "Old Roster Name")
+    FoundationalSupport.objects.create(user=placeholder, year=2020)
+
     path = roster([("Grace Hopper", "grace@example.com", "not-a-year", "listed")])
 
     with pytest.raises(CommandError):
         call_command("import_foundational_supporters", str(path), "--replace", verbosity=0)
 
-    assert FoundationalSupport.objects.count() == before
+    assert set(FoundationalSupport.objects.values_list("user__display_name", flat=True)) == {"Old Roster Name"}
 
 
 def test_dry_run_writes_nothing(db, roster):
-    before = FoundationalSupport.objects.count()
+    User = get_user_model()
+    # Seed an existing roster entry so the dry run must leave it intact.
+    placeholder, _ = get_or_create_supporter_user(User, "Old Roster Name")
+    FoundationalSupport.objects.create(user=placeholder, year=2020)
+
     path = roster([("Grace Hopper", "grace@example.com", 2023, "listed")])
     call_command("import_foundational_supporters", str(path), "--replace", "--dry-run", verbosity=0)
-    assert FoundationalSupport.objects.count() == before
+    assert set(FoundationalSupport.objects.values_list("user__display_name", flat=True)) == {"Old Roster Name"}
