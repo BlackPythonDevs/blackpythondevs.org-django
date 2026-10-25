@@ -35,6 +35,7 @@
               <th scope="col">Name</th>
               <th scope="col">Status</th>
               <th scope="col">Expires</th>
+              <th scope="col">Contract</th>
               <th scope="col">On site</th>
               <th scope="col"><span class="screen-reader-text">Actions</span></th>
             </tr>
@@ -45,6 +46,7 @@
                 <th scope="row"><a href="{% url 'sponsors-detail' sponsor.pk %}">{{ sponsor.name }}</a></th>
                 <td>{{ sponsor.get_status_display }}</td>
                 <td>{{ sponsor.expires_at|date:"d M Y"|default:"—" }}</td>
+                <td>{% if sponsor.contract_amount is not None %}${{ sponsor.contract_amount|floatformat:2 }}{% else %}—{% endif %}</td>
                 <td>{{ sponsor.active|yesno:"Yes,No" }}</td>
                 <td>
                   <a href="{% url 'sponsors-update' sponsor.pk %}">Edit</a>
