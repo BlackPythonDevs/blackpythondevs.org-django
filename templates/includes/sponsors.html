@@ -7,9 +7,10 @@
       <article class="sponsor">
         <a href="{{ sponsor.url }}" target="_blank" rel="noopener">
           {% if sponsor.logo %}
-            {% image sponsor.logo height-64 alt=sponsor.name|add:" logo" style="height: 2rem" %}
+            {# Sizing lives in .sponsor img (bpd.css): fixed height, width auto, object-fit contain, so logos keep their ratio instead of stretching. #}
+            {% image sponsor.logo height-64 alt=sponsor.name|add:" logo" %}
           {% elif sponsor.logo_static_path %}
-            <img src="{% static sponsor.logo_static_path %}" alt="{{ sponsor.name }} logo" style="height: 2rem" />
+            <img src="{% static sponsor.logo_static_path %}" alt="{{ sponsor.name }} logo" />
           {% else %}
             <span>{{ sponsor.name }}</span>
           {% endif %}
