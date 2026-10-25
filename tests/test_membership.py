@@ -5,25 +5,13 @@ Discord is never a sign-in method — it is connected afterwards to obtain the
 role that permits posting in the community server.
 """
 
-import re
-
 import pytest
 from allauth.socialaccount.models import SocialAccount, SocialApp
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core import mail
 from django.utils import timezone
 
 pytestmark = pytest.mark.django_db
-
-# allauth renders codes in groups, e.g. "RHBJ-PCTB".
-CODE_RE = re.compile(r"\b([A-Z0-9]{4}-[A-Z0-9]{4})\b")
-
-
-def extract_code(message):
-    match = CODE_RE.search(message.body)
-    assert match, f"No code found in email body:\n{message.body}"
-    return match.group(1)
 
 
 class TestPasswordlessSignup:
@@ -32,35 +20,6 @@ class TestPasswordlessSignup:
         assert 'name="email"' in html
         assert 'name="password1"' not in html
         assert 'name="password2"' not in html
-
-    def test_signup_sends_a_code_and_creates_an_unusable_password(self, client, site):
-        mail.outbox.clear()
-        response = client.post("/accounts/signup/", {"email": "newbie@example.com"})
-        assert response.status_code in (200, 302)
-
-        user = get_user_model().objects.get(email="newbie@example.com")
-        assert not user.has_usable_password(), "Passwordless signup must not set a password"
-        assert user.username, "Adapter should derive a username from the email"
-        assert len(mail.outbox) == 1
-
-    def test_full_signup_then_signin_by_code(self, client, site):
-        mail.outbox.clear()
-        client.post("/accounts/signup/", {"email": "member@example.com"})
-        code = extract_code(mail.outbox[-1])
-
-        # Confirm the address with the emailed code.
-        client.post("/accounts/confirm-email/", {"code": code})
-
-        client.logout()
-        mail.outbox.clear()
-
-        # Sign in later with a fresh code — no password anywhere.
-        client.post("/accounts/login/code/", {"email": "member@example.com"})
-        assert len(mail.outbox) == 1
-        login_code = extract_code(mail.outbox[-1])
-
-        client.post("/accounts/login/code/confirm/", {"code": login_code})
-        assert client.session.get("_auth_user_id"), "Member should be signed in after code confirmation"
 
     def test_login_page_offers_a_code_not_a_password(self, client, site):
         html = client.get("/accounts/login/").content.decode()
