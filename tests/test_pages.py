@@ -270,3 +270,51 @@ class TestDonateBlock:
         page.body = [("donate", {"disable_monthly": False})]
         page.save_revision().publish()
         assert "data-type" not in client.get(page.url).content.decode()
+
+
+class TestSponsorStrip:
+    """Issue #170: sponsor logos must keep their aspect ratio, never stretch."""
+
+    @pytest.fixture
+    def wide_logo_image(self):
+        import io
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+
+        from core.models import CustomImage
+
+        buf = io.BytesIO()
+        Image.new("RGB", (200, 20), "cyan").save(buf, format="PNG")  # deliberately wide
+        return CustomImage.objects.create(
+            title="Temporal logo",
+            file=SimpleUploadedFile("temporal.png", buf.getvalue(), content_type="image/png"),
+        )
+
+    def test_uploaded_logo_renders_without_a_fixed_inline_height(self, client, site, wide_logo_image):
+        from core.models import Sponsor
+
+        Sponsor.objects.create(name="Temporal", url="https://temporal.io", logo=wide_logo_image)
+        html = client.get("/").content.decode()
+        assert "Temporal logo" in html  # the strip renders the sponsor
+        # A fixed inline height with max-width clamping is what stretched logos.
+        assert 'style="height' not in html
+
+    def test_static_path_logo_renders_without_a_fixed_inline_height(self, client, site):
+        from core.models import Sponsor
+
+        Sponsor.objects.create(name="JetBrains", url="https://jetbrains.com", logo_static_path="images/jetbrains.webp")
+        html = client.get("/").content.decode()
+        assert "JetBrains logo" in html
+        assert 'style="height' not in html
+
+    def test_css_sizes_logos_proportionally(self, site):
+        """The shared .sponsor img rule must fix the height, keep width auto,
+        and letterbox via object-fit so ratios survive narrow grid cells."""
+        from django.conf import settings
+
+        css = (settings.BASE_DIR / "static" / "css" / "bpd.css").read_text()
+        rule = css.split(".sponsor img {", 1)[1].split("}", 1)[0]
+        assert "height: 2rem" in rule
+        assert "width: auto" in rule
+        assert "object-fit: contain" in rule

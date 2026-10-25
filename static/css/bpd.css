@@ -1646,6 +1646,14 @@ main.page-content div.wrapper p img {
   border-radius: 12px;
   padding: 1.25rem 1.5rem;
 }
+
+.sponsor img {
+  /* Fixed height with proportional width so a wide logo in a narrow
+     grid cell letterboxes (object-fit) instead of stretching (#170). */
+  height: 2rem;
+  width: auto;
+  object-fit: contain;
+}
 .post-title > h3 {
   font-size: smaller;
 }
