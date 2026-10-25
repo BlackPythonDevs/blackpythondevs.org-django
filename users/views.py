@@ -11,8 +11,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from ambassadors.models import StudentAmbassador
+from checklists.views import PERMISSION_REQUIRED as CHECKLISTS_PERMISSIONS
 from communities.models import can_manage_community
-from community_messages.models import is_leadership
+from community_messages.models import CommunityMessage, is_leadership, messages_for_leader
 from core.models import (
     CustomImage,
     Leader,
@@ -33,7 +34,12 @@ from .models import INVITE_SESSION_KEY, InviteLink
 
 @login_required
 def members(request):
-    """The member area: profile summary and Discord connection status."""
+    """The member area: profile summary and Discord connection status.
+
+    Council members and above (plus community admins) get a compact
+    command-center dashboard instead — recent messages up top and one card
+    per thing they can do, so nothing stacks into a long scroll (issue #174).
+    """
     if request.user.needs_onboarding:
         return redirect("onboarding")
 
@@ -41,9 +47,25 @@ def members(request):
     # election panel below (see elections.management.commands.create_election).
     election = Election.objects.order_by("-year").first()
 
+    leadership_member = is_leadership(request.user)
+    community_admin = can_manage_community(request.user)
+    # "Council and higher, plus community managers": who gets the command center.
+    command_center = is_leadership_or_above(request.user) or community_admin
+
+    # Recent messages for the command center's preview: messages that reached
+    # this Leadership member, or — for a community admin who isn't one — the
+    # messages their communities sent (same querysets as the two inboxes).
+    recent_messages = None
+    if leadership_member:
+        recent_messages = messages_for_leader(request.user).select_related("community", "sender")[:5]
+    elif community_admin:
+        recent_messages = CommunityMessage.objects.filter(community__admins=request.user).select_related(
+            "community", "sender"
+        )[:5]
+
     return render(
         request,
-        "users/members.html",
+        "users/command_center.html" if command_center else "users/members.html",
         {
             "discord_account": SocialAccount.objects.filter(user=request.user, provider="discord").first(),
             "discord_invite_url": settings.DISCORD_INVITE_URL,
@@ -71,7 +93,11 @@ def members(request):
             # Executors get links to the sponsorships/sponsors consoles.
             "can_manage_sponsorships": can_manage_sponsorships(request.user),
             # Leadership members get a link to messages sent to them.
-            "is_leadership_member": is_leadership(request.user),
+            "is_leadership_member": leadership_member,
+            # Command center only: the five newest messages on either side.
+            "recent_messages": recent_messages,
+            # Executor-plus: the follow-through checklists portal's own gate.
+            "can_use_checklists": request.user.has_perms(CHECKLISTS_PERMISSIONS),
         },
     )
 

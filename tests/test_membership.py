@@ -121,6 +121,83 @@ class TestStudentAmbassadorVisibility:
         assert "Your application status" in html
 
 
+class TestCommandCenter:
+    """Council members and above (plus community admins) get the compact
+    command-center dashboard; regular members keep the existing page."""
+
+    @pytest.fixture
+    def site(self, site):
+        from home.models import MembershipPage
+
+        page = MembershipPage(title="Become a Member", slug="become-a-member")
+        site.add_child(instance=page)
+        page.save_revision().publish()
+        return site
+
+    @pytest.fixture
+    def leadership_member(self, member):
+        from django.contrib.auth.models import Group
+
+        from core.models import COUNCIL_GROUP_NAME
+
+        member.groups.add(Group.objects.get(name=COUNCIL_GROUP_NAME))
+        return member
+
+    def test_regular_member_keeps_the_existing_page(self, client, site, member):
+        client.force_login(member)
+        html = client.get("/members/").content.decode()
+        assert "Command center" not in html
+        assert "You're signed in as" in html
+
+    def test_council_member_gets_the_command_center(self, client, site, leadership_member):
+        client.force_login(leadership_member)
+        html = client.get("/members/").content.decode()
+        assert "Command center" in html
+        assert "Council nominations" in html
+        assert "Community Service Award" in html
+        assert "Executorship Election" in html
+
+    def test_council_member_sees_the_leadership_message_inbox_preview(self, client, site, leadership_member):
+        from communities.models import Community
+        from community_messages.models import CommunityMessage
+
+        community = Community.objects.create(name="PyLagos", country="NG", is_online=True)
+        sender = leadership_member
+        CommunityMessage.objects.create(
+            community=community, sender=sender, subject="October meetup recap", body="Hello"
+        ).send()
+        client.force_login(leadership_member)
+        html = client.get("/members/").content.decode()
+        assert "Recent messages" in html
+        assert "October meetup recap" in html
+        assert 'href="/community-messages/inbox/"' in html or "Open the inbox" in html
+
+    def test_executor_gets_sponsorship_and_checklists_cards(self, client, site, member):
+        from django.contrib.auth.models import Group
+
+        from core.models import EXECUTOR_GROUP_NAME
+
+        member.groups.add(Group.objects.get(name=EXECUTOR_GROUP_NAME))
+        client.force_login(member)
+        html = client.get("/members/").content.decode()
+        assert "Command center" in html
+        assert "Sponsorships" in html
+        assert "Checklists" in html
+
+    def test_community_admin_gets_community_card_and_their_sent_messages(self, client, site, member):
+        from communities.models import Community, CommunityAdmin
+        from community_messages.models import CommunityMessage
+
+        community = Community.objects.create(name="PyLagos", country="NG")
+        CommunityAdmin.objects.create(community=community, user=member)
+        CommunityMessage.objects.create(community=community, sender=member, subject="We ran a sprint", body="Hello")
+        client.force_login(member)
+        html = client.get("/members/").content.decode()
+        assert "Command center" in html
+        assert "Your communities" in html
+        assert "We ran a sprint" in html
+
+
 class _FakeDiscordResponse:
     def __init__(self, status_code=201, text=""):
         self.status_code = status_code

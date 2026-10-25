@@ -306,3 +306,114 @@ a[role="button"].btn-discord:hover {
   border-color: #4752c4;
   color: #ffffff;
 }
+
+/* ── Leadership command center (issue #174) ───────────────── */
+
+.cc-header {
+  max-width: 72rem;
+  margin: 2.5rem auto 1.5rem;
+}
+
+.cc-header h1 {
+  margin-bottom: 0.5rem;
+}
+
+/* Recent-messages preview: compact rows, not full email bodies. */
+.cc-messages-panel {
+  max-width: 72rem;
+  margin: 0 auto 1.5rem;
+}
+
+.cc-message-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cc-message-list li {
+  border-bottom: 1px solid var(--bpd-border);
+}
+
+.cc-message-list li:last-child {
+  border-bottom: none;
+}
+
+.cc-message-list a {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.6rem 0.25rem;
+  text-decoration: none;
+}
+
+.cc-message-list a:hover .cc-message-subject {
+  color: var(--bpd-gold);
+}
+
+.cc-message-subject {
+  font-weight: 600;
+}
+
+.cc-message-meta {
+  color: var(--bpd-muted);
+  font-size: 0.85rem;
+}
+
+/* One card per thing leadership can do: a grid, not a vertical stack. */
+.cc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: 1rem;
+  max-width: 72rem;
+  margin: 0 auto 1.5rem;
+}
+
+.cc-card {
+  padding: 1.25rem;
+  background: var(--bpd-raised);
+  border: 1px solid var(--bpd-border);
+  border-radius: 12px;
+}
+
+.cc-card h2 {
+  font-size: 1.1rem;
+  margin: 0 0 0.5rem;
+}
+
+.cc-card p {
+  color: var(--bpd-muted);
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+}
+
+.cc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.cc-actions a[role="button"] {
+  padding: 0.35rem 0.8rem;
+  font-size: 0.9rem;
+}
+
+/* Account links inlined in one row instead of another stacked panel. */
+.cc-account-panel {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1.25rem;
+}
+
+.cc-account-panel h2 {
+  margin-bottom: 0.75rem;
+}
+
+.cc-account-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
