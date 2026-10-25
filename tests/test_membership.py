@@ -189,6 +189,119 @@ def member(db):
     )
 
 
+class TestCommandCenter:
+    """Council members and above — and community admins — get the member area
+    as a command center: quick actions as a grid plus a preview of the latest
+    messages from communities. Plain members keep the original page."""
+
+    @pytest.fixture
+    def council_member(self, db):
+        from django.contrib.auth.models import Group
+
+        from core.models import COUNCIL_GROUP_NAME
+
+        user = get_user_model().objects.create_user(
+            username="council", email="council@example.com", country="NG", onboarding_completed_at=timezone.now()
+        )
+        user.groups.add(Group.objects.get(name=COUNCIL_GROUP_NAME))
+        return user
+
+    @pytest.fixture
+    def community_admin(self, db):
+        from django.contrib.auth.models import Group
+
+        from communities.models import COMMUNITY_ADMIN_GROUP_NAME, Community, CommunityAdmin
+
+        community = Community.objects.create(name="PyLagos", country="NG")
+        user = get_user_model().objects.create_user(
+            username="cadmin", email="cadmin@example.com", country="NG", onboarding_completed_at=timezone.now()
+        )
+        user.groups.add(Group.objects.get(name=COMMUNITY_ADMIN_GROUP_NAME))
+        CommunityAdmin.objects.create(community=community, user=user)
+        return user
+
+    def test_council_member_gets_the_command_center(self, client, site, council_member):
+        client.force_login(council_member)
+        html = client.get("/members/").content.decode()
+        assert "Command center" in html
+        # The old page's stacked panel heading is replaced by the grid.
+        assert "Leadership actions" not in html
+        assert "Nominate someone" in html
+
+    def test_plain_member_keeps_the_member_page(self, client, site, member):
+        client.force_login(member)
+        html = client.get("/members/").content.decode()
+        assert "Command center" not in html
+        assert "Your account" in html
+
+    def test_community_admin_gets_the_command_center(self, client, site, community_admin):
+        client.force_login(community_admin)
+        html = client.get("/members/").content.decode()
+        assert "Command center" in html
+        assert "Manage your communities" in html
+        # They are not on the Council, so no sponsorship or message cards.
+        assert "Corporate sponsors" not in html
+        assert "Messages from communities" not in html
+
+    def test_superuser_gets_the_command_center_with_the_checklists_card(self, client, site, db):
+        from django.contrib.auth.models import Group
+
+        from core.models import EXECUTOR_GROUP_NAME
+
+        user = get_user_model().objects.create_user(
+            username="root",
+            email="root@example.com",
+            onboarding_completed_at=timezone.now(),
+            is_superuser=True,
+        )
+        user.groups.add(Group.objects.get(name=EXECUTOR_GROUP_NAME))
+        client.force_login(user)
+        html = client.get("/members/").content.decode()
+        assert "Command center" in html
+        assert "Open checklists" in html
+
+    def test_message_preview_escapes_the_body(self, client, site, council_member):
+        from communities.models import Community
+        from community_messages.models import CommunityMessage
+
+        community = Community.objects.create(name="PyLagos", country="NG")
+        CommunityMessage.objects.create(
+            community=community,
+            sender=council_member,
+            subject="Monthly update",
+            body='<script>alert("gotcha")</script>Hello from Lagos',
+            sent_at=timezone.now(),
+        )
+        client.force_login(council_member)
+        html = client.get("/members/").content.decode()
+        assert "Monthly update" in html
+        assert "<script>alert" not in html
+        assert "&lt;script&gt;" in html
+
+    def test_message_preview_only_shows_their_region(self, client, site, council_member):
+        """A leader only previews messages addressed to them: their region's
+        communities and online-only ones, never other regions'."""
+        from communities.models import Community
+        from community_messages.models import CommunityMessage
+
+        local = Community.objects.create(name="PyLagos", country="NG")
+        overseas = Community.objects.create(name="PyTexas", country="US")
+        online = Community.objects.create(name="Remote Pythonistas", is_online=True)
+        for name, community in (("local", local), ("overseas", overseas), ("online", online)):
+            CommunityMessage.objects.create(
+                community=community,
+                sender=council_member,
+                subject=f"Note for {name}",
+                body="Body.",
+                sent_at=timezone.now(),
+            )
+        client.force_login(council_member)
+        html = client.get("/members/").content.decode()
+        assert "Note for local" in html
+        assert "Note for online" in html
+        assert "Note for overseas" not in html
+
+
 @pytest.fixture
 def discord_app(db):
     # django.contrib.sites isn't installed, so the app is matched by provider.

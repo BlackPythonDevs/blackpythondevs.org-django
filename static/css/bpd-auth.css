@@ -250,6 +250,200 @@ a[role="button"].btn-discord:hover {
   color: var(--bpd-gold);
 }
 
+/* ── Command center (leadership member area) ──────────────── */
+
+/* Council members and above, and community admins, get the member area as a
+   dashboard: the messages column up top, quick actions as a grid below, and
+   account links as a quiet footer row — no vertical stack of panels. */
+
+.command-center {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding-top: 2.5rem;
+}
+
+.cc-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  margin-bottom: 2rem;
+}
+
+.cc-title {
+  font-family: "Syne", "DM Sans", system-ui, sans-serif;
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bpd-white);
+  margin: 0;
+}
+
+.cc-header .cc-sub {
+  margin-top: 0.35rem;
+}
+
+.cc-sub {
+  color: var(--bpd-muted);
+}
+
+/* Messages read as an inbox column, gold-ruled to set them apart from the
+   action cards below — the one deliberately loud element on the page. */
+.cc-messages {
+  background: var(--bpd-raised);
+  border: 1px solid var(--bpd-border);
+  border-left: 3px solid var(--bpd-gold);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.cc-messages-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.cc-messages-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--bpd-white);
+}
+
+.cc-message-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cc-message-list li + li {
+  border-top: 1px solid var(--bpd-border);
+}
+
+.cc-message-list a {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.8rem 0.25rem;
+  text-decoration: none;
+}
+
+.cc-message-subject {
+  color: var(--bpd-cyan);
+  font-weight: 600;
+}
+
+.cc-message-meta {
+  color: var(--bpd-muted);
+  font-size: 0.85rem;
+}
+
+.cc-message-preview {
+  color: var(--bpd-text);
+  font-size: 0.95rem;
+}
+
+.cc-message-list a:hover .cc-message-subject,
+.cc-message-list a:focus-visible .cc-message-subject {
+  color: var(--bpd-white);
+}
+
+.cc-messages-foot {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+}
+
+.cc-empty {
+  color: var(--bpd-muted);
+  margin: 0.5rem 0 0;
+}
+
+.cc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.cc-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: var(--bpd-raised);
+  border: 1px solid var(--bpd-border);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  transition: border-color 0.3s ease;
+}
+
+.cc-card:hover {
+  border-color: var(--bpd-cyan);
+}
+
+.cc-card h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--bpd-white);
+}
+
+.cc-card p {
+  flex: 1 1 auto;
+  margin: 0;
+  color: var(--bpd-muted);
+  font-size: 0.92rem;
+}
+
+.cc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* Card buttons read as compact variants of the site buttons, not a new
+   style — same colours, less padding. */
+.cc-actions a[role="button"] {
+  padding: 0.45rem 1rem;
+  font-size: 0.85rem;
+}
+
+.cc-account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.75rem;
+  border-top: 1px solid var(--bpd-border);
+  padding-top: 1.25rem;
+  font-size: 0.9rem;
+}
+
+.cc-account a {
+  color: var(--bpd-muted);
+}
+
+.cc-account a:hover {
+  color: var(--bpd-white);
+}
+
+.cc-account a.cc-danger {
+  color: var(--bpd-danger);
+}
+
+@media (max-width: 600px) {
+  .command-center {
+    padding-top: 1.5rem;
+  }
+
+  .cc-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
 /* ── Membership page ──────────────────────────────────────── */
 
 .membership-intro {
