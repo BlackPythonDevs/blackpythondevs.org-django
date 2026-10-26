@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% load socialaccount %}
+
+{% block title %}Command center{% endblock %}
+
+{% block content %}
+  <div class="command-center">
+    <header class="cc-header">
+      <div>
+        <h1>
+          {% if user.display_name %}{{ user.display_name }}{% else %}Welcome{% endif %}
+          {% if discord_account %}
+            <a class="discord-badge connected"
+               href="{{ discord_invite_url }}"
+               target="_blank"
+               rel="noopener"
+               title="Connected to Discord as {{ discord_account.extra_data.username|default:discord_account.uid }}"
+               aria-label="Open Discord (connected as {{ discord_account.extra_data.username|default:discord_account.uid }})">
+              <i class="iconoir-discord" aria-hidden="true"></i>
+            </a>
+          {% elif discord_login_available %}
+            <form class="discord-badge-form" method="post" action="{% provider_login_url 'discord' process='connect' next='/members/' %}">
+              {% csrf_token %}
+              <button type="submit" class="discord-badge" title="Connect Discord" aria-label="Connect Discord">
+                <i class="iconoir-discord" aria-hidden="true"></i>
+              </button>
+            </form>
+          {% endif %}
+        </h1>
+        <p class="cc-greeting">Your command center — everything that needs you, one screen.</p>
+      </div>
+      <nav class="cc-account" aria-label="Account">
+        <a href="{% url 'profile' %}">Profile</a>
+        <a href="{% url 'account_email' %}">Email</a>
+        {% if user.is_staff %}<a href="/cms/">CMS</a>{% endif %}
+        <a href="{% url 'account_logout' %}">Sign out</a>
+      </nav>
+    </header>
+
+    {% if is_leadership_member %}
+      <section class="cc-messages" aria-label="Messages from communities">
+        <div class="cc-section-head">
+          <h2>Messages from communities</h2>
+          <a href="{% url 'community_messages:inbox' %}">Open inbox</a>
+        </div>
+        {% if recent_messages %}
+          <ul class="cc-message-list">
+            {% for message in recent_messages %}
+              <li>
+                <a href="{% url 'community_messages:detail' message.pk %}">
+                  <span class="cc-message-subject">{{ message.subject }}</span>
+                  <span class="cc-message-meta">{{ message.community.name }} · {{ message.created_at|date:"j N Y" }}</span>
+                </a>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="cc-empty">No messages from communities yet.</p>
+        {% endif %}
+      </section>
+    {% endif %}
+
+    <div class="cc-grid">
+      {% if can_send_notifications %}
+        <section class="cc-card">
+          <h2>Notifications</h2>
+          <p>Send an announcement to members, filtered by region, group, or subcommunity.</p>
+          <p class="cc-actions">
+            <a role="button" class="btn" href="{% url 'notifications:send' %}">Send a notification</a>
+            <a role="button" class="secondary" href="{% url 'notifications:sent' %}">See sent notifications</a>
+          </p>
+        </section>
+      {% endif %}
+
+      {% if can_manage_communities %}
+        <section class="cc-card">
+          <h2>Your communities</h2>
+          <p>Update your community's info, or message BPD leadership about what's happening in it.</p>
+          <p class="cc-actions">
+            <a role="button" class="btn" href="{% url 'communities-list' %}">Manage your communities</a>
+            <a role="button" class="secondary" href="{% url 'community_messages:list' %}">See sent messages</a>
+          </p>
+        </section>
+      {% endif %}
+
+      {% if can_manage_sponsorships %}
+        <section class="cc-card">
+          <h2>Sponsorships</h2>
+          <p>Manage corporate sponsors and community event sponsorship requests.</p>
+          <p class="cc-actions">
+            <a role="button" class="btn" href="{% url 'sponsors-list' %}">Corporate sponsors</a>
+            <a role="button" class="secondary" href="{% url 'sponsorships-list' %}">Event sponsorship requests</a>
+          </p>
+        </section>
+      {% endif %}
+
+      {% if can_nominate %}
+        <section class="cc-card">
+          <h2>Council nominations</h2>
+          <p>
+            As a member of leadership you can put people forward for a seat on
+            the Black Python Devs Leadership Council.
+          </p>
+          <p class="cc-actions">
+            <a role="button" class="btn" href="{% url 'nominations:nominate' %}">Nominate someone</a>
+            <a role="button" class="secondary" href="{% url 'nominations:list' %}">See all nominations</a>
+          </p>
+        </section>
+      {% endif %}
+
+      {% if can_nominate_service_award %}
+        <section class="cc-card">
+          <h2>Community Service Award</h2>
+          <p>Put a community member forward for the annual Community Service Award.</p>
+          <p class="cc-actions">
+            <a role="button" class="btn" href="{% url 'service_award:nominate' %}">Nominate someone</a>
+            <a role="button" class="secondary" href="{% url 'service_award:list' %}">See all nominations</a>
+          </p>
+        </section>
+      {% endif %}
+
+      {% if is_council_member %}
+        <section class="cc-card">
+          <h2>Executorship Election</h2>
+          {% if can_write_candidacy_statement %}
+            <p>Write or update your candidacy statement for the {{ current_election.year }} election.</p>
+            <p class="cc-actions">
+              <a role="button" class="btn" href="{% url 'elections:statement' %}">Write your statement</a>
+              <a role="button" class="secondary" href="{% url 'elections:detail' %}">See the election page</a>
+            </p>
+          {% else %}
+            <p>See who's running and the current status of the election.</p>
+            <p class="cc-actions"><a role="button" class="btn" href="{% url 'elections:detail' %}">See the election page</a></p>
+          {% endif %}
+        </section>
+      {% endif %}
+
+      {% if can_manage_sponsorships %}
+        <section class="cc-card">
+          <h2>Process checklists</h2>
+          <p>Work through the follow-through checklists for ongoing processes.</p>
+          <p class="cc-actions"><a role="button" class="btn" href="{% url 'checklists-index' %}">Open checklists</a></p>
+        </section>
+      {% endif %}
+
+      {% if is_student or ambassador_application %}
+        <section class="cc-card">
+          <h2>Student Ambassador programme</h2>
+          {% if ambassador_application %}
+            <p>Your application status: <strong>{{ ambassador_application.get_status_display }}</strong>.</p>
+            <p class="cc-actions"><a href="{% url 'ambassadors:status' %}">View your application</a></p>
+          {% else %}
+            <p>Help grow the Python community on your campus as a Black Python Devs student ambassador.</p>
+            <p class="cc-actions"><a role="button" class="btn" href="{% url 'ambassadors:apply' %}">Apply now</a></p>
+          {% endif %}
+        </section>
+      {% endif %}
+    </div>
+
+    <footer class="cc-footer">
+      <a href="{% url 'socialaccount_connections' %}">Connected accounts</a>
+      <a class="link-danger" href="{% url 'account-delete' %}">Delete your account</a>
+    </footer>
+  </div>
+{% endblock %}

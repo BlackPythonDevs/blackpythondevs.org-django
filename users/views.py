@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from ambassadors.models import StudentAmbassador
 from communities.models import can_manage_community
-from community_messages.models import is_leadership
+from community_messages.models import is_leadership, messages_for_leader
 from core.models import (
     CustomImage,
     Leader,
@@ -33,7 +33,14 @@ from .models import INVITE_SESSION_KEY, InviteLink
 
 @login_required
 def members(request):
-    """The member area: profile summary and Discord connection status."""
+    """The member area: profile summary and Discord connection status.
+
+    Council members and above, plus community admins, get a compact
+    "command center" instead (issue #174): a preview of the latest messages
+    from communities and a grid of quick actions, so leadership work doesn't
+    mean scrolling through a stack of panels. Everyone else gets the
+    regular member page.
+    """
     if request.user.needs_onboarding:
         return redirect("onboarding")
 
@@ -41,39 +48,43 @@ def members(request):
     # election panel below (see elections.management.commands.create_election).
     election = Election.objects.order_by("-year").first()
 
-    return render(
-        request,
-        "users/members.html",
-        {
-            "discord_account": SocialAccount.objects.filter(user=request.user, provider="discord").first(),
-            "discord_invite_url": settings.DISCORD_INVITE_URL,
-            # Whether connecting actually grants the messaging role, or just links.
-            "discord_role_enabled": is_configured(),
-            # Whether a Discord OAuth app exists, so the connect flow can run.
-            "discord_login_available": login_available(request),
-            # Their ambassador application, if they've started one.
-            "ambassador_application": StudentAmbassador.objects.filter(user=request.user).first(),
-            # Only students can apply, but anyone with an existing application
-            # should keep seeing its status.
-            "is_student": is_student(request.user),
-            # Council/Leadership members get the nominations panel.
-            "can_nominate": can_nominate(request.user),
-            # Leadership Council + Executor get the service award panel.
-            "can_nominate_service_award": can_nominate_service_award(request.user),
-            # Council members get the election panel; only they can be candidates.
-            "is_council_member": is_council_member(request.user),
-            "current_election": election,
-            "can_write_candidacy_statement": election is not None and election.phase == Election.NOMINATING,
-            # Staff, Executors, Sponsors, and Community Partners get the notifications panel.
-            "can_send_notifications": can_send_notifications(request.user),
-            # Community admins get a link to their console + compose form.
-            "can_manage_communities": can_manage_community(request.user),
-            # Executors get links to the sponsorships/sponsors consoles.
-            "can_manage_sponsorships": can_manage_sponsorships(request.user),
-            # Leadership members get a link to messages sent to them.
-            "is_leadership_member": is_leadership(request.user),
-        },
-    )
+    context = {
+        "discord_account": SocialAccount.objects.filter(user=request.user, provider="discord").first(),
+        "discord_invite_url": settings.DISCORD_INVITE_URL,
+        # Whether connecting actually grants the messaging role, or just links.
+        "discord_role_enabled": is_configured(),
+        # Whether a Discord OAuth app exists, so the connect flow can run.
+        "discord_login_available": login_available(request),
+        # Their ambassador application, if they've started one.
+        "ambassador_application": StudentAmbassador.objects.filter(user=request.user).first(),
+        # Only students can apply, but anyone with an existing application
+        # should keep seeing its status.
+        "is_student": is_student(request.user),
+        # Council/Leadership members get the nominations panel.
+        "can_nominate": can_nominate(request.user),
+        # Leadership Council + Executor get the service award panel.
+        "can_nominate_service_award": can_nominate_service_award(request.user),
+        # Council members get the election panel; only they can be candidates.
+        "is_council_member": is_council_member(request.user),
+        "current_election": election,
+        "can_write_candidacy_statement": election is not None and election.phase == Election.NOMINATING,
+        # Staff, Executors, Sponsors, and Community Partners get the notifications panel.
+        "can_send_notifications": can_send_notifications(request.user),
+        # Community admins get a link to their console + compose form.
+        "can_manage_communities": can_manage_community(request.user),
+        # Executors get links to the sponsorships/sponsors consoles.
+        "can_manage_sponsorships": can_manage_sponsorships(request.user),
+        # Leadership members get a link to messages sent to them.
+        "is_leadership_member": is_leadership(request.user),
+    }
+
+    if is_leadership_or_above(request.user) or can_manage_community(request.user):
+        # A few of the newest messages reach the preview; the inbox link
+        # covers the rest.
+        context["recent_messages"] = messages_for_leader(request.user)[:4]
+        return render(request, "users/command_center.html", context)
+
+    return render(request, "users/members.html", context)
 
 
 def _leader_for_roster(user):
