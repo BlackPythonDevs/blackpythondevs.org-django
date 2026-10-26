@@ -306,3 +306,162 @@ a[role="button"].btn-discord:hover {
   border-color: #4752c4;
   color: #ffffff;
 }
+
+/* ── Command center (leadership member area, issue #174) ──── */
+
+.command-center {
+  margin-top: 2rem;
+}
+
+/* Header: name left, account links right, so the tasks below start
+   immediately — no scrolling through account chrome to reach them. */
+.command-center .cc-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.command-center .cc-header h1 {
+  margin: 0;
+}
+
+.command-center .cc-greeting {
+  margin: 0.25rem 0 0;
+  color: var(--bpd-muted);
+}
+
+.command-center .cc-account {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+}
+
+/* Latest messages first: the thing a leader most often comes here for.
+   The gold edge marks it as the highlight, matching .alert elsewhere. */
+.command-center .cc-messages {
+  margin-bottom: 1.75rem;
+  padding: 1rem 1.25rem;
+  background: var(--bpd-raised);
+  border: 1px solid var(--bpd-border);
+  border-left: 3px solid var(--bpd-gold);
+  border-radius: 12px;
+}
+
+.command-center .cc-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.command-center .cc-section-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.command-center .cc-message-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.command-center .cc-message-list a {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.75rem;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--bpd-border);
+}
+
+.command-center .cc-message-list li:last-child a {
+  border-bottom: none;
+}
+
+.command-center .cc-message-subject {
+  color: var(--bpd-text);
+}
+
+.command-center .cc-message-list a:hover .cc-message-subject,
+.command-center .cc-message-list a:focus-visible .cc-message-subject {
+  color: var(--bpd-cyan);
+}
+
+.command-center .cc-message-meta {
+  color: var(--bpd-muted);
+  font-size: 0.85rem;
+}
+
+.command-center .cc-empty {
+  margin: 0.25rem 0 0;
+  color: var(--bpd-muted);
+}
+
+/* One grid of quick actions instead of a vertical stack of panels:
+   every card is visible in the first screenful on a desktop. */
+.command-center .cc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: 1.25rem;
+  align-items: stretch;
+}
+
+.command-center .cc-card {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 1.25rem;
+  background: var(--bpd-raised);
+  border: 1px solid var(--bpd-border);
+  border-radius: 12px;
+  transition: border-color 0.3s ease;
+}
+
+.command-center .cc-card:hover {
+  border-color: var(--bpd-border-hi);
+}
+
+.command-center .cc-card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.command-center .cc-card p {
+  margin-bottom: 0.75rem;
+  color: var(--bpd-muted);
+  font-size: 0.95rem;
+}
+
+/* Buttons pin to the bottom so cards in a row line up. */
+.command-center .cc-actions {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.command-center .cc-actions a[role="button"] {
+  margin: 0;
+}
+
+.command-center .cc-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.5rem;
+  margin-top: 1.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--bpd-border);
+  font-size: 0.9rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .command-center .cc-card {
+    transition: none;
+  }
+}

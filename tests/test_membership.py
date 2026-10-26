@@ -9,7 +9,12 @@ import pytest
 from allauth.socialaccount.models import SocialAccount, SocialApp
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.utils import timezone
+
+from communities.models import Community, CommunityAdmin
+from community_messages.models import CommunityMessage
+from core.models import COUNCIL_GROUP_NAME, EXECUTOR_GROUP_NAME
 
 pytestmark = pytest.mark.django_db
 
@@ -193,3 +198,78 @@ def member(db):
 def discord_app(db):
     # django.contrib.sites isn't installed, so the app is matched by provider.
     return SocialApp.objects.create(provider="discord", name="Discord", client_id="cid", secret="secret")
+
+
+class TestCommandCenter:
+    """Council members and above — plus community admins — get the compact
+    command-center dashboard instead of the regular member page (issue #174)."""
+
+    @pytest.fixture
+    def council_member(self, db):
+        user = get_user_model().objects.create_user(
+            username="councilor",
+            email="councilor@example.com",
+            display_name="Cee Member",
+            onboarding_completed_at=timezone.now(),
+        )
+        user.groups.add(Group.objects.get(name=COUNCIL_GROUP_NAME))
+        return user
+
+    @pytest.fixture
+    def community_admin(self, db):
+        user = get_user_model().objects.create_user(
+            username="admin",
+            email="admin@example.com",
+            onboarding_completed_at=timezone.now(),
+        )
+        community = Community.objects.create(name="PyLagos", country="NG")
+        CommunityAdmin.objects.create(community=community, user=user)
+        return user
+
+    def test_council_member_gets_the_command_center(self, client, site, council_member):
+        client.force_login(council_member)
+        html = client.get("/members/").content.decode()
+        assert "command-center" in html
+        assert "Cee Member" in html
+
+    def test_executor_gets_the_command_center(self, client, site):
+        user = get_user_model().objects.create_user(
+            username="executor",
+            email="executor@example.com",
+            onboarding_completed_at=timezone.now(),
+        )
+        user.groups.add(Group.objects.get(name=EXECUTOR_GROUP_NAME))
+        client.force_login(user)
+        assert "command-center" in client.get("/members/").content.decode()
+
+    def test_community_admin_gets_the_command_center(self, client, site, community_admin):
+        client.force_login(community_admin)
+        html = client.get("/members/").content.decode()
+        assert "command-center" in html
+        assert "Your communities" in html
+
+    def test_regular_member_keeps_the_plain_member_page(self, client, site, member):
+        client.force_login(member)
+        html = client.get("/members/").content.decode()
+        assert "command-center" not in html
+        assert "Your account" in html
+
+    def test_messages_preview_lists_recent_community_messages(self, client, site, council_member):
+        community = Community.objects.create(name="Remote Pythonistas", is_online=True)
+        sender = get_user_model().objects.create_user(username="sender", email="sender@example.com")
+        CommunityAdmin.objects.create(community=community, user=sender)
+        message = CommunityMessage.objects.create(
+            community=community, sender=sender, subject="June meet-up recap", body="All went well."
+        )
+        message.send()
+
+        client.force_login(council_member)
+        html = client.get("/members/").content.decode()
+        assert "June meet-up recap" in html
+        assert 'href="/communities/messages/inbox/"' in html
+
+    def test_account_links_stay_available(self, client, site, council_member):
+        client.force_login(council_member)
+        html = client.get("/members/").content.decode()
+        assert 'href="/profile/"' in html
+        assert "Sign out" in html
