@@ -19,15 +19,31 @@ from django.db.models.signals import post_save
 _registry = {}
 
 
-def register(model, steps, *, name=None):
+def register(model, steps, *, name=None, view_permission=None, detail_template=None):
     """Give `model` a default checklist of `steps` (ordered titles).
 
     Connects a post_save receiver scoped to `model` that seeds the steps as
     Task rows the first time an instance is created. Idempotent: an instance
     that already has tasks (e.g. re-saved, or backfilled) is left alone.
+
+    Two optional keys tighten the console for models whose checklist is
+    confidential (e.g. coc_reports.CocReport):
+
+    - `view_permission`: a model permission that is required *on top of*
+      this app's own console permissions before the object list and detail
+      views will show that model's checklists (and the index will list it).
+    - `detail_template`: the template ChecklistDetailView renders for this
+      model instead of the generic one — for a model whose instances must
+      not be rendered in full by the generic console page.
     """
     label = model._meta.label_lower
-    _registry[label] = {"model": model, "steps": list(steps), "name": name or str(model._meta.verbose_name)}
+    _registry[label] = {
+        "model": model,
+        "steps": list(steps),
+        "name": name or str(model._meta.verbose_name),
+        "view_permission": view_permission,
+        "detail_template": detail_template,
+    }
     post_save.connect(_seed_defaults, sender=model, weak=False, dispatch_uid=f"checklists.seed.{label}")
 
 

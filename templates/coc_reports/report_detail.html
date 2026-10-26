@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load static checklists_tags %}
+
+{% block title %}{{ report }}{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/checklists.css' %}" />
+{% endblock %}
+
+{% block content %}
+  <section>
+    <p>
+      <a href="{% url 'coc-report-list' %}">&larr; All CoC reports</a>
+    </p>
+
+    <h1>{{ report }}</h1>
+    <p class="lead">Filed {{ report.date_reported|date:"d M Y" }} &middot; {{ report.get_status_display }}</p>
+
+    {% if messages %}
+      <ul>
+        {% for message in messages %}
+          <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    <h2>The report</h2>
+    {{ report.description|linebreaks }}
+
+    {% if can_change %}
+      <h2>Close out</h2>
+      <form method="post">
+        {% csrf_token %}
+        {{ status_form.status }}
+        <button type="submit" class="btn">Update status</button>
+      </form>
+      <p><small>Closing a report is final: it cannot be re-opened. The reporter is notified of the change.</small></p>
+    {% endif %}
+
+    {% checklist_widget report %}
+    {% task_activity report %}
+  </section>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/htmx.min.js' %}"></script>
+  <script src="{% static 'js/checklist-dragdrop.js' %}"></script>
+  <script src="{% static 'js/checklist-dialogs.js' %}"></script>
+  <script src="{% static 'js/checklist-mentions.js' %}"></script>
+{% endblock %}

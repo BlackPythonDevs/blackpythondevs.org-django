@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load static checklists_tags %}
+
+{# The checklists console's detail page for a CoC report. Deliberately renders
+   no report text — only the status, the checklist widget, and task activity.
+   The generic checklist_detail.html would render the full object; see
+   checklists/registry.register's detail_template and coc_reports.models. #}
+
+{% block title %}{{ object }} checklist{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/checklists.css' %}" />
+{% endblock %}
+
+{% block content %}
+  <section>
+    <p>
+      <a href="{% url 'checklists-object-list' app_label model_name %}">&larr; All {{ process_name|lower }} checklists</a>
+    </p>
+
+    <h1>{{ object }}</h1>
+    <p class="lead">{{ process_name }}</p>
+
+    <p>
+      The report's contents are not shown on this page — open it from
+      <a href="{% url 'coc-report-detail' object.pk %}">the CoC reports console</a>.
+    </p>
+
+    {% checklist_widget object %}
+    {% task_activity object %}
+  </section>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/htmx.min.js' %}"></script>
+  <script src="{% static 'js/checklist-dragdrop.js' %}"></script>
+  <script src="{% static 'js/checklist-dialogs.js' %}"></script>
+  <script src="{% static 'js/checklist-mentions.js' %}"></script>
+{% endblock %}
