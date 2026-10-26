@@ -47,6 +47,18 @@ def _task_progress(content_type, object_ids):
 class ChecklistsAccessMixin(PermissionRequiredMixin):
     permission_required = PERMISSION_REQUIRED
 
+    def get_permission_required(self):
+        """This app's own console permissions, plus the registered model's
+        own `view_permission` when its definition carries one — a confidential
+        model (coc_reports.CocReport) is invisible here to anyone outside the
+        role that owns it, even a full console user."""
+        perms = super().get_permission_required()
+        if "app_label" in self.kwargs and "model_name" in self.kwargs:
+            definition = registry.get_definition(f"{self.kwargs['app_label']}.{self.kwargs['model_name']}")
+            if definition and definition.get("view_permission"):
+                return (*perms, definition["view_permission"])
+        return perms
+
 
 def _get_definition_or_404(app_label, model_name):
     definition = registry.get_definition(f"{app_label}.{model_name}")
@@ -63,6 +75,11 @@ class ProcessIndexView(ChecklistsAccessMixin, TemplateView):
     def get_context_data(self, **kwargs):
         processes = []
         for definition in registry.definitions():
+            # A model with its own view_permission (e.g. CoC reports) doesn't
+            # so much as appear in the index for someone who can't see it.
+            view_permission = definition.get("view_permission")
+            if view_permission and not self.request.user.has_perm(view_permission):
+                continue
             model = definition["model"]
             content_type = ContentType.objects.get_for_model(model)
             object_ids = list(model._default_manager.values_list("pk", flat=True))
@@ -144,7 +161,10 @@ class ChecklistDetailView(ChecklistsAccessMixin, View):
             "model_name": model_name,
             "object": obj,
         }
-        return TemplateResponse(request, "checklists/checklist_detail.html", context)
+        # A model may bring its own detail template (e.g. one that renders no
+        # report text for confidential checklists — see registry.register).
+        template_name = definition.get("detail_template") or "checklists/checklist_detail.html"
+        return TemplateResponse(request, template_name, context)
 
     def post(self, request, app_label, model_name, object_id):
         definition, obj, content_type = self._load(app_label, model_name, object_id)

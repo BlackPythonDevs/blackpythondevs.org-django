@@ -43,6 +43,8 @@ urlpatterns = [
     path("leadership/", include("meetings.urls")),
     # Staff/Executor/Sponsor/Community Partner: broadcasting member announcements.
     path("notifications/", include("notifications.urls")),
+    # Public CoC report intake + the COC Report Viewing role's console.
+    path("coc/", include("coc_reports.urls")),
     # Community admins: messaging BPD leadership about their community.
     path("communities/messages/", include("community_messages.urls")),
     path("communities/<int:pk>/leave/", LeaveCommunityView.as_view(), name="communities-leave"),

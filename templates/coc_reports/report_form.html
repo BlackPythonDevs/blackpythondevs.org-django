@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Report a Code of Conduct violation{% endblock %}
+
+{% block content %}
+  <section class="auth-panel">
+    <h1>Code of Conduct Violation</h1>
+    <p class="auth-intro">
+      Submitting a code of conduct report is not just an act of courage, but a
+      powerful step towards fostering a culture of respect, safety, and
+      inclusivity. Your voice matters, and your willingness to speak up ensures
+      that everyone feels valued and heard. By reporting any instances of
+      misconduct, you're not only advocating for yourself but also for the
+      well-being of your community. Together, we can create environments where
+      everyone feels empowered to thrive. So, don't hesitate—your actions today
+      pave the way for a brighter, more equitable tomorrow.
+    </p>
+    <p>
+      Your report will be recorded and initially shared with our Code of
+      Conduct team and our Code of Conduct Liaison. If a consensus cannot be
+      met, the Global Executor will also be notified.
+    </p>
+    <p>
+      If it is determined that corrective or remedial action is necessary, we
+      will notify the person towards whom the report was directed while keeping
+      the identity of the reporting person anonymous if possible.
+    </p>
+    <p>You will be notified of the working group's decision.</p>
+    <p>The tenets of our Code of Conduct Action Policy are that:</p>
+    <ul>
+      <li>
+        Blending of cultures is difficult, but showing respect, compassion, and
+        empathy is not. Our judgement is based on the intent of the action.
+      </li>
+      <li>
+        We hope to act in fairness to all parties, retaining the anonymity of
+        the reporting person.
+      </li>
+      <li>
+        Failure to adjust to corrective or remedial actions can result in more
+        severe action.
+      </li>
+    </ul>
+
+    <form method="post">
+      {% csrf_token %}
+      {{ form.description.label_tag }}
+      {{ form.description }}
+      {{ form.description.errors }}
+      <p>{{ form.is_anonymous }} <label for="{{ form.is_anonymous.id_for_label }}">{{ form.is_anonymous.label }}</label></p>
+      {{ form.is_anonymous.help_text }}
+      {{ form.is_anonymous.errors }}
+      <button type="submit" class="btn">Send report</button>
+    </form>
+  </section>
+{% endblock %}

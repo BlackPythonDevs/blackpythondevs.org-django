@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}CoC reports{% endblock %}
+
+{% block content %}
+  <section>
+    <h1>Code of Conduct reports</h1>
+    <p class="lead">
+      Confidential reports filed on the website, for the Code of Conduct team.
+    </p>
+
+    {% if reports %}
+      <figure>
+        <table role="grid">
+          <thead>
+            <tr>
+              <th scope="col">Report</th>
+              <th scope="col">Status</th>
+              <th scope="col">Filed</th>
+              <th scope="col"><span class="screen-reader-text">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for report in reports %}
+              <tr>
+                <th scope="row">{{ report }}</th>
+                <td>{{ report.get_status_display }}</td>
+                <td>{{ report.date_reported|date:"d M Y" }}</td>
+                <td><a href="{% url 'coc-report-detail' report.pk %}">Open</a></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </figure>
+    {% else %}
+      <p>There are no reports yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}

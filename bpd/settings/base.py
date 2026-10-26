@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "elections",
     "service_award",
     "meetings",
+    "coc_reports",
     "notifications",
     "communities",
     "community_messages",
@@ -103,6 +104,11 @@ AUDITLOG_EXCLUDE_TRACKING_MODELS = (
     # voted, not how) stays audited. See elections.models.Ballot.
     "elections.Ballot",
     "elections.BallotRanking",
+    # Confidential CoC reports: an audit entry would record the submitting
+    # user as the actor of their own report, and its stored copy of the
+    # report text would be readable by every superuser — see
+    # coc_reports.models.CocReport. (Same reasoning as elections.Ballot.)
+    "coc_reports.CocReport",
 )
 
 ROOT_URLCONF = "bpd.urls"
