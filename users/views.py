@@ -76,6 +76,8 @@ def members(request):
         "can_manage_sponsorships": can_manage_sponsorships(request.user),
         # Leadership members get a link to messages sent to them.
         "is_leadership_member": is_leadership(request.user),
+        # Leadership Council + Executor get the meeting-minutes console.
+        "can_manage_meetings": is_leadership_or_above(request.user),
     }
 
     if is_leadership_or_above(request.user) or can_manage_community(request.user):

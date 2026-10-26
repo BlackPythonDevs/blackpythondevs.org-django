@@ -119,6 +119,17 @@
         </section>
       {% endif %}
 
+      {% if can_manage_meetings %}
+        <section class="cc-card">
+          <h2>Leadership meetings</h2>
+          <p>Schedule leadership meetings, download the calendar invite, and publish the minutes.</p>
+          <p class="cc-actions">
+            <a role="button" class="btn" href="{% url 'meetings-list' %}">Meeting minutes</a>
+            <a role="button" class="secondary" href="{% url 'meetings-create' %}">Schedule a meeting</a>
+          </p>
+        </section>
+      {% endif %}
+
       {% if is_council_member %}
         <section class="cc-card">
           <h2>Executorship Election</h2>

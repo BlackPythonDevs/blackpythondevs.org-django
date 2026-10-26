@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Edit {{ object.title }}{% else %}New meeting{% endif %}{% endblock %}
+
+{% block content %}
+  <section class="auth-panel">
+    <p><a href="{% url 'meetings-list' %}">&larr; All meetings</a></p>
+
+    <h1>{% if object %}Edit meeting{% else %}Schedule a meeting{% endif %}</h1>
+    <p class="auth-intro">
+      The notes field is the meeting's minutes — whatever you save there is published on the detail page.
+    </p>
+
+    {# No action: posting back to the current URL is right for both create and edit. #}
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <div class="form-actions">
+        <button type="submit" class="btn">Save</button>
+        <a role="button" class="btn-cancel"
+           href="{% if object %}{% url 'meetings-detail' object.pk %}{% else %}{% url 'meetings-list' %}{% endif %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

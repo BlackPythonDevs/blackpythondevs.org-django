@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "nominations",
     "elections",
     "service_award",
+    "meetings",
     "notifications",
     "communities",
     "community_messages",

@@ -38,6 +38,9 @@ urlpatterns = [
     path("elections/", include("elections.urls")),
     # Leadership-only: nominating people for the Community Service Award.
     path("leadership/service-award/", include("service_award.urls")),
+    # Leadership-only: meeting minutes console (neapolitan) with a
+    # per-meeting .ics calendar download.
+    path("leadership/", include("meetings.urls")),
     # Staff/Executor/Sponsor/Community Partner: broadcasting member announcements.
     path("notifications/", include("notifications.urls")),
     # Community admins: messaging BPD leadership about their community.
