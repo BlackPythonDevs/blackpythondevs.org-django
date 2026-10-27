@@ -14,11 +14,13 @@ from django.shortcuts import get_object_or_404
 from django.views.generic import View
 from neapolitan.views import CRUDView
 
+from .forms import MeetingForm
 from .models import Meeting
 
 
 class MeetingView(PermissionRequiredMixin, CRUDView):
     model = Meeting
+    form_class = MeetingForm
     url_base = "meetings"
     fields = [
         "title",
