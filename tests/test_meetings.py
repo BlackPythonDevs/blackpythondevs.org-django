@@ -14,7 +14,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.utils import timezone
 
-from meetings.models import Meeting
+from meetings.models import CalendarFeed, Meeting
 
 pytestmark = pytest.mark.django_db
 
@@ -206,6 +206,60 @@ class TestICSDownload:
         meeting.save()
         body = client.get(f"/leadership/meetings/{meeting.pk}/meeting.ics").content.decode()
         assert "DTSTART:20300601T153000Z" in body
+
+    def test_past_meeting_is_not_downloadable(self, client, council_member, meeting):
+        """Once the meeting has been had, the invite is gone (issue #186):
+        the .ics 404s even for leadership."""
+        meeting.scheduled_at = timezone.now() - timedelta(hours=1)
+        meeting.save()
+        client.force_login(council_member)
+        assert client.get(f"/leadership/meetings/{meeting.pk}/meeting.ics").status_code == 404
+
+    def test_past_meeting_detail_hides_the_download_button(self, client, council_member, meeting):
+        meeting.scheduled_at = timezone.now() - timedelta(hours=1)
+        meeting.save()
+        client.force_login(council_member)
+        content = client.get(f"/leadership/meetings/{meeting.pk}/").content.decode()
+        assert "Download calendar entry" not in content
+
+    def test_upcoming_meeting_detail_shows_the_download_button(self, client, council_member, meeting):
+        client.force_login(council_member)
+        content = client.get(f"/leadership/meetings/{meeting.pk}/").content.decode()
+        assert "Download calendar entry" in content
+
+
+class TestCalendarFeed:
+    """The token-gated subscribable feed of upcoming meetings (issue #186)."""
+
+    FEED_URL = "/leadership/meetings/calendar.ics"
+
+    def test_no_token_404s(self, client, meeting):
+        assert client.get(self.FEED_URL).status_code == 404
+
+    def test_wrong_token_404s(self, client, meeting):
+        assert client.get(self.FEED_URL + "?token=nope").status_code == 404
+
+    def test_valid_token_needs_no_login(self, client, meeting):
+        response = client.get(self.FEED_URL + f"?token={CalendarFeed.current_token()}")
+        assert response.status_code == 200
+        assert response["Content-Type"] == "text/calendar; charset=utf-8"
+        body = response.content.decode()
+        assert "BEGIN:VCALENDAR" in body
+        assert f"UID:meeting-{meeting.pk}@blackpythondevs.org" in body
+
+    def test_feed_holds_only_upcoming_meetings(self, client):
+        upcoming = Meeting.objects.create(title="Next sync", scheduled_at=timezone.now() + timedelta(days=7))
+        past = Meeting.objects.create(title="Old sync", scheduled_at=timezone.now() - timedelta(days=7))
+        body = client.get(self.FEED_URL + f"?token={CalendarFeed.current_token()}").content.decode()
+        assert f"UID:meeting-{upcoming.pk}@blackpythondevs.org" in body
+        assert f"UID:meeting-{past.pk}@blackpythondevs.org" not in body
+        assert body.count("BEGIN:VEVENT") == 1
+
+    def test_token_is_stable(self, client):
+        """Subscribers keep working: the token is generated once, not per request."""
+        first = CalendarFeed.current_token()
+        assert CalendarFeed.current_token() == first
+        assert client.get(self.FEED_URL + f"?token={first}").status_code == 200
 
 
 class TestCommandCenterCard:

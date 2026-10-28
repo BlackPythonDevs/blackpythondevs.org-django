@@ -18,6 +18,11 @@
       <p><a role="button" class="btn" href="{{ create_view_url }}">Schedule a meeting</a></p>
     {% endif %}
 
+    <p>
+      Subscribe in your calendar app (keep this link — its token is the secret):
+      <code>{{ request.scheme }}://{{ request.get_host }}{% url 'meetings-calendar-feed' %}?token={{ feed_token }}</code>
+    </p>
+
     {% if object_list %}
       <figure>
         <table role="grid">

@@ -31,9 +31,11 @@
       </dl>
     </div>
 
-    <p>
-      <a role="button" class="btn" href="{% url 'meetings-ics' object.pk %}">Download calendar entry (.ics)</a>
-    </p>
+    {% if object.is_upcoming %}
+      <p>
+        <a role="button" class="btn" href="{% url 'meetings-ics' object.pk %}">Download calendar entry (.ics)</a>
+      </p>
+    {% endif %}
 
     <h2>Minutes</h2>
     {% if object.notes %}

@@ -7,6 +7,7 @@ minutes. Everything here is leadership-only — see
 `core.models.is_leadership_or_above` for who that is.
 """
 
+import secrets
 from datetime import UTC, timedelta
 
 from django.db import models
@@ -51,12 +52,11 @@ class Meeting(models.Model):
     def is_upcoming(self):
         return self.scheduled_at > timezone.now()
 
-    def as_ics(self):
-        """This meeting as a single-event RFC 5545 calendar (text/calendar).
+    def as_vevent(self):
+        """This meeting's VEVENT block (RFC 5545), as a list of lines.
 
-        Hand-rolled rather than pulled in via a dependency: one VEVENT with
-        the notes as DESCRIPTION is all an invite needs. DTEND assumes an
-        hour — invitees can see the full notes and adjust.
+        Used both by `as_ics` (one-meeting invite) and by the subscribable
+        upcoming-meetings feed (one VCALENDAR holding many VEVENTs).
         """
 
         def escape(text):
@@ -74,10 +74,6 @@ class Meeting(models.Model):
         start = self.scheduled_at.astimezone(UTC)
         end = start + timedelta(hours=1)
         lines = [
-            "BEGIN:VCALENDAR",
-            "VERSION:2.0",
-            "PRODID:-//Black Python Devs//Meeting Minutes//EN",
-            "CALSCALE:GREGORIAN",
             "BEGIN:VEVENT",
             f"UID:meeting-{self.pk}@blackpythondevs.org",
             f"DTSTAMP:{timezone.now().astimezone(UTC):%Y%m%dT%H%M%SZ}",
@@ -91,5 +87,50 @@ class Meeting(models.Model):
             lines.append(f"URL:{self.url}")
         if self.notes:
             lines.append(f"DESCRIPTION:{escape(self.notes)}")
-        lines += ["END:VEVENT", "END:VCALENDAR"]
+        lines.append("END:VEVENT")
+        return lines
+
+    def as_ics(self):
+        """This meeting as a single-event RFC 5545 calendar (text/calendar).
+
+        Hand-rolled rather than pulled in via a dependency: one VEVENT with
+        the notes as DESCRIPTION is all an invite needs. DTEND assumes an
+        hour — invitees can see the full notes and adjust.
+        """
+        lines = [
+            "BEGIN:VCALENDAR",
+            "VERSION:2.0",
+            "PRODID:-//Black Python Devs//Meeting Minutes//EN",
+            "CALSCALE:GREGORIAN",
+            *self.as_vevent(),
+            "END:VCALENDAR",
+        ]
         return "\r\n".join(lines) + "\r\n"
+
+
+class CalendarFeed(models.Model):
+    """Secret token gating the subscribable upcoming-meetings calendar feed.
+
+    Calendar clients (Google Calendar, Outlook, …) can't hold a Django
+    session, so the feed at /leadership/meetings/calendar.ics is gated by
+    this token in the URL instead. It's a singleton: one token shared by
+    everyone who subscribes, rotateable by deleting the row (a new one is
+    generated on next need).
+    """
+
+    token = models.CharField(max_length=64, unique=True, editable=False)
+
+    class Meta:
+        verbose_name = "calendar feed"
+        verbose_name_plural = "calendar feeds"
+
+    def __str__(self):
+        return "Upcoming-meetings calendar feed"
+
+    @classmethod
+    def current_token(cls):
+        """The feed's token, generating one on first need."""
+        feed = cls.objects.first()
+        if feed is None:
+            feed = cls.objects.create(token=secrets.token_urlsafe(32))
+        return feed.token
