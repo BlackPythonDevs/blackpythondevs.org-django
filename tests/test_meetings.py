@@ -180,6 +180,45 @@ class TestConsoleWrites:
         assert not Meeting.objects.filter(pk=meeting.pk).exists()
 
 
+class TestDateTime:
+    def test_minutes_render_markdown(self, client, council_member):
+        """Notes render as Markdown (headings, lists, tables), not raw source."""
+        meeting = Meeting.objects.create(
+            title="Markdown minutes",
+            scheduled_at=timezone.now() + timedelta(days=1),
+            notes="## Decisions\n\n- ship it\n- **soon**\n",
+        )
+        client.force_login(council_member)
+        body = client.get(f"/leadership/meetings/{meeting.pk}/").content.decode()
+        assert "<h2>Decisions</h2>" in body
+        assert "<li>ship it</li>" in body
+        assert "<strong>soon</strong>" in body
+
+    def test_raw_html_in_the_notes_is_stripped_not_rendered(self, client, council_member):
+        meeting = Meeting.objects.create(
+            title="XSS minutes",
+            scheduled_at=timezone.now() + timedelta(days=1),
+            notes='Hello <script>alert("x")</script> <img src=x onerror="alert(1)"> world.',
+        )
+        client.force_login(council_member)
+        body = client.get(f"/leadership/meetings/{meeting.pk}/").content.decode()
+        # The <script> tag itself is stripped (its inert text content is allowed
+        # to remain, same as bleach's own default behaviour) — base.html has its
+        # own legitimate <script> (the theme toggle), so check for an actual
+        # <script> element wrapping the payload, not just the bare tag anywhere.
+        assert "<script>alert" not in body
+        assert "onerror" not in body
+
+    def test_empty_notes_show_placeholder(self, client, council_member):
+        meeting = Meeting.objects.create(
+            title="Empty minutes",
+            scheduled_at=timezone.now() + timedelta(days=1),
+        )
+        client.force_login(council_member)
+        body = client.get(f"/leadership/meetings/{meeting.pk}/").content.decode()
+        assert "No minutes published yet." in body
+
+
 class TestICSDownload:
     def test_content_type_and_disposition(self, client, council_member, meeting):
         client.force_login(council_member)

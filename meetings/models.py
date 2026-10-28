@@ -10,8 +10,16 @@ minutes. Everything here is leadership-only — see
 import secrets
 from datetime import UTC, timedelta
 
+import bleach
+import markdown
 from django.db import models
 from django.utils import timezone
+
+from notifications.models import (
+    ALLOWED_MESSAGE_HTML_ATTRIBUTES,
+    ALLOWED_MESSAGE_HTML_TAGS,
+    MARKDOWN_EXTENSIONS,
+)
 
 
 class Meeting(models.Model):
@@ -51,6 +59,23 @@ class Meeting(models.Model):
 
     def is_upcoming(self):
         return self.scheduled_at > timezone.now()
+
+    @property
+    def notes_html_safe(self):
+        """`notes` rendered from Markdown, sanitized for rendering on a page.
+
+        Same pipeline as `notifications.Notification.body_html_safe` and
+        `community_messages.CommunityMessage.body_html_safe`: raw HTML in the
+        notes, or attributes slipped in via the `attr_list` extension, is
+        stripped before it's ever marked `|safe` in the template.
+        """
+        html = markdown.markdown(self.notes, extensions=MARKDOWN_EXTENSIONS)
+        return bleach.clean(
+            html,
+            tags=ALLOWED_MESSAGE_HTML_TAGS,
+            attributes=ALLOWED_MESSAGE_HTML_ATTRIBUTES,
+            strip=True,
+        )
 
     def as_vevent(self):
         """This meeting's VEVENT block (RFC 5545), as a list of lines.

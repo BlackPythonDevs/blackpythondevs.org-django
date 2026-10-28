@@ -39,7 +39,7 @@
 
     <h2>Minutes</h2>
     {% if object.notes %}
-      <div class="card">{{ object.notes|linebreaks }}</div>
+      <div class="card">{{ object.notes_html_safe|safe }}</div>
     {% else %}
       <p>No minutes published yet.</p>
     {% endif %}
