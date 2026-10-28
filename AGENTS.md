@@ -145,5 +145,17 @@ tests/               pytest suite
 5. Run `mise run lint` and `mise run test`; fix everything they report.
 6. Open a pull request describing what changed and why.
 
+## The software factory
+
+This repo is served by a [software factory](https://github.com/kjaymiller/factory):
+its daemon picks up labelled issues and opens pull requests, gated on the
+Docker-free `ci-test`, `ci-lint` and `ci-migrate-check` mise tasks. Keep those
+tasks working without Docker; the factory's workcells have no Docker socket.
+
+Pull requests that change how pages look get screenshot evidence driven by
+`factory/visual.sh`, the buildfile the factory calls inside its workcell
+(`steps` / `setup` / `serve` / `auth`). It runs the app against a throwaway
+database, so it must stay safe to run against empty, scratch data.
+
 Further reading: `README.md` (architecture, deployment, content model) and
 `CONTRIBUTING.md` (contributor-focused versions of the above).
