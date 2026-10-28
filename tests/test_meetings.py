@@ -6,6 +6,7 @@ Mirrors tests/test_sponsor_console.py's access-control pattern, plus the
 command-center card that links here (issue #178).
 """
 
+import re
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -115,6 +116,31 @@ class TestConsoleTemplates:
             assert template in names, f"{url} rendered {names}"
 
 
+def scheduled_at_input(html):
+    """The <input> tag for the scheduled_at field, as rendered."""
+    match = re.search(r'<input[^>]*\bname="scheduled_at"[^>]*>', html)
+    assert match, "no scheduled_at input rendered"
+    return match.group(0)
+
+
+class TestDateTimePicker:
+    def test_scheduled_at_uses_native_datetime_picker(self, client, council_member):
+        """The form renders scheduled_at as <input type="datetime-local">,
+        not a bare text box (issue #184), and prefills the current value in
+        the format the picker expects when editing."""
+        client.force_login(council_member)
+        new_html = client.get("/leadership/meetings/new/").content.decode()
+        assert 'type="datetime-local"' in scheduled_at_input(new_html)
+
+        meeting = Meeting.objects.create(
+            title="Picked meeting",
+            scheduled_at=datetime(2030, 6, 1, 15, 30, tzinfo=UTC),
+        )
+        edit_html = client.get(f"/leadership/meetings/{meeting.pk}/edit/").content.decode()
+        assert 'type="datetime-local"' in scheduled_at_input(edit_html)
+        assert 'value="2030-06-01T15:30"' in scheduled_at_input(edit_html)
+
+
 class TestConsoleWrites:
     def test_leader_can_create(self, client, council_member):
         client.force_login(council_member)
@@ -122,7 +148,7 @@ class TestConsoleWrites:
             "/leadership/meetings/new/",
             {
                 "title": "February sync",
-                "scheduled_at": "2030-02-01 18:00:00",
+                "scheduled_at": "2030-02-01T18:30",  # what datetime-local submits
                 "location": "Discord",
                 "url": "https://meet.example.com/feb",
                 "notes": "First agenda item.",
@@ -137,7 +163,7 @@ class TestConsoleWrites:
             f"/leadership/meetings/{meeting.pk}/edit/",
             {
                 "title": meeting.title,
-                "scheduled_at": "2030-03-01 19:00:00",
+                "scheduled_at": "2030-03-01T19:00",  # what datetime-local submits
                 "location": meeting.location,
                 "url": meeting.url,
                 "notes": "Published minutes.",
