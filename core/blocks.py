@@ -55,6 +55,40 @@ class EmbedIframeBlock(blocks.StructBlock):
         template = "core/blocks/embed_iframe.html"
 
 
+class CTABlock(blocks.StructBlock):
+    """A single call-to-action button, styled per the design system.
+
+    Target a Wagtail page with the page chooser, or an external site with
+    the URL field; the page wins when both are set. Leave the button text
+    blank to render nothing.
+    """
+
+    button_text = blocks.CharBlock(
+        required=False,
+        help_text="Label shown on the button. Leave blank to render nothing.",
+    )
+    style = blocks.ChoiceBlock(
+        choices=[
+            ("primary", "Primary"),
+            ("secondary", "Secondary"),
+        ],
+        default="primary",
+        help_text="Primary is cyan, secondary is gold — see the design system's button variants.",
+    )
+    page = blocks.PageChooserBlock(
+        required=False,
+        help_text="Internal target — takes precedence over the external URL.",
+    )
+    url = blocks.URLBlock(
+        required=False, label="External URL", help_text="External target, e.g. https://example.com/join."
+    )
+
+    class Meta:
+        icon = "link"
+        label = "CTA"
+        template = "core/blocks/cta.html"
+
+
 class AmbassadorApplyBlock(blocks.StructBlock):
     """A call-to-action linking to the native student-ambassador application form.
 
@@ -117,6 +151,7 @@ class BodyStreamBlock(blocks.StreamBlock):
     iframe = EmbedIframeBlock()
     callout = CalloutBlock()
     card_grid = CardGridBlock()
+    cta = CTABlock()
     ambassador_apply = AmbassadorApplyBlock()
     donate = DonateBlock()
     html = blocks.RawHTMLBlock(
