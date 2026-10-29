@@ -95,7 +95,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "django-debug-toolbar", specifier = ">=5.0" },
-    { name = "fakeredis", extras = ["djrf"], specifier = ">=2.40.0" },
+    { name = "fakeredis", specifier = ">=2.40" },
     { name = "pytest", specifier = ">=8.3" },
     { name = "pytest-django", specifier = ">=4.9" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },

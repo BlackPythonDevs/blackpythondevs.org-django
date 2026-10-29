@@ -33,7 +33,6 @@ dev = [
     "pytest-django>=4.9",
     "ruff>=0.9",
     "pytest-xdist>=3.8.0",
-    "fakeredis[djrf]>=2.40.0",
 ]
 
 [tool.ruff]

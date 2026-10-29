@@ -5,7 +5,7 @@ from django.core.management import call_command
 
 
 @pytest.fixture(autouse=True)
-def _clear_cache(settings):
+def _clear_cache():
     """Start every test with an empty FakeValkey cache.
 
     The fake server (bpd/settings/test.py) is shared process-wide, so cache
