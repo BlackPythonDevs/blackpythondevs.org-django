@@ -7,6 +7,11 @@ from django.core.cache import cache
 pytestmark = pytest.mark.django_db
 
 
+def test_tests_use_fakevalkey():
+    """The suite runs without a Valkey server; the cache is fakeredis-backed."""
+    assert settings.CACHES["default"]["OPTIONS"]["CONNECTION_FACTORY"] == "bpd.settings.test.FakeConnectionFactory"
+
+
 def test_valkey_cache_round_trip():
     cache.set("bpd-test-key", "value", 30)
     assert cache.get("bpd-test-key") == "value"
