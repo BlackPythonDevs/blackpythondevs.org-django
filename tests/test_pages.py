@@ -184,6 +184,43 @@ class TestDonateBlock:
         assert "data-type" not in client.get(page.url).content.decode()
 
 
+class TestCTABlock:
+    """Issue #193: a reusable primary/secondary button block for page bodies."""
+
+    def _publish_cta(self, **value):
+        page = StandardPage.objects.get(slug="student-ambassador-program")
+        page.body = [("cta", value)]
+        page.save_revision().publish()
+        return page
+
+    def test_primary_cta_links_to_a_page(self, client, bootstrapped_site):
+        from wagtail.models import Page
+
+        target = Page.objects.get(slug="about")
+        page = self._publish_cta(button_text="Join us", style="primary", page=target)
+        html = client.get(page.url).content.decode()
+        assert f'<a role="button" class="btn primary" href="{target.url}">Join us</a>' in html
+
+    def test_secondary_cta_links_to_an_external_url(self, client, bootstrapped_site):
+        page = self._publish_cta(button_text="Discord", style="secondary", url="https://example.com/join")
+        html = client.get(page.url).content.decode()
+        assert '<a role="button" class="btn secondary" href="https://example.com/join">Discord</a>' in html
+
+    def test_page_target_wins_over_external_url(self, client, bootstrapped_site):
+        from wagtail.models import Page
+
+        target = Page.objects.get(slug="about")
+        page = self._publish_cta(button_text="Go", style="primary", page=target, url="https://example.com/join")
+        html = client.get(page.url).content.decode()
+        assert f'href="{target.url}"' in html
+        assert "https://example.com/join" not in html
+
+    def test_empty_cta_renders_nothing(self, client, bootstrapped_site):
+        page = self._publish_cta()
+        html = client.get(page.url).content.decode()
+        assert 'class="btn' not in html
+
+
 class TestSponsorStrip:
     """Issue #170: sponsor logos must keep their aspect ratio, never stretch."""
 
