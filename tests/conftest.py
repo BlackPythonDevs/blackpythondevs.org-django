@@ -5,6 +5,20 @@ from django.core.management import call_command
 
 
 @pytest.fixture(autouse=True)
+def _clear_cache():
+    """Start every test with an empty FakeValkey cache.
+
+    The fake server (bpd/settings/test.py) is shared process-wide, so cache
+    state — sessions, allauth throttle counters — would otherwise leak between
+    tests running in the same pytest-xdist worker.
+    """
+    from django.core.cache import cache
+
+    cache.clear()
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _disable_rate_limits(settings):
     """allauth's signup/code throttles would otherwise trip mid-test.
 
@@ -13,9 +27,9 @@ def _disable_rate_limits(settings):
     on. Only False short-circuits to no limits at all.
 
     This matters more than it looks. The throttle counters live in the Django
-    cache, which here is a real Valkey shared with the running app, so the
-    counts survive across tests and across whole runs — leaving this broken
-    made /accounts/signup/ start returning 429 partway through a full suite.
+    cache, which tests share across a whole pytest-xdist worker (see the
+    _clear_cache fixture) — leaving this broken made /accounts/signup/ start
+    returning 429 partway through a full suite.
     """
     settings.ACCOUNT_RATE_LIMITS = False
 

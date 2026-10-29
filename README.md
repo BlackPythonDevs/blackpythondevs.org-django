@@ -377,22 +377,25 @@ across deploys, since Let's Encrypt rate-limits repeat issuance for a domain.
 ```
 bpd/settings/base.py         shared configuration
 bpd/settings/dev.py          DEBUG, console email, debug toolbar   (manage.py default)
+bpd/settings/test.py         FakeValkey cache, no collectstatic     (pytest default)
 bpd/settings/production.py   HSTS, S3 media, SMTP, manifest static (wsgi.py default)
 bpd/settings/local.py        optional, gitignored, imported by dev.py
 ```
 
 ## Tests
 
+Tests run the cache against FakeValkey (fakeredis, in-process), so only a
+Postgres server is needed:
+
 ```bash
-docker compose up -d db valkey
+docker compose up -d db
 export DATABASE_URL=postgres://bpd:bpd@localhost:5432/bpd
-export VALKEY_URL=redis://localhost:6379/0
 uv run pytest
 ```
 
 Coverage includes the bootstrap being idempotent, every page type rendering,
 blog pagination and tag filtering, the allauth pages (which render without a
-`page` in context), the Valkey cache round-trip, and the production storage
+`page` in context), the FakeValkey cache round-trip, and the production storage
 switch.
 
 ## Notes on the port

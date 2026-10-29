@@ -28,6 +28,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "django-debug-toolbar>=5.0",
+    "fakeredis>=2.40",
     "pytest>=8.3",
     "pytest-django>=4.9",
     "ruff>=0.9",
@@ -45,5 +46,7 @@ select = ["E", "F", "I", "UP", "DJ"]
 ignore = ["DJ008"]
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "bpd.settings.dev"
+# Tests run against FakeValkey (bpd/settings/test.py), so no Valkey server is
+# needed; only the Postgres container has to be up.
+DJANGO_SETTINGS_MODULE = "bpd.settings.test"
 python_files = ["test_*.py", "tests.py"]
