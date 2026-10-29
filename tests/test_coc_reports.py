@@ -89,6 +89,64 @@ class TestIntake:
             assert reverse("coc-report") in html
             assert "Report a Code of Conduct violation" in html
 
+    def test_coc_page_links_to_the_report_form_top_and_bottom(self, client, bootstrapped_site):
+        """Issue #191: the Code of Conduct page carries a report button above
+        the body and again below it, in addition to the footer's link."""
+        html = client.get("/code-of-conduct/").content.decode()
+        label = "Report a Code of Conduct violation"
+        assert html.count(label) == 3  # footer + top of page + bottom of page
+        # The first in-content button sits below the page heading; the second
+        # follows it, before the footer takes over.
+        positions = [i for i in range(len(html)) if html.startswith(label, i)]
+        heading_end = html.index("</h1>")
+        footer_start = html.index("<footer")
+        in_content = [i for i in positions if heading_end < i < footer_start]
+        assert len(in_content) == 2
+
+    def test_other_standard_pages_do_not_inherit_the_report_buttons(self, client, bootstrapped_site):
+        """The buttons are specific to the Code of Conduct page; other pages
+        using the same template only carry the footer's link."""
+        html = client.get("/corporate-sponsorships/").content.decode()
+        assert html.count("Report a Code of Conduct violation") == 1
+
+    def test_membership_page_links_to_the_report_form(self, client, bootstrapped_site):
+        """Issue #191: the membership page offers the report form too."""
+        html = client.get("/become-a-member/").content.decode()
+        assert reverse("coc-report") in html
+        assert "file a report" in html.lower()
+
+    def test_member_area_links_to_the_report_form(self, client, site):
+        """Issue #191: the account page offers the report form."""
+        member = make_user("reporter-member", onboarding_completed_at=timezone.now())
+        client.force_login(member)
+        html = client.get("/members/").content.decode()
+        assert reverse("coc-report") in html
+        # Distinct phrasing, so this fails if only the footer's link remains.
+        assert "Seen or experienced a Code of Conduct violation?" in html
+
+    def test_command_center_links_to_the_report_form(self, client, site, council_member):
+        """Issue #191: leadership land on the command center instead of the
+        member page, so it must offer the report form too."""
+        client.force_login(council_member)
+        html = client.get("/members/").content.decode()
+        assert reverse("coc-report") in html
+        # Distinct label, so this fails if only the footer's link remains.
+        assert "Report a CoC violation" in html
+
+    @pytest.fixture
+    def council_member(self, db):
+        from django.contrib.auth.models import Group
+
+        from core.models import COUNCIL_GROUP_NAME
+
+        user = get_user_model().objects.create_user(
+            username="councilor",
+            email="councilor@example.com",
+            onboarding_completed_at=timezone.now(),
+        )
+        user.groups.add(Group.objects.get(name=COUNCIL_GROUP_NAME))
+        return user
+
     def test_form_is_open_to_anonymous_visitors(self, client):
         response = client.get(reverse("coc-report"))
         assert response.status_code == 200
