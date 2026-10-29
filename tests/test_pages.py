@@ -63,6 +63,17 @@ def test_home_page_renders_ampersand_correctly(client, bootstrapped_site):
     assert "&amp;amp;" not in html
 
 
+def test_code_of_conduct_page_links_to_the_report_form_top_and_bottom(client, bootstrapped_site):
+    html = client.get("/code-of-conduct/").content.decode()
+    # One link from the site footer, plus one above and one below the body.
+    assert html.count('href="/coc/report/"') == 3
+
+
+def test_other_standard_pages_only_have_the_footer_report_link(client, bootstrapped_site):
+    html = client.get("/corporate-sponsorships/").content.decode()
+    assert html.count('href="/coc/report/"') == 1
+
+
 class TestBlog:
     @pytest.fixture
     def post(self, bootstrapped_site):

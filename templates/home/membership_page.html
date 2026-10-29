@@ -5,6 +5,10 @@
   <section class="membership-intro">
     <h1>{{ page.title }}</h1>
     {% if page.introduction %}<p class="lead">{{ page.introduction }}</p>{% endif %}
+    <p>
+      Members agree to our <a href="/code-of-conduct/">Code of Conduct</a> —
+      to report a violation, <a href="{% url 'coc-report' %}">file a report</a>.
+    </p>
   </section>
 
   {% if user.is_authenticated %}

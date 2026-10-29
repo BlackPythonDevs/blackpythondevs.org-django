@@ -56,6 +56,10 @@ class TestMembershipPage:
         html = client.get("/become-a-member/").content.decode()
         assert "already a member" in html.lower()
 
+    def test_page_links_to_the_coc_report_form(self, client, site):
+        html = client.get("/become-a-member/").content.decode()
+        assert "/coc/report/" in html
+
 
 class TestDiscordIsConnectOnly:
     def test_login_page_has_no_discord_button(self, client, site):
@@ -253,6 +257,16 @@ class TestCommandCenter:
         html = client.get("/members/").content.decode()
         assert "command-center" not in html
         assert "Your account" in html
+
+    def test_member_area_links_to_the_coc_report_form(self, client, site, member):
+        client.force_login(member)
+        html = client.get("/members/").content.decode()
+        assert "/coc/report/" in html
+
+    def test_command_center_links_to_the_coc_report_form(self, client, site, council_member):
+        client.force_login(council_member)
+        html = client.get("/members/").content.decode()
+        assert "/coc/report/" in html
 
     def test_messages_preview_lists_recent_community_messages(self, client, site, council_member):
         community = Community.objects.create(name="Remote Pythonistas", is_online=True)
