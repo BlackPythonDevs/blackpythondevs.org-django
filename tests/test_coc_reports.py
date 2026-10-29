@@ -81,6 +81,14 @@ def file_report(client, user=None, **form_kwargs):
 
 
 class TestIntake:
+    def test_footer_offers_the_report_link_on_every_page(self, client, bootstrapped_site):
+        """Issue #191: filing a conduct report must be one click away, from
+        the footer of any page on the site."""
+        for path in ["/", "/code-of-conduct/"]:
+            html = client.get(path).content.decode()
+            assert reverse("coc-report") in html
+            assert "Report a Code of Conduct violation" in html
+
     def test_form_is_open_to_anonymous_visitors(self, client):
         response = client.get(reverse("coc-report"))
         assert response.status_code == 200
