@@ -3,7 +3,7 @@
 # (https://github.com/kjaymiller/factory — the [visual] section of its
 # factory.toml points here). The factory asks which steps exist and runs each
 # one inside the workcell, from the checkout root, against the cell's
-# throwaway Postgres and Valkey:
+# throwaway Postgres (there may be no Valkey: see write_settings):
 #
 #   steps   print the steps this file provides (this list)
 #   setup   migrate and seed the scratch database
@@ -18,7 +18,11 @@
 set -eu
 
 # Settings for the photos only, written outside the checkout: the dev settings
-# with the Django debug toolbar switched off, so it cannot be in the picture.
+# with the Django debug toolbar switched off, so it cannot be in the picture,
+# and with no Valkey. A factory cell may not have one (Nevia cells don't), and
+# dev keeps sessions in the Valkey cache, so the session `auth` makes would be
+# lost. Sessions go to the scratch database instead, which `auth` and `serve`
+# both read, and the cache is per-process memory.
 SETTINGS=/tmp/shots-settings
 export DJANGO_SETTINGS_MODULE=shots_settings
 export PYTHONPATH="$SETTINGS"
@@ -28,7 +32,12 @@ export CSRF_TRUSTED_ORIGINS=http://127.0.0.1:8000
 
 write_settings() {
     mkdir -p "$SETTINGS"
-    printf 'from bpd.settings.dev import *\nDEBUG_TOOLBAR_CONFIG = {"SHOW_TOOLBAR_CALLBACK": lambda request: False}\n' >"$SETTINGS/shots_settings.py"
+    cat >"$SETTINGS/shots_settings.py" <<'PY'
+from bpd.settings.dev import *
+DEBUG_TOOLBAR_CONFIG = {"SHOW_TOOLBAR_CALLBACK": lambda request: False}
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
+CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+PY
 }
 
 case "${1:-}" in
