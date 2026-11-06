@@ -1,7 +1,7 @@
 """Form for the meeting-minutes console.
 
-Follows core.forms.SponsorForm: a ModelForm that swaps the bare text input
-for a native browser picker — here a `datetime-local` input for
+Follows corporate_sponsorships.forms.SponsorForm: a ModelForm that swaps the
+bare text input for a native browser picker — here a `datetime-local` input for
 `scheduled_at`, so leadership get a real date/time picker instead of typing
 a timestamp by hand.
 """

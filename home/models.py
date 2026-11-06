@@ -56,7 +56,7 @@ class HomePage(SEOMixin, Page):
 
     def get_context(self, request, *args, **kwargs):
         from blog.models import BlogPage
-        from core.models import Sponsor
+        from corporate_sponsorships.models import Sponsor
 
         context = super().get_context(request, *args, **kwargs)
         context["latest_posts"] = BlogPage.objects.live().public().order_by("-date")[:3]
@@ -208,7 +208,8 @@ class SupportPage(SEOMixin, Page):
     def get_context(self, request, *args, **kwargs):
         from collections import defaultdict
 
-        from core.models import FoundationalSupport, Partner, Sponsor
+        from core.models import FoundationalSupport, Partner
+        from corporate_sponsorships.models import Sponsor
 
         context = super().get_context(request, *args, **kwargs)
         context["partners"] = Partner.objects.all()

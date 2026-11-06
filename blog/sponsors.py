@@ -1,9 +1,9 @@
 """Draft a sponsor announcement post whenever invoice_paid_date is (re)set.
 
-Called from `core.Sponsor.save()`, which imports this module lazily — kept
-here rather than in `core` because it needs `CustomBlogPage`, and `core`
-shouldn't import `blog` at module load time (blog already imports
-`core.blocks`, so that would be circular).
+Called from `corporate_sponsorships.Sponsor.save()`, which imports this
+module lazily — kept here rather than alongside Sponsor because it needs
+`CustomBlogPage`, and importing `blog` at module load time there would be
+circular (blog imports `core.blocks`, and Sponsor imports `core.models`).
 """
 
 from django.utils.text import slugify

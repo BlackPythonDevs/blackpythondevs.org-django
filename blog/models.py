@@ -114,7 +114,7 @@ class CustomBlogPage(BlogPage):
     """
 
     sponsor = models.ForeignKey(
-        "core.Sponsor",
+        "corporate_sponsorships.Sponsor",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,

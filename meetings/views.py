@@ -1,9 +1,9 @@
 """Front-end console for leadership meeting minutes.
 
-Neapolitan CRUD, same shape as core.views.SponsorView: requiring the full
+Neapolitan CRUD, same shape as corporate_sponsorships.views.SponsorView: requiring the full
 add/change/delete/view set keeps this a management console for users who can
 do everything with it (in practice the Leadership Council, Executor group,
-and superusers) — see core.views.SponsorView for the same reasoning. The
+and superusers) — see corporate_sponsorships.views.SponsorView for the same reasoning. The
 detail page links the .ics download (MeetingICSView) so the calendar invite
 travels with the record.
 """

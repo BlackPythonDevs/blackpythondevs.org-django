@@ -11,7 +11,6 @@ from wagtail.documents import urls as wagtaildocs_urls
 
 from communities.views import CommunityAdminConsole, LeaveCommunityView
 from core import views as core_views
-from core.views import SponsorView
 from sponsorships.views import (
     PublicSponsorshipRequestView,
     SponsorshipRequestDoneView,
@@ -57,9 +56,9 @@ urlpatterns = [
     path("sponsorships/request/thanks/", SponsorshipRequestDoneView.as_view(), name="sponsorship-request-done"),
     # Front-end CRUD for the Executor group (neapolitan).
     *SponsorshipRequestView.get_urls(),
-    # Front-end CRUD for corporate sponsors (neapolitan) — replaces the
-    # Wagtail snippet admin as the place to manage Sponsor records.
-    *SponsorView.get_urls(),
+    # Front-end CRUD for corporate sponsors (neapolitan) at
+    # /corporate-sponsors/, plus 301s from the old /sponsors/ paths.
+    path("", include("corporate_sponsorships.urls")),
     # Generic follow-through checklists/notes portal (Executor group).
     path("checklists/", include("checklists.urls")),
     path("sitemap.xml", sitemap),

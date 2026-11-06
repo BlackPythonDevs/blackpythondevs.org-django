@@ -21,7 +21,7 @@ from datetime import timedelta
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from core.models import Sponsor
+from corporate_sponsorships.models import Sponsor
 
 EXPIRING_SOON_WINDOW = timedelta(days=30)
 
