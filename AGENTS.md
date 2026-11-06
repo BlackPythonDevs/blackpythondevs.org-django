@@ -79,7 +79,7 @@ blog/                BlogIndexPage, BlogPage
 events/              EventIndexPage, EventPage, SponsoredEvent
 users/               Custom user, allauth adapters, Discord integration
 ambassadors/, communities/, elections/, nominations/, notifications/,
-service_award/, sponsorships/, corporate_sponsorships/, checklists/,
+service_award/, event_sponsorships/, corporate_sponsorships/, checklists/,
 community_messages/, core/
 templates/           Django templates (ported from Jinja2)
 static/              Design system assets ("Luminous Monolith", unchanged)

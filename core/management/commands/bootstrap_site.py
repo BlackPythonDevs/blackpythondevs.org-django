@@ -27,9 +27,9 @@ from core.models import (
 )
 from core.supporters import import_supporters
 from corporate_sponsorships.models import Sponsor
+from event_sponsorships.models import SponsorshipRequest
 from events.models import EventIndexPage, EventPage, LeadershipSummitPage
 from home.models import AboutPage, HomePage, MembershipPage, StandardPage, SupportPage
-from sponsorships.models import SponsorshipRequest
 
 FIXTURES = Path(django_settings.BASE_DIR) / "fixtures"
 
@@ -285,7 +285,7 @@ class Command(BaseCommand):
         if not data:
             return
 
-        # Sponsorship records now live in the sponsorships app as standalone rows.
+        # Sponsorship records now live in the event_sponsorships app as standalone rows.
         # The source JSON carries no status or payment data, so seed everything
         # in the past as completed and paid; editors correct the community
         # (non-monetary) ones by unticking `paid`, and current-year events move

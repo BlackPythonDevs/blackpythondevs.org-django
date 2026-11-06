@@ -8,7 +8,7 @@ class CommunityAdminForm(forms.ModelForm):
 
     Deliberately excludes `notes` — that's where staff write things a
     community admin should never see (see the model's help text) — mirroring
-    how `sponsorships.PublicSponsorshipRequestForm` drops `notes` for the same
+    how `event_sponsorships.PublicSponsorshipRequestForm` drops `notes` for the same
     reason.
     """
 

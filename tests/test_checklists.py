@@ -1,6 +1,6 @@
 """The generic checklist/notes app, exercised through its two real consumers:
 corporate_sponsorships.Sponsor (registered in corporate_sponsorships/apps.py's ready()) and
-sponsorships.SponsorshipRequest (sponsorships/apps.py's ready()), the latter
+event_sponsorships.SponsorshipRequest (event_sponsorships/apps.py's ready()), the latter
 also used to test embedding {% checklist_widget %} into an existing
 neapolitan console page.
 
@@ -26,8 +26,8 @@ from checklists.mentions import find_mentioned_users, render_mentions
 from checklists.models import Note, Task
 from checklists.permissions import display_label
 from corporate_sponsorships.models import Sponsor
+from event_sponsorships.models import SponsorshipRequest
 from notifications.models import UserNotification
-from sponsorships.models import SponsorshipRequest
 
 pytestmark = pytest.mark.django_db
 
@@ -488,7 +488,7 @@ class TestReorder:
 
 
 class TestWidgetEmbedding:
-    """{% checklist_widget %} embedded in sponsorships' own neapolitan detail page."""
+    """{% checklist_widget %} embedded in event_sponsorships' own neapolitan detail page."""
 
     def test_creating_sponsorship_request_seeds_its_own_checklist(self, sponsorship_request):
         content_type = ContentType.objects.get_for_model(SponsorshipRequest)
@@ -503,15 +503,15 @@ class TestWidgetEmbedding:
         self, client, executor, sponsorship_request
     ):
         client.force_login(executor)
-        response = client.get(f"/sponsorships/{sponsorship_request.pk}/")
+        response = client.get(f"/event-sponsorships/{sponsorship_request.pk}/")
         assert response.status_code == 200
         content = response.content.decode()
-        assert f'href="/checklists/sponsorships/sponsorshiprequest/{sponsorship_request.pk}/"' in content
+        assert f'href="/checklists/event_sponsorships/sponsorshiprequest/{sponsorship_request.pk}/"' in content
         assert "Prospectus reviewed" not in content
 
     def test_checklist_page_renders_the_widget(self, client, executor, sponsorship_request):
         client.force_login(executor)
-        response = client.get(f"/checklists/sponsorships/sponsorshiprequest/{sponsorship_request.pk}/")
+        response = client.get(f"/checklists/event_sponsorships/sponsorshiprequest/{sponsorship_request.pk}/")
         content = response.content.decode()
         assert "Event sponsorship checklist" in content
         assert "Prospectus reviewed" in content
@@ -521,8 +521,8 @@ class TestWidgetEmbedding:
         content_type = ContentType.objects.get_for_model(SponsorshipRequest)
         task = Task.objects.filter(content_type=content_type, object_id=sponsorship_request.pk).first()
 
-        detail_url = f"/sponsorships/{sponsorship_request.pk}/"
-        checklist_url = f"/checklists/sponsorships/sponsorshiprequest/{sponsorship_request.pk}/"
+        detail_url = f"/event-sponsorships/{sponsorship_request.pk}/"
+        checklist_url = f"/checklists/event_sponsorships/sponsorshiprequest/{sponsorship_request.pk}/"
         response = client.post(checklist_url, {"action": "toggle", "task_id": task.pk, "next": detail_url})
 
         assert response.status_code == 302
@@ -535,7 +535,7 @@ class TestWidgetEmbedding:
         content_type = ContentType.objects.get_for_model(SponsorshipRequest)
         task = Task.objects.filter(content_type=content_type, object_id=sponsorship_request.pk).first()
 
-        checklist_url = f"/checklists/sponsorships/sponsorshiprequest/{sponsorship_request.pk}/"
+        checklist_url = f"/checklists/event_sponsorships/sponsorshiprequest/{sponsorship_request.pk}/"
         response = client.post(
             checklist_url, {"action": "toggle", "task_id": task.pk, "next": "http://evil.example.com/steal"}
         )

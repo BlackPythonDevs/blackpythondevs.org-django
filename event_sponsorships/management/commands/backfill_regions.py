@@ -12,8 +12,8 @@ them in (country is now required on the form, but legacy rows may predate it).
 
 from django.core.management.base import BaseCommand
 
-from sponsorships.models import SponsorshipRequest
-from sponsorships.regions import region_for_country
+from event_sponsorships.models import SponsorshipRequest
+from event_sponsorships.regions import region_for_country
 
 
 class Command(BaseCommand):

@@ -89,7 +89,7 @@ SPONSOR_GROUP_NAME = "Sponsors"
 COMMUNITY_PARTNER_GROUP_NAME = "Community Partners"
 
 # Groups (beyond staff/superuser) allowed onto the send-message page at all.
-# "Executor" is provisioned by sponsorships' own migration.
+# "Executor" is provisioned by sponsorships' own migration (0003; the app is now event_sponsorships).
 SENDER_GROUP_NAMES = ("Executor", SPONSOR_GROUP_NAME, COMMUNITY_PARTNER_GROUP_NAME)
 
 

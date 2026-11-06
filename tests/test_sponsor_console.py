@@ -167,7 +167,9 @@ def _perms(*codenames_by_app):
 CORPORATE_CODENAMES = [
     ("corporate_sponsorships", f"{action}_sponsor") for action in ("view", "add", "change", "delete")
 ]
-EVENT_CODENAMES = [("sponsorships", f"{action}_sponsorshiprequest") for action in ("view", "add", "change", "delete")]
+EVENT_CODENAMES = [
+    ("event_sponsorships", f"{action}_sponsorshiprequest") for action in ("view", "add", "change", "delete")
+]
 
 
 @pytest.fixture
@@ -198,8 +200,8 @@ class TestMembersPageLink:
         client.force_login(_onboard(executor))
         content = client.get("/members/").content.decode()
         assert "<h2>Event sponsorships</h2>" in content
-        assert 'href="/sponsorships/"' in content
-        assert 'href="/sponsorships/request/"' in content
+        assert 'href="/event-sponsorships/"' in content
+        assert 'href="/event-sponsorships/request/"' in content
 
     def test_ordinary_member_sees_neither_card(self, client, member):
         client.force_login(_onboard(member))
@@ -207,7 +209,7 @@ class TestMembersPageLink:
         assert "Event sponsorships" not in content
         assert "Corporate sponsors" not in content
         assert 'href="/corporate-sponsors/"' not in content
-        assert 'href="/sponsorships/"' not in content
+        assert 'href="/event-sponsorships/"' not in content
 
     def test_sponsors_membership_group_sees_neither_card(self, client, member):
         member.groups.add(Group.objects.get_or_create(name="Sponsors")[0])
@@ -222,7 +224,7 @@ class TestMembersPageLink:
         assert "<h3>Corporate sponsors</h3>" in content
         assert 'href="/corporate-sponsors/"' in content
         assert "Event sponsorships" not in content
-        assert 'href="/sponsorships/"' not in content
+        assert 'href="/event-sponsorships/"' not in content
 
     def test_event_only_executor_sees_only_event_card(self, client, event_only_executor):
         client.force_login(_onboard(event_only_executor))
@@ -236,11 +238,11 @@ class TestConsolesAreSeparate:
     def test_corporate_only_user_is_denied_event_console(self, client, corporate_only):
         client.force_login(corporate_only)
         assert client.get("/corporate-sponsors/").status_code == 200
-        assert client.get("/sponsorships/").status_code == 403
+        assert client.get("/event-sponsorships/").status_code == 403
 
     def test_event_only_executor_is_denied_corporate_console(self, client, event_only_executor):
         client.force_login(event_only_executor)
-        assert client.get("/sponsorships/").status_code == 200
+        assert client.get("/event-sponsorships/").status_code == 200
         assert client.get("/corporate-sponsors/").status_code == 403
 
 

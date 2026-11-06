@@ -1,7 +1,7 @@
 """Views for CoC reports: public intake, then the CoC team's console.
 
 The intake views are open to anonymous visitors (like
-sponsorships.views.PublicSponsorshipRequestView): whoever needs to file a
+event_sponsorships.views.PublicSponsorshipRequestView): whoever needs to file a
 report should be able to, logged in or not. The submitting user is still
 captured when there is one.
 
