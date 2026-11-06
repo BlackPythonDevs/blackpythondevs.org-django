@@ -7,7 +7,7 @@ import pytest
 from django.core.management import call_command
 
 from blog.models import BlogIndexPage, CustomBlogPage
-from core.models import Sponsor
+from corporate_sponsorships.models import Sponsor
 
 pytestmark = pytest.mark.django_db
 

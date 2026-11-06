@@ -5,8 +5,9 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 
 from blog.models import BlogIndexPage, BlogPage
-from core.models import Author, FoundationalSupport, Leader, Sponsor
+from core.models import Author, FoundationalSupport, Leader
 from core.supporters import SUPPORTER_EMAIL_DOMAIN, get_or_create_supporter_user
+from corporate_sponsorships.models import Sponsor
 from events.models import EventIndexPage
 from home.models import AboutPage, StandardPage, SupportPage
 
@@ -241,7 +242,7 @@ class TestSponsorStrip:
         )
 
     def test_uploaded_logo_renders_without_a_fixed_inline_height(self, client, site, wide_logo_image):
-        from core.models import Sponsor
+        from corporate_sponsorships.models import Sponsor
 
         Sponsor.objects.create(name="Temporal", url="https://temporal.io", logo=wide_logo_image)
         html = client.get("/").content.decode()
@@ -250,7 +251,7 @@ class TestSponsorStrip:
         assert 'style="height' not in html
 
     def test_static_path_logo_renders_without_a_fixed_inline_height(self, client, site):
-        from core.models import Sponsor
+        from corporate_sponsorships.models import Sponsor
 
         Sponsor.objects.create(name="JetBrains", url="https://jetbrains.com", logo_static_path="images/jetbrains.webp")
         html = client.get("/").content.decode()

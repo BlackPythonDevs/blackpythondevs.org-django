@@ -5,17 +5,17 @@
 
 {% block content %}
   <section>
-    <p><a href="{% url 'sponsors-list' %}">&larr; All sponsors</a></p>
+    <p><a href="{% url 'corporate-sponsors-list' %}">&larr; All sponsors</a></p>
 
     <small>{{ object.get_status_display }}</small>
     <h1>
       {{ object.name }}
       {% if object.active %}<i class="iconoir-globe published-glyph" role="img" title="Published" aria-label="Published"></i>{% endif %}
       {% checklist_link object %}
-      <a class="icon-action update" href="{% url 'sponsors-update' object.pk %}" title="Edit" aria-label="Edit">
+      <a class="icon-action update" href="{% url 'corporate-sponsors-update' object.pk %}" title="Edit" aria-label="Edit">
         <i class="iconoir-edit-pencil" aria-hidden="true"></i>
       </a>
-      <a class="icon-action danger" href="{% url 'sponsors-delete' object.pk %}" title="Delete" aria-label="Delete">
+      <a class="icon-action danger" href="{% url 'corporate-sponsors-delete' object.pk %}" title="Delete" aria-label="Delete">
         <i class="iconoir-trash" aria-hidden="true"></i>
       </a>
     </h1>

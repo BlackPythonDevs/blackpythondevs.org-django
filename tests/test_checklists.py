@@ -1,5 +1,5 @@
 """The generic checklist/notes app, exercised through its two real consumers:
-core.Sponsor (registered in core/apps.py's ready()) and
+corporate_sponsorships.Sponsor (registered in corporate_sponsorships/apps.py's ready()) and
 sponsorships.SponsorshipRequest (sponsorships/apps.py's ready()), the latter
 also used to test embedding {% checklist_widget %} into an existing
 neapolitan console page.
@@ -25,7 +25,7 @@ from checklists.management.commands.create_test_executors import Command as Crea
 from checklists.mentions import find_mentioned_users, render_mentions
 from checklists.models import Note, Task
 from checklists.permissions import display_label
-from core.models import Sponsor
+from corporate_sponsorships.models import Sponsor
 from notifications.models import UserNotification
 from sponsorships.models import SponsorshipRequest
 
@@ -82,8 +82,8 @@ def sponsorship_request(db):
 def sponsor_urls(sponsor):
     return [
         "/checklists/",
-        "/checklists/core/sponsor/",
-        f"/checklists/core/sponsor/{sponsor.pk}/",
+        "/checklists/corporate_sponsorships/sponsor/",
+        f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/",
     ]
 
 
@@ -123,7 +123,7 @@ class TestChecklistActions:
         content_type = ContentType.objects.get_for_model(Sponsor)
         task = Task.objects.filter(content_type=content_type, object_id=sponsor.pk).first()
 
-        url = f"/checklists/core/sponsor/{sponsor.pk}/"
+        url = f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/"
         client.post(url, {"action": "toggle", "task_id": task.pk})
         task.refresh_from_db()
         assert task.is_done is True
@@ -138,7 +138,9 @@ class TestChecklistActions:
 
     def test_add_task_creates_a_custom_task(self, client, executor, sponsor):
         client.force_login(executor)
-        client.post(f"/checklists/core/sponsor/{sponsor.pk}/", {"action": "add_task", "title": "Send swag"})
+        client.post(
+            f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/", {"action": "add_task", "title": "Send swag"}
+        )
 
         content_type = ContentType.objects.get_for_model(Sponsor)
         custom = Task.objects.get(content_type=content_type, object_id=sponsor.pk, title="Send swag")
@@ -146,7 +148,7 @@ class TestChecklistActions:
 
     def test_add_note_records_author(self, client, executor, sponsor):
         client.force_login(executor)
-        url = f"/checklists/core/sponsor/{sponsor.pk}/"
+        url = f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/"
         client.post(url, {"action": "add_note", "body": "Called them, following up next week."})
 
         content_type = ContentType.objects.get_for_model(Sponsor)
@@ -193,7 +195,7 @@ class TestTaskAssignment:
         content_type = ContentType.objects.get_for_model(Sponsor)
         task = Task.objects.filter(content_type=content_type, object_id=sponsor.pk).first()
 
-        url = f"/checklists/core/sponsor/{sponsor.pk}/"
+        url = f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/"
         client.post(
             url,
             {
@@ -216,7 +218,7 @@ class TestTaskAssignment:
         task.assigned_to = other_executor
         task.save()
 
-        url = f"/checklists/core/sponsor/{sponsor.pk}/"
+        url = f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/"
         client.post(url, {"action": "update_task_details", "task_id": task.pk, "due_date": "", "assigned_to": ""})
 
         task.refresh_from_db()
@@ -228,7 +230,7 @@ class TestTaskAssignment:
         content_type = ContentType.objects.get_for_model(Sponsor)
         task = Task.objects.filter(content_type=content_type, object_id=sponsor.pk).first()
 
-        url = f"/checklists/core/sponsor/{sponsor.pk}/"
+        url = f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/"
         client.post(
             url, {"action": "update_task_details", "task_id": task.pk, "due_date": "", "assigned_to": member.pk}
         )
@@ -238,7 +240,7 @@ class TestTaskAssignment:
 
     def test_assignee_dropdown_lists_executors_on_the_checklist_page(self, client, executor, member, sponsor):
         client.force_login(executor)
-        content = client.get(f"/checklists/core/sponsor/{sponsor.pk}/").content.decode()
+        content = client.get(f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/").content.decode()
         assert executor.username in content
         assert f'value="{member.pk}"' not in content
 
@@ -253,7 +255,7 @@ class TestTaskComments:
         content_type = ContentType.objects.get_for_model(Sponsor)
         task = Task.objects.filter(content_type=content_type, object_id=sponsor.pk).first()
 
-        url = f"/checklists/core/sponsor/{sponsor.pk}/"
+        url = f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/"
         client.post(url, {"action": "add_task_comment", "task_id": task.pk, "body": "Following up Monday."})
 
         task_content_type = ContentType.objects.get_for_model(Task)
@@ -267,7 +269,7 @@ class TestTaskComments:
         tasks = list(Task.objects.filter(content_type=content_type, object_id=sponsor.pk).order_by("order"))
         first_task, second_task = tasks[0], tasks[1]
 
-        url = f"/checklists/core/sponsor/{sponsor.pk}/"
+        url = f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/"
         client.post(url, {"action": "add_task_comment", "task_id": first_task.pk, "body": "Comment on task one"})
 
         content = client.get(url).content.decode()
@@ -281,7 +283,7 @@ class TestTaskComments:
         other_content_type = ContentType.objects.get_for_model(SponsorshipRequest)
         foreign_task = Task.objects.filter(content_type=other_content_type, object_id=sponsorship_request.pk).first()
 
-        url = f"/checklists/core/sponsor/{sponsor.pk}/"
+        url = f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/"
         response = client.post(url, {"action": "add_task_comment", "task_id": foreign_task.pk, "body": "Nope"})
 
         assert response.status_code == 404
@@ -314,7 +316,7 @@ class TestMentions:
 
     def test_add_note_with_mention_emails_the_mentioned_executor(self, client, executor, other_executor, sponsor):
         client.force_login(executor)
-        url = f"/checklists/core/sponsor/{sponsor.pk}/"
+        url = f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/"
         client.post(url, {"action": "add_note", "body": f"@{other_executor.username} can you take this one?"})
 
         assert len(mail.outbox) == 1
@@ -328,7 +330,7 @@ class TestMentions:
         content_type = ContentType.objects.get_for_model(Sponsor)
         task = Task.objects.filter(content_type=content_type, object_id=sponsor.pk).first()
 
-        url = f"/checklists/core/sponsor/{sponsor.pk}/"
+        url = f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/"
         client.post(
             url,
             {"action": "add_task_comment", "task_id": task.pk, "body": f"@{other_executor.username} thoughts?"},
@@ -340,21 +342,21 @@ class TestMentions:
 
     def test_mentioning_yourself_does_not_send_an_email(self, client, executor, sponsor):
         client.force_login(executor)
-        url = f"/checklists/core/sponsor/{sponsor.pk}/"
+        url = f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/"
         client.post(url, {"action": "add_note", "body": f"@{executor.username} note to self"})
 
         assert len(mail.outbox) == 0
 
     def test_mentioning_a_non_assignable_member_does_not_send_an_email(self, client, executor, member, sponsor):
         client.force_login(executor)
-        url = f"/checklists/core/sponsor/{sponsor.pk}/"
+        url = f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/"
         client.post(url, {"action": "add_note", "body": f"@{member.username} fyi"})
 
         assert len(mail.outbox) == 0
 
     def test_add_note_with_mention_creates_an_in_app_notification(self, client, executor, other_executor, sponsor):
         client.force_login(executor)
-        url = f"/checklists/core/sponsor/{sponsor.pk}/"
+        url = f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/"
         client.post(url, {"action": "add_note", "body": f"@{other_executor.username} can you take this one?"})
 
         note = UserNotification.objects.get(recipient=other_executor)
@@ -364,7 +366,7 @@ class TestMentions:
 
     def test_mentioning_yourself_creates_no_in_app_notification(self, client, executor, sponsor):
         client.force_login(executor)
-        url = f"/checklists/core/sponsor/{sponsor.pk}/"
+        url = f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/"
         client.post(url, {"action": "add_note", "body": f"@{executor.username} note to self"})
 
         assert not UserNotification.objects.filter(recipient=executor).exists()
@@ -419,7 +421,7 @@ class TestHtmxPartialUpdates:
         content_type = ContentType.objects.get_for_model(Sponsor)
         task = Task.objects.filter(content_type=content_type, object_id=sponsor.pk).first()
 
-        url = f"/checklists/core/sponsor/{sponsor.pk}/"
+        url = f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/"
         response = client.post(url, {"action": "toggle", "task_id": task.pk}, HTTP_HX_REQUEST="true")
 
         assert response.status_code == 200
@@ -431,7 +433,7 @@ class TestHtmxPartialUpdates:
 
     def test_add_task_via_htmx_shows_the_new_task_in_the_returned_partial(self, client, executor, sponsor):
         client.force_login(executor)
-        url = f"/checklists/core/sponsor/{sponsor.pk}/"
+        url = f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/"
         response = client.post(url, {"action": "add_task", "title": "Send swag"}, HTTP_HX_REQUEST="true")
 
         assert response.status_code == 200
@@ -445,7 +447,7 @@ class TestReorder:
         tasks = list(Task.objects.filter(content_type=content_type, object_id=sponsor.pk).order_by("order"))
         new_order = list(reversed(tasks))
 
-        url = f"/checklists/core/sponsor/{sponsor.pk}/"
+        url = f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/"
         client.post(url, {"action": "reorder", "task_id": [str(task.pk) for task in new_order]})
 
         reordered_titles = list(
@@ -465,7 +467,7 @@ class TestReorder:
         )
         foreign_task = Task.objects.filter(content_type=other_content_type, object_id=sponsorship_request.pk).first()
 
-        url = f"/checklists/core/sponsor/{sponsor.pk}/"
+        url = f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/"
         client.post(
             url,
             {

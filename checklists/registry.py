@@ -7,7 +7,7 @@ the models it tracks, so adding a checklist to another process later — a
 SponsorshipRequest, a nomination, whatever needs one next — is one call from
 that app's own `ready()`, with no change here.
 
-    # core/apps.py
+    # corporate_sponsorships/apps.py
     def ready(self):
         from checklists.registry import register
         from .models import Sponsor

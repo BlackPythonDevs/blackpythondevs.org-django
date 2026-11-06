@@ -1,6 +1,6 @@
-"""The corporate-sponsor console (core.views.SponsorView): a full-CRUD
+"""The corporate-sponsor console (corporate_sponsorships.views.SponsorView): a full-CRUD
 neapolitan front-end that replaces the Wagtail snippet admin as the place to
-manage `core.Sponsor` records.
+manage `corporate_sponsorships.Sponsor` records.
 
 Mirrors tests/test_sponsorships.py's access-control pattern. The embedded
 checklist widget is covered separately in tests/test_checklists.py — this
@@ -17,12 +17,13 @@ from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 
 from checklists.models import Task
-from core.models import Sponsor, can_manage_corporate_sponsorships, can_manage_event_sponsorships
+from core.models import can_manage_corporate_sponsorships, can_manage_event_sponsorships
+from corporate_sponsorships.models import Sponsor
 
 pytestmark = pytest.mark.django_db
 
-CONSOLE_URLS = ["/sponsors/", "/sponsors/new/"]
-DETAIL_URLS = ["/sponsors/{pk}/", "/sponsors/{pk}/edit/", "/sponsors/{pk}/delete/"]
+CONSOLE_URLS = ["/corporate-sponsors/", "/corporate-sponsors/new/"]
+DETAIL_URLS = ["/corporate-sponsors/{pk}/", "/corporate-sponsors/{pk}/edit/", "/corporate-sponsors/{pk}/delete/"]
 
 
 @pytest.fixture
@@ -63,11 +64,11 @@ class TestConsoleTemplates:
     def test_site_templates_are_used(self, client, executor, sponsor):
         client.force_login(executor)
         expected = {
-            "/sponsors/": "core/sponsor_list.html",
-            "/sponsors/new/": "core/sponsor_form.html",
-            f"/sponsors/{sponsor.pk}/": "core/sponsor_detail.html",
-            f"/sponsors/{sponsor.pk}/edit/": "core/sponsor_form.html",
-            f"/sponsors/{sponsor.pk}/delete/": "core/sponsor_confirm_delete.html",
+            "/corporate-sponsors/": "corporate_sponsorships/sponsor_list.html",
+            "/corporate-sponsors/new/": "corporate_sponsorships/sponsor_form.html",
+            f"/corporate-sponsors/{sponsor.pk}/": "corporate_sponsorships/sponsor_detail.html",
+            f"/corporate-sponsors/{sponsor.pk}/edit/": "corporate_sponsorships/sponsor_form.html",
+            f"/corporate-sponsors/{sponsor.pk}/delete/": "corporate_sponsorships/sponsor_confirm_delete.html",
         }
         for url, template in expected.items():
             names = [t.name for t in client.get(url).templates if t.name]
@@ -78,7 +79,7 @@ class TestConsoleWrites:
     def test_executor_can_create(self, client, executor):
         client.force_login(executor)
         response = client.post(
-            "/sponsors/new/",
+            "/corporate-sponsors/new/",
             {
                 "name": "New Sponsor Co",
                 "url": "",
@@ -101,7 +102,7 @@ class TestConsoleWrites:
         #144)."""
         client.force_login(executor)
         client.post(
-            "/sponsors/new/",
+            "/corporate-sponsors/new/",
             {
                 "name": "Linked Sponsor Co",
                 "url": "",
@@ -121,7 +122,7 @@ class TestConsoleWrites:
     def test_unknown_contact_email_stays_unlinked(self, client, executor):
         client.force_login(executor)
         client.post(
-            "/sponsors/new/",
+            "/corporate-sponsors/new/",
             {
                 "name": "Unlinked Sponsor Co",
                 "url": "",
@@ -141,12 +142,12 @@ class TestConsoleWrites:
 
     def test_executor_can_delete(self, client, executor, sponsor):
         client.force_login(executor)
-        response = client.post(f"/sponsors/{sponsor.pk}/delete/")
+        response = client.post(f"/corporate-sponsors/{sponsor.pk}/delete/")
         assert response.status_code == 302
         assert not Sponsor.objects.filter(pk=sponsor.pk).exists()
 
     def test_anonymous_cannot_create(self, client):
-        response = client.post("/sponsors/new/", {"name": "Should not exist"})
+        response = client.post("/corporate-sponsors/new/", {"name": "Should not exist"})
         assert response.status_code == 302
         assert not Sponsor.objects.filter(name="Should not exist").exists()
 
@@ -163,7 +164,9 @@ def _perms(*codenames_by_app):
     ]
 
 
-CORPORATE_CODENAMES = [("core", f"{action}_sponsor") for action in ("view", "add", "change", "delete")]
+CORPORATE_CODENAMES = [
+    ("corporate_sponsorships", f"{action}_sponsor") for action in ("view", "add", "change", "delete")
+]
 EVENT_CODENAMES = [("sponsorships", f"{action}_sponsorshiprequest") for action in ("view", "add", "change", "delete")]
 
 
@@ -203,7 +206,7 @@ class TestMembersPageLink:
         content = client.get("/members/").content.decode()
         assert "Event sponsorships" not in content
         assert "Corporate sponsors" not in content
-        assert 'href="/sponsors/"' not in content
+        assert 'href="/corporate-sponsors/"' not in content
         assert 'href="/sponsorships/"' not in content
 
     def test_sponsors_membership_group_sees_neither_card(self, client, member):
@@ -217,7 +220,7 @@ class TestMembersPageLink:
         client.force_login(_onboard(corporate_only))
         content = client.get("/members/").content.decode()
         assert "<h3>Corporate sponsors</h3>" in content
-        assert 'href="/sponsors/"' in content
+        assert 'href="/corporate-sponsors/"' in content
         assert "Event sponsorships" not in content
         assert 'href="/sponsorships/"' not in content
 
@@ -226,19 +229,19 @@ class TestMembersPageLink:
         content = client.get("/members/").content.decode()
         assert "<h2>Event sponsorships</h2>" in content
         assert "<h2>Corporate sponsors</h2>" not in content
-        assert 'href="/sponsors/"' not in content
+        assert 'href="/corporate-sponsors/"' not in content
 
 
 class TestConsolesAreSeparate:
     def test_corporate_only_user_is_denied_event_console(self, client, corporate_only):
         client.force_login(corporate_only)
-        assert client.get("/sponsors/").status_code == 200
+        assert client.get("/corporate-sponsors/").status_code == 200
         assert client.get("/sponsorships/").status_code == 403
 
     def test_event_only_executor_is_denied_corporate_console(self, client, event_only_executor):
         client.force_login(event_only_executor)
         assert client.get("/sponsorships/").status_code == 200
-        assert client.get("/sponsors/").status_code == 403
+        assert client.get("/corporate-sponsors/").status_code == 403
 
 
 class TestHelpers:
@@ -297,7 +300,7 @@ class TestChecklistWidgetIsTheCorporateOne:
 
     def test_checklist_page_shows_corporate_sponsor_steps(self, client, executor, sponsor):
         client.force_login(executor)
-        response = client.get(f"/checklists/core/sponsor/{sponsor.pk}/")
+        response = client.get(f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/")
         content = response.content.decode()
         assert "Corporate sponsor checklist" in content
         assert "Contract sent" in content
@@ -305,8 +308,8 @@ class TestChecklistWidgetIsTheCorporateOne:
 
     def test_detail_page_links_to_the_checklist_instead_of_embedding_it(self, client, executor, sponsor):
         client.force_login(executor)
-        content = client.get(f"/sponsors/{sponsor.pk}/").content.decode()
-        assert f'href="/checklists/core/sponsor/{sponsor.pk}/"' in content
+        content = client.get(f"/corporate-sponsors/{sponsor.pk}/").content.decode()
+        assert f'href="/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/"' in content
         assert "Contract sent" not in content
 
 
@@ -321,7 +324,7 @@ class TestListHealthColumns:
         sponsor.save()
 
         client.force_login(executor)
-        content = client.get("/sponsors/").content.decode()
+        content = client.get("/corporate-sponsors/").content.decode()
         assert "Expiring soon" in content
         assert sponsor.expires_at.strftime("%d %b %Y") in content
         assert "1250.00" in content
@@ -333,10 +336,10 @@ class TestListHealthColumns:
         sponsor.save()
 
         client.force_login(executor)
-        assert "1250.00" in client.get("/sponsors/").content.decode()
+        assert "1250.00" in client.get("/corporate-sponsors/").content.decode()
 
         client.force_login(member)
-        assert client.get("/sponsors/").status_code == 403
+        assert client.get("/corporate-sponsors/").status_code == 403
 
 
 class TestExpiryWindowFilter:
@@ -358,7 +361,7 @@ class TestExpiryWindowFilter:
     ):
         client.force_login(executor)
         names = [s.name for s in Sponsor.objects.filter(pk__in=[sponsors_at_each_horizon[k].pk for k in visible])]
-        content = client.get(f"/sponsors/?expires_within={window}").content.decode()
+        content = client.get(f"/corporate-sponsors/?expires_within={window}").content.decode()
         for name in names:
             assert name in content
         for hidden in set(sponsors_at_each_horizon) - set(visible):
@@ -368,7 +371,7 @@ class TestExpiryWindowFilter:
         """A bogus querystring value never reaches the ORM; the list just
         renders unfiltered."""
         client.force_login(executor)
-        response = client.get("/sponsors/", {"expires_within": "<script>"})
+        response = client.get("/corporate-sponsors/", {"expires_within": "<script>"})
         assert response.status_code == 200
         content = response.content.decode()
         for sponsor in sponsors_at_each_horizon.values():
@@ -383,7 +386,7 @@ class TestExpiryWindowFilter:
         mid.save()
 
         client.force_login(executor)
-        content = client.get("/sponsors/?expires_within=60&status=expiring_soon").content.decode()
+        content = client.get("/corporate-sponsors/?expires_within=60&status=expiring_soon").content.decode()
         assert mid.name in content
         assert soon.name not in content
 
@@ -399,9 +402,11 @@ class TestTaskActivityOnTheChecklistPage:
         content_type = ContentType.objects.get_for_model(Sponsor)
         task = Task.objects.filter(content_type=content_type, object_id=sponsor.pk).first()
 
-        client.post(f"/checklists/core/sponsor/{sponsor.pk}/", {"action": "toggle", "task_id": task.pk})
+        client.post(
+            f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/", {"action": "toggle", "task_id": task.pk}
+        )
 
-        response = client.get(f"/checklists/core/sponsor/{sponsor.pk}/")
+        response = client.get(f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/")
         content = response.content.decode()
         assert "Task activity" in content
         assert task.title in content

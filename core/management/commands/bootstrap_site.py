@@ -24,9 +24,9 @@ from core.models import (
     NavigationSettings,
     Partner,
     SocialSettings,
-    Sponsor,
 )
 from core.supporters import import_supporters
+from corporate_sponsorships.models import Sponsor
 from events.models import EventIndexPage, EventPage, LeadershipSummitPage
 from home.models import AboutPage, HomePage, MembershipPage, StandardPage, SupportPage
 from sponsorships.models import SponsorshipRequest

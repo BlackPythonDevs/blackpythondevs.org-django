@@ -188,7 +188,9 @@ and cancelled ones stay internal to the CMS. Completed-but-unpaid entries still
 show, carrying a "community" badge for non-monetary support (visibility,
 volunteer time). The `amount` and `notes` fields are internal and never render.
 
-**Snippets** — `Author`, `Leader`, `Sponsor`, `Partner`, `FoundationalSupport` (a user's $200+ support in one year, with a listed / anonymous / pending status; imported supporters hold unverified placeholder accounts on a `.invalid` domain until they claim them).
+**Snippets** — `Author`, `Leader`, `Partner`, `FoundationalSupport` (a user's $200+ support in one year, with a listed / anonymous / pending status; imported supporters hold unverified placeholder accounts on a `.invalid` domain until they claim them).
+
+**Corporate sponsors** (`corporate_sponsorships.Sponsor`) are managed by the Executor group from their own console at `/corporate-sponsors/` (the old `/sponsors/` paths redirect there), not from Wagtail. Active ones appear in the home-page sponsor strip; contract amounts and contacts never render publicly.
 
 **Site settings** (Wagtail Settings menu) — navigation, announcement toast,
 social links, footer copy.

@@ -19,7 +19,7 @@
       <form method="get" class="card" style="margin-bottom: 2rem;">
         {{ filterset.form.as_p }}
         <button type="submit" class="btn">Filter</button>
-        <a role="button" class="secondary" href="{% url 'sponsors-list' %}">Clear</a>
+        <a role="button" class="secondary" href="{% url 'corporate-sponsors-list' %}">Clear</a>
       </form>
     {% endif %}
 
@@ -43,15 +43,15 @@
           <tbody>
             {% for sponsor in object_list %}
               <tr>
-                <th scope="row"><a href="{% url 'sponsors-detail' sponsor.pk %}">{{ sponsor.name }}</a></th>
+                <th scope="row"><a href="{% url 'corporate-sponsors-detail' sponsor.pk %}">{{ sponsor.name }}</a></th>
                 <td>{{ sponsor.get_status_display }}</td>
                 <td>{{ sponsor.expires_at|date:"d M Y"|default:"—" }}</td>
                 <td>{% if sponsor.contract_amount is not None %}${{ sponsor.contract_amount|floatformat:2 }}{% else %}—{% endif %}</td>
                 <td>{{ sponsor.active|yesno:"Yes,No" }}</td>
                 <td>
-                  <a href="{% url 'sponsors-update' sponsor.pk %}">Edit</a>
+                  <a href="{% url 'corporate-sponsors-update' sponsor.pk %}">Edit</a>
                   &middot;
-                  <a href="{% url 'sponsors-delete' sponsor.pk %}">Delete</a>
+                  <a href="{% url 'corporate-sponsors-delete' sponsor.pk %}">Delete</a>
                 </td>
               </tr>
             {% endfor %}

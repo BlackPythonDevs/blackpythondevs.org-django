@@ -79,7 +79,8 @@ blog/                BlogIndexPage, BlogPage
 events/              EventIndexPage, EventPage, SponsoredEvent
 users/               Custom user, allauth adapters, Discord integration
 ambassadors/, communities/, elections/, nominations/, notifications/,
-service_award/, sponsorships/, checklists/, community_messages/, core/
+service_award/, sponsorships/, corporate_sponsorships/, checklists/,
+community_messages/, core/
 templates/           Django templates (ported from Jinja2)
 static/              Design system assets ("Luminous Monolith", unchanged)
 fixtures/            Seed data (from the static site's _data/)
@@ -90,7 +91,8 @@ tests/               pytest suite
 
 - **Content model**: everything formerly in `_data/*.json` is editable in the
   Wagtail CMS. Page bodies are StreamFields. Snippets: `Author`, `Leader`,
-  `Sponsor`, `Partner`, `FoundationalSupport`. Site settings live in the
+  `Partner`, `FoundationalSupport`. Corporate `Sponsor` records live in
+  `corporate_sponsorships` and are managed at `/corporate-sponsors/`. Site settings live in the
   Wagtail Settings menu (navigation, announcement toast, social links, footer).
 - **Sponsored events** carry a status (`requested → approved → completed →
   cancelled`) and a `paid` flag. Only **completed** ones render publicly;
