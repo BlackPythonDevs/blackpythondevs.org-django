@@ -83,13 +83,23 @@
         </section>
       {% endif %}
 
-      {% if can_manage_sponsorships %}
+      {% if can_manage_event_sponsorships %}
         <section class="cc-card">
-          <h2>Sponsorships</h2>
-          <p>Manage corporate sponsors and community event sponsorship requests.</p>
+          <h2>Event sponsorships</h2>
+          <p>Review requests from community events asking Black Python Devs to sponsor them.</p>
           <p class="cc-actions">
-            <a role="button" class="btn" href="{% url 'sponsors-list' %}">Corporate sponsors</a>
-            <a role="button" class="secondary" href="{% url 'sponsorships-list' %}">Event sponsorship requests</a>
+            <a role="button" class="btn" href="{% url 'sponsorships-list' %}">Event sponsorship requests</a>
+            <a role="button" class="secondary" href="{% url 'sponsorship-request' %}">Request form</a>
+          </p>
+        </section>
+      {% endif %}
+
+      {% if can_manage_corporate_sponsorships %}
+        <section class="cc-card">
+          <h2>Corporate sponsors</h2>
+          <p>Track the companies that sponsor Black Python Devs: contracts, renewals and follow-up.</p>
+          <p class="cc-actions">
+            <a role="button" class="btn" href="{% url 'sponsors-list' %}">Manage corporate sponsors</a>
           </p>
         </section>
       {% endif %}
@@ -146,7 +156,7 @@
         </section>
       {% endif %}
 
-      {% if can_manage_sponsorships %}
+      {% if can_manage_event_sponsorships or can_manage_corporate_sponsorships %}
         <section class="cc-card">
           <h2>Process checklists</h2>
           <p>Work through the follow-through checklists for ongoing processes.</p>

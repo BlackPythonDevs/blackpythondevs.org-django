@@ -12,12 +12,12 @@ from datetime import timedelta
 
 import pytest
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 
 from checklists.models import Task
-from core.models import Sponsor
+from core.models import Sponsor, can_manage_corporate_sponsorships, can_manage_event_sponsorships
 
 pytestmark = pytest.mark.django_db
 
@@ -151,34 +151,143 @@ class TestConsoleWrites:
         assert not Sponsor.objects.filter(name="Should not exist").exists()
 
 
+def _onboard(user):
+    user.onboarding_completed_at = timezone.now()
+    user.save()
+    return user
+
+
+def _perms(*codenames_by_app):
+    return [
+        Permission.objects.get(content_type__app_label=app, codename=codename) for app, codename in codenames_by_app
+    ]
+
+
+CORPORATE_CODENAMES = [("core", f"{action}_sponsor") for action in ("view", "add", "change", "delete")]
+EVENT_CODENAMES = [("sponsorships", f"{action}_sponsorshiprequest") for action in ("view", "add", "change", "delete")]
+
+
+@pytest.fixture
+def corporate_only(db):
+    """Holds the four Sponsor perms directly; no Executor group."""
+    user = get_user_model().objects.create_user(username="corp", email="corp@example.com", password="pw")
+    user.user_permissions.add(*_perms(*CORPORATE_CODENAMES))
+    return user
+
+
+@pytest.fixture
+def event_only_executor(executor):
+    """An Executor whose group no longer carries the Sponsor perms, leaving
+    only the event-sponsorship ones (rolled back with the test)."""
+    Group.objects.get(name="Executor").permissions.remove(*_perms(*CORPORATE_CODENAMES))
+    return get_user_model().objects.get(pk=executor.pk)
+
+
 class TestMembersPageLink:
-    """The "Leadership actions" panel on /members/ links to both consoles."""
+    """Event sponsorships and corporate sponsors are separate cards (#200)."""
 
-    @pytest.fixture
-    def onboarded_executor(self, executor):
-        executor.onboarding_completed_at = timezone.now()
-        executor.save()
-        return executor
+    def test_anonymous_is_redirected(self, client):
+        response = client.get("/members/")
+        assert response.status_code == 302
+        assert "Event sponsorships" not in response.content.decode()
 
-    @pytest.fixture
-    def onboarded_member(self, member):
-        member.onboarding_completed_at = timezone.now()
-        member.save()
-        return member
-
-    def test_executor_sees_both_console_links(self, client, onboarded_executor):
-        client.force_login(onboarded_executor)
+    def test_executor_sees_event_card(self, client, executor):
+        client.force_login(_onboard(executor))
         content = client.get("/members/").content.decode()
-        assert "Corporate sponsors" in content
-        assert 'href="/sponsors/"' in content
-        assert "Event sponsorship requests" in content
+        assert "<h2>Event sponsorships</h2>" in content
         assert 'href="/sponsorships/"' in content
+        assert 'href="/sponsorships/request/"' in content
 
-    def test_ordinary_member_does_not_see_the_links(self, client, onboarded_member):
-        client.force_login(onboarded_member)
+    def test_ordinary_member_sees_neither_card(self, client, member):
+        client.force_login(_onboard(member))
         content = client.get("/members/").content.decode()
+        assert "Event sponsorships" not in content
         assert "Corporate sponsors" not in content
-        assert "Event sponsorship requests" not in content
+        assert 'href="/sponsors/"' not in content
+        assert 'href="/sponsorships/"' not in content
+
+    def test_sponsors_membership_group_sees_neither_card(self, client, member):
+        member.groups.add(Group.objects.get_or_create(name="Sponsors")[0])
+        client.force_login(_onboard(member))
+        content = client.get("/members/").content.decode()
+        assert "Event sponsorships" not in content
+        assert "Corporate sponsors" not in content
+
+    def test_corporate_only_user_sees_only_corporate_card(self, client, corporate_only):
+        client.force_login(_onboard(corporate_only))
+        content = client.get("/members/").content.decode()
+        assert "<h3>Corporate sponsors</h3>" in content
+        assert 'href="/sponsors/"' in content
+        assert "Event sponsorships" not in content
+        assert 'href="/sponsorships/"' not in content
+
+    def test_event_only_executor_sees_only_event_card(self, client, event_only_executor):
+        client.force_login(_onboard(event_only_executor))
+        content = client.get("/members/").content.decode()
+        assert "<h2>Event sponsorships</h2>" in content
+        assert "<h2>Corporate sponsors</h2>" not in content
+        assert 'href="/sponsors/"' not in content
+
+
+class TestConsolesAreSeparate:
+    def test_corporate_only_user_is_denied_event_console(self, client, corporate_only):
+        client.force_login(corporate_only)
+        assert client.get("/sponsors/").status_code == 200
+        assert client.get("/sponsorships/").status_code == 403
+
+    def test_event_only_executor_is_denied_corporate_console(self, client, event_only_executor):
+        client.force_login(event_only_executor)
+        assert client.get("/sponsorships/").status_code == 200
+        assert client.get("/sponsors/").status_code == 403
+
+
+class TestHelpers:
+    def test_anonymous_gets_false(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        assert not can_manage_event_sponsorships(AnonymousUser())
+        assert not can_manage_corporate_sponsorships(AnonymousUser())
+
+    def test_superuser_gets_true(self, db):
+        root = get_user_model().objects.create_superuser(username="root", email="root@example.com", password="pw")
+        assert can_manage_event_sponsorships(root)
+        assert can_manage_corporate_sponsorships(root)
+
+    def test_ordinary_member_gets_false(self, member):
+        assert not can_manage_event_sponsorships(member)
+        assert not can_manage_corporate_sponsorships(member)
+
+    def test_executor_with_perms_manages_events(self, executor):
+        assert can_manage_event_sponsorships(executor)
+
+    def test_executor_group_without_perms_is_not_enough(self, executor):
+        Group.objects.get(name="Executor").permissions.remove(*_perms(*EVENT_CODENAMES))
+        executor = get_user_model().objects.get(pk=executor.pk)
+        assert not can_manage_event_sponsorships(executor)
+
+    def test_event_perms_without_executor_group_are_not_enough(self, member):
+        member.user_permissions.add(*_perms(*EVENT_CODENAMES))
+        member = get_user_model().objects.get(pk=member.pk)
+        assert not can_manage_event_sponsorships(member)
+
+    def test_partial_event_perms_are_not_enough(self, executor):
+        Group.objects.get(name="Executor").permissions.remove(*_perms(EVENT_CODENAMES[-1]))
+        executor = get_user_model().objects.get(pk=executor.pk)
+        assert not can_manage_event_sponsorships(executor)
+
+    def test_corporate_perms_grant_corporate_only(self, corporate_only):
+        assert can_manage_corporate_sponsorships(corporate_only)
+        assert not can_manage_event_sponsorships(corporate_only)
+
+    def test_partial_corporate_perms_are_not_enough(self, member):
+        member.user_permissions.add(*_perms(*CORPORATE_CODENAMES[:3]))
+        member = get_user_model().objects.get(pk=member.pk)
+        assert not can_manage_corporate_sponsorships(member)
+
+    def test_sponsors_membership_group_gets_false(self, member):
+        member.groups.add(Group.objects.get_or_create(name="Sponsors")[0])
+        assert not can_manage_corporate_sponsorships(member)
+        assert not can_manage_event_sponsorships(member)
 
 
 class TestChecklistWidgetIsTheCorporateOne:

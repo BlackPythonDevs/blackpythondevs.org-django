@@ -16,7 +16,8 @@ from community_messages.models import is_leadership, messages_for_leader
 from core.models import (
     CustomImage,
     Leader,
-    can_manage_sponsorships,
+    can_manage_corporate_sponsorships,
+    can_manage_event_sponsorships,
     is_council_member,
     is_leadership_or_above,
     is_student,
@@ -72,8 +73,10 @@ def members(request):
         "can_send_notifications": can_send_notifications(request.user),
         # Community admins get a link to their console + compose form.
         "can_manage_communities": can_manage_community(request.user),
-        # Executors get links to the sponsorships/sponsors consoles.
-        "can_manage_sponsorships": can_manage_sponsorships(request.user),
+        # Event sponsorships (money out) and corporate sponsors (money in) are
+        # separate processes, each with its own console and permissions.
+        "can_manage_event_sponsorships": can_manage_event_sponsorships(request.user),
+        "can_manage_corporate_sponsorships": can_manage_corporate_sponsorships(request.user),
         # Leadership members get a link to messages sent to them.
         "is_leadership_member": is_leadership(request.user),
         # Leadership Council + Executor get the meeting-minutes console.

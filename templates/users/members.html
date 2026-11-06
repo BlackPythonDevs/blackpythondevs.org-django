@@ -60,17 +60,27 @@
     </section>
   {% endif %}
 
-  {% if can_nominate or can_nominate_service_award or is_council_member or can_manage_sponsorships %}
+  {% if can_nominate or can_nominate_service_award or is_council_member or can_manage_event_sponsorships or can_manage_corporate_sponsorships %}
     <section class="auth-panel">
       <h2>Leadership actions</h2>
 
-      {% if can_manage_sponsorships %}
+      {% if can_manage_event_sponsorships %}
         <div>
-          <h3>Sponsorships</h3>
-          <p>Manage corporate sponsors and community event sponsorship requests.</p>
+          <h3>Event sponsorships</h3>
+          <p>Review requests from community events asking Black Python Devs to sponsor them.</p>
           <p>
-            <a role="button" class="btn" href="{% url 'sponsors-list' %}">Corporate sponsors</a>
-            <a role="button" class="secondary" href="{% url 'sponsorships-list' %}">Event sponsorship requests</a>
+            <a role="button" class="btn" href="{% url 'sponsorships-list' %}">Event sponsorship requests</a>
+            <a role="button" class="secondary" href="{% url 'sponsorship-request' %}">Request form</a>
+          </p>
+        </div>
+      {% endif %}
+
+      {% if can_manage_corporate_sponsorships %}
+        <div>
+          <h3>Corporate sponsors</h3>
+          <p>Track the companies that sponsor Black Python Devs: contracts, renewals and follow-up.</p>
+          <p>
+            <a role="button" class="btn" href="{% url 'sponsors-list' %}">Manage corporate sponsors</a>
           </p>
         </div>
       {% endif %}

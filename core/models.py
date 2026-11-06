@@ -307,19 +307,49 @@ def is_leadership_or_above(user):
     return user.groups.filter(name__in=(COUNCIL_GROUP_NAME, EXECUTOR_GROUP_NAME)).exists()
 
 
-def can_manage_sponsorships(user):
-    """Whether `user` can reach the sponsorships/sponsors front-end consoles
-    (sponsorships.views.SponsorshipRequestView, core.views.SponsorView).
+EVENT_SPONSORSHIP_PERMS = (
+    "sponsorships.view_sponsorshiprequest",
+    "sponsorships.add_sponsorshiprequest",
+    "sponsorships.change_sponsorshiprequest",
+    "sponsorships.delete_sponsorshiprequest",
+)
+CORPORATE_SPONSOR_PERMS = (
+    "core.view_sponsor",
+    "core.add_sponsor",
+    "core.change_sponsor",
+    "core.delete_sponsor",
+)
 
-    Mirrors those views' own `permission_required`: both are Executor-only
-    (the group each is granted full CRUD on in their own migrations), plus
-    superusers, who pass every permission check regardless.
+
+def can_manage_event_sponsorships(user):
+    """Whether `user` can reach the event-sponsorship console
+    (sponsorships.views.SponsorshipRequestView): money going *out* to
+    community events.
+
+    Requires Executor group membership AND every permission that view
+    demands, so neither a stray grant nor a permission-less group membership
+    is enough. Superusers pass every check regardless.
     """
     if not user.is_authenticated:
         return False
     if user.is_superuser:
         return True
-    return user.groups.filter(name=EXECUTOR_GROUP_NAME).exists()
+    return user.groups.filter(name=EXECUTOR_GROUP_NAME).exists() and user.has_perms(EVENT_SPONSORSHIP_PERMS)
+
+
+def can_manage_corporate_sponsorships(user):
+    """Whether `user` can reach the corporate-sponsor console
+    (core.views.SponsorView): money coming *in* from sponsors.
+
+    Mirrors that view's `permission_required` exactly. Deliberately not a
+    group check: the "Sponsors" membership group is for outside sponsor
+    companies and carries no console access.
+    """
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    return user.has_perms(CORPORATE_SPONSOR_PERMS)
 
 
 def is_student(user):
