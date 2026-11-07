@@ -61,7 +61,7 @@ class TestRegionDerivation:
 
     def test_region_matches_user_region_taxonomy(self, db):
         """Community.region must speak the same taxonomy as User.region —
-        both come from users.regions, not sponsorships.regions (which uses
+        both come from users.regions, not event_sponsorships.regions (which uses
         coarse continent names like "Africa" instead of "Western Africa")."""
         community = Community.objects.create(name="PyLagos", country="NG")
         user = make_user("leader", country="NG")

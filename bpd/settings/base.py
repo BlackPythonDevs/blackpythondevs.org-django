@@ -28,7 +28,8 @@ INSTALLED_APPS = [
     "home",
     "blog",
     "events",
-    "sponsorships",
+    "sponsorships",  # migrations-only stub; code lives in event_sponsorships
+    "event_sponsorships",
     "corporate_sponsorships",
     "checklists",
     "ambassadors",

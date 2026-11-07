@@ -5,8 +5,8 @@ import datetime
 import pytest
 from django.core.management import call_command
 
+from event_sponsorships.models import SponsorshipRequest
 from events.models import EventIndexPage, LeadershipSummitPage
-from sponsorships.models import SponsorshipRequest
 
 pytestmark = pytest.mark.django_db
 

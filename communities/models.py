@@ -8,7 +8,7 @@ front-end console (see views.py) only ever lets an admin view/edit their own
 community and remove themselves from it.
 
 `region` follows `users.regions` (the UN M49 subregion scheme), not
-`sponsorships.regions`'s coarser continent scheme — it has to match
+`event_sponsorships.regions`'s coarser continent scheme — it has to match
 `User.region` exactly, since that's what `community_messages.CommunityMessage`
 filters its recipients on. A community with no fixed location can be marked
 `is_online` instead of tied to a country; its messages then reach leadership

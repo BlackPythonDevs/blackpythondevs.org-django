@@ -1,7 +1,7 @@
 """Front-end portal for the generic checklist/notes app.
 
 Entirely driven by registry.py — nothing here names a specific model. Access
-follows the same reasoning as sponsorships.views.SponsorshipRequestView:
+follows the same reasoning as event_sponsorships.views.SponsorshipRequestView:
 requiring the full add/change/delete/view set on both Task and Note keeps
 this a management console for users who can do everything with it (in
 practice, the Executor group and superusers), not a partial view for anyone

@@ -1,7 +1,7 @@
 """Front-end console for community admins.
 
 - `CommunityAdminConsole` — a neapolitan CRUDView, list/detail/update only
-  (see `sponsorships.views.SponsorshipRequestView` for the pattern it copies).
+  (see `event_sponsorships.views.SponsorshipRequestView` for the pattern it copies).
   No create or delete role is wired up at all: staff create communities in
   the Django admin, and a community admin can never delete a `Community`
   outright — only leave it (`LeaveCommunityView`).

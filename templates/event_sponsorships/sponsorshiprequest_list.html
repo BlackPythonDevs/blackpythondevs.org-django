@@ -19,7 +19,7 @@
       <form method="get" class="card" style="margin-bottom: 2rem;">
         {{ filterset.form.as_p }}
         <button type="submit" class="btn">Filter</button>
-        <a role="button" class="secondary" href="{% url 'sponsorships-list' %}">Clear</a>
+        <a role="button" class="secondary" href="{% url 'event-sponsorships-list' %}">Clear</a>
       </form>
     {% endif %}
 
@@ -45,7 +45,7 @@
             {# Not named `request`: that would shadow the request object used below. #}
             {% for sponsorship in object_list %}
               <tr>
-                <th scope="row"><a href="{% url 'sponsorships-detail' sponsorship.pk %}">{{ sponsorship.name }}</a></th>
+                <th scope="row"><a href="{% url 'event-sponsorships-detail' sponsorship.pk %}">{{ sponsorship.name }}</a></th>
                 <td>{{ sponsorship.year }}</td>
                 <td>{{ sponsorship.region|default:"—" }}</td>
                 <td>{{ sponsorship.country.name|default:"—" }}</td>
@@ -55,9 +55,9 @@
                   {% if not sponsorship.paid %}<span class="badge badge-community">community</span>{% endif %}
                 </td>
                 <td>
-                  <a href="{% url 'sponsorships-update' sponsorship.pk %}">Edit</a>
+                  <a href="{% url 'event-sponsorships-update' sponsorship.pk %}">Edit</a>
                   &middot;
-                  <a href="{% url 'sponsorships-delete' sponsorship.pk %}">Delete</a>
+                  <a href="{% url 'event-sponsorships-delete' sponsorship.pk %}">Delete</a>
                 </td>
               </tr>
             {% endfor %}

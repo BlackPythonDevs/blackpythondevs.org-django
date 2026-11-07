@@ -1,8 +1,8 @@
 """The two sponsorship surfaces: the Executor console and the public intake form.
 
-The neapolitan CRUDView at /sponsorships/ is a management console — it demands
+The neapolitan CRUDView at /event-sponsorships/ is a management console — it demands
 the full add/change/delete/view set, so ordinary members and anonymous visitors
-are bounced. The form at /sponsorships/request/ is the opposite: open to anyone,
+are bounced. The form at /event-sponsorships/request/ is the opposite: open to anyone,
 since the organisers who need it come from outside the community.
 """
 
@@ -13,12 +13,12 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 
-from sponsorships.models import SponsorshipRequest
+from event_sponsorships.models import SponsorshipRequest
 
 pytestmark = pytest.mark.django_db
 
-CONSOLE_URLS = ["/sponsorships/", "/sponsorships/new/"]
-DETAIL_URLS = ["/sponsorships/{pk}/", "/sponsorships/{pk}/edit/", "/sponsorships/{pk}/delete/"]
+CONSOLE_URLS = ["/event-sponsorships/", "/event-sponsorships/new/"]
+DETAIL_URLS = ["/event-sponsorships/{pk}/", "/event-sponsorships/{pk}/edit/", "/event-sponsorships/{pk}/delete/"]
 
 
 @pytest.fixture
@@ -67,11 +67,13 @@ class TestConsoleTemplates:
     def test_site_templates_are_used(self, client, executor, sponsorship):
         client.force_login(executor)
         expected = {
-            "/sponsorships/": "sponsorships/sponsorshiprequest_list.html",
-            "/sponsorships/new/": "sponsorships/sponsorshiprequest_form.html",
-            f"/sponsorships/{sponsorship.pk}/": "sponsorships/sponsorshiprequest_detail.html",
-            f"/sponsorships/{sponsorship.pk}/edit/": "sponsorships/sponsorshiprequest_form.html",
-            f"/sponsorships/{sponsorship.pk}/delete/": "sponsorships/sponsorshiprequest_confirm_delete.html",
+            "/event-sponsorships/": "event_sponsorships/sponsorshiprequest_list.html",
+            "/event-sponsorships/new/": "event_sponsorships/sponsorshiprequest_form.html",
+            f"/event-sponsorships/{sponsorship.pk}/": "event_sponsorships/sponsorshiprequest_detail.html",
+            f"/event-sponsorships/{sponsorship.pk}/edit/": "event_sponsorships/sponsorshiprequest_form.html",
+            f"/event-sponsorships/{sponsorship.pk}/delete/": (
+                "event_sponsorships/sponsorshiprequest_confirm_delete.html"
+            ),
         }
         for url, template in expected.items():
             names = [t.name for t in client.get(url).templates if t.name]
@@ -81,7 +83,7 @@ class TestConsoleTemplates:
         sponsorship.notes = "Chased the organiser twice."
         sponsorship.save()
         client.force_login(executor)
-        body = client.get(f"/sponsorships/{sponsorship.pk}/").content.decode()
+        body = client.get(f"/event-sponsorships/{sponsorship.pk}/").content.decode()
         assert "Chased the organiser twice." in body
         assert "Internal notes" in body
 
@@ -90,7 +92,7 @@ class TestConsoleWrites:
     def test_executor_can_create_and_derived_fields_are_set(self, client, executor):
         client.force_login(executor)
         response = client.post(
-            "/sponsorships/new/",
+            "/event-sponsorships/new/",
             {
                 "name": "DjangoCon Lagos",
                 "url": "https://example.com",
@@ -110,12 +112,12 @@ class TestConsoleWrites:
 
     def test_executor_can_delete(self, client, executor, sponsorship):
         client.force_login(executor)
-        assert client.post(f"/sponsorships/{sponsorship.pk}/delete/").status_code == 302
+        assert client.post(f"/event-sponsorships/{sponsorship.pk}/delete/").status_code == 302
         assert not SponsorshipRequest.objects.filter(pk=sponsorship.pk).exists()
 
     def test_anonymous_cannot_create(self, client):
         client.post(
-            "/sponsorships/new/",
+            "/event-sponsorships/new/",
             {"name": "Sneaky", "start_date": "2027-01-01", "country": "US"},
         )
         assert not SponsorshipRequest.objects.filter(name="Sneaky").exists()
@@ -123,19 +125,19 @@ class TestConsoleWrites:
 
 class TestPublicIntake:
     def test_anonymous_can_open_the_form(self, client):
-        response = client.get("/sponsorships/request/")
+        response = client.get("/event-sponsorships/request/")
         assert response.status_code == 200
-        assert "sponsorships/request_form.html" in [t.name for t in response.templates if t.name]
+        assert "event_sponsorships/request_form.html" in [t.name for t in response.templates if t.name]
 
     def test_internal_notes_are_not_exposed(self, client):
-        form = client.get("/sponsorships/request/").context["form"]
+        form = client.get("/event-sponsorships/request/").context["form"]
         assert "notes" not in form.fields
         assert "status" not in form.fields
         assert "paid" not in form.fields
 
     def test_submission_creates_a_requested_record(self, client):
         response = client.post(
-            "/sponsorships/request/",
+            "/event-sponsorships/request/",
             {
                 "name": "PyCon Nairobi",
                 "url": "https://example.org",
@@ -157,7 +159,7 @@ class TestPublicIntake:
         the organiser can get reminders and updates once approved (issue
         #144)."""
         response = client.post(
-            "/sponsorships/request/",
+            "/event-sponsorships/request/",
             {
                 "name": "PyCon Nairobi",
                 "url": "https://example.org",
@@ -176,7 +178,7 @@ class TestPublicIntake:
     def test_unknown_contact_email_stays_unlinked(self, client):
         """No account yet — the record keeps the bare email until one exists."""
         client.post(
-            "/sponsorships/request/",
+            "/event-sponsorships/request/",
             {
                 "name": "PyCon Nairobi",
                 "url": "",
@@ -193,9 +195,9 @@ class TestPublicIntake:
         assert created.contact_user is None
 
     def test_thanks_page_renders(self, client):
-        assert client.get("/sponsorships/request/thanks/").status_code == 200
+        assert client.get("/event-sponsorships/request/thanks/").status_code == 200
 
     def test_intake_url_is_not_swallowed_by_the_detail_route(self, client):
         """`request/` must not be read as a CRUD pk lookup."""
-        response = client.get("/sponsorships/request/")
-        assert response.resolver_match.url_name == "sponsorship-request"
+        response = client.get("/event-sponsorships/request/")
+        assert response.resolver_match.url_name == "event-sponsorship-request"

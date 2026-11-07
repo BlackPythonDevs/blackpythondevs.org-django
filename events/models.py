@@ -1,6 +1,6 @@
 """Events: BPD-organised events, plus the public listing of sponsored community events.
 
-The sponsored-events records themselves now live in the ``sponsorships`` app as
+The sponsored-events records themselves now live in the ``event_sponsorships`` app as
 standalone ``SponsorshipRequest`` rows managed from the Django admin; this page
 only reads the completed ones for public display.
 """
@@ -78,7 +78,7 @@ class EventIndexPage(SEOMixin, Page):
     def get_context(self, request, *args, **kwargs):
         from collections import defaultdict
 
-        from sponsorships.models import SponsorshipRequest
+        from event_sponsorships.models import SponsorshipRequest
 
         context = super().get_context(request, *args, **kwargs)
         # Editors tick `completed` once an event is over (BPD-129): until then it

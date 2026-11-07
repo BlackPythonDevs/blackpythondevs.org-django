@@ -11,16 +11,16 @@
 
 {% block content %}
   <section>
-    <p><a href="{% url 'sponsorships-list' %}">&larr; All sponsorship requests</a></p>
+    <p><a href="{% url 'event-sponsorships-list' %}">&larr; All sponsorship requests</a></p>
 
     <h1>
       {{ object.name }}
       {% if not object.paid %}<span class="badge badge-community">community</span>{% endif %}
       {% checklist_link object %}
-      <a class="icon-action update" href="{% url 'sponsorships-update' object.pk %}" title="Edit" aria-label="Edit">
+      <a class="icon-action update" href="{% url 'event-sponsorships-update' object.pk %}" title="Edit" aria-label="Edit">
         <i class="iconoir-edit-pencil" aria-hidden="true"></i>
       </a>
-      <a class="icon-action danger" href="{% url 'sponsorships-delete' object.pk %}" title="Delete" aria-label="Delete">
+      <a class="icon-action danger" href="{% url 'event-sponsorships-delete' object.pk %}" title="Delete" aria-label="Delete">
         <i class="iconoir-trash" aria-hidden="true"></i>
       </a>
     </h1>

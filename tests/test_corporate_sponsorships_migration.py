@@ -52,9 +52,9 @@ class TestLegacyRedirect:
 
     @pytest.mark.django_db
     def test_event_sponsorship_intake_is_not_shadowed(self, client):
-        response = client.get("/sponsorships/request/")
+        response = client.get("/event-sponsorships/request/")
         assert response.status_code == 200
-        assert response.resolver_match.url_name == "sponsorship-request"
+        assert response.resolver_match.url_name == "event-sponsorship-request"
 
 
 @pytest.mark.django_db

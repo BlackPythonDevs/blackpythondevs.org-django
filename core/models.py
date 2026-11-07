@@ -194,10 +194,10 @@ def is_leadership_or_above(user):
 
 
 EVENT_SPONSORSHIP_PERMS = (
-    "sponsorships.view_sponsorshiprequest",
-    "sponsorships.add_sponsorshiprequest",
-    "sponsorships.change_sponsorshiprequest",
-    "sponsorships.delete_sponsorshiprequest",
+    "event_sponsorships.view_sponsorshiprequest",
+    "event_sponsorships.add_sponsorshiprequest",
+    "event_sponsorships.change_sponsorshiprequest",
+    "event_sponsorships.delete_sponsorshiprequest",
 )
 CORPORATE_SPONSOR_PERMS = (
     "corporate_sponsorships.view_sponsor",
@@ -209,7 +209,7 @@ CORPORATE_SPONSOR_PERMS = (
 
 def can_manage_event_sponsorships(user):
     """Whether `user` can reach the event-sponsorship console
-    (sponsorships.views.SponsorshipRequestView): money going *out* to
+    (event_sponsorships.views.SponsorshipRequestView): money going *out* to
     community events.
 
     Requires Executor group membership AND every permission that view

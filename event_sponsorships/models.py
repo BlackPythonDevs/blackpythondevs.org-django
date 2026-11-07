@@ -99,6 +99,9 @@ class SponsorshipRequest(models.Model):
         verbose_name = "sponsorship request"
         verbose_name_plural = "sponsorship requests"
         ordering = ["-year", "region", "name"]
+        # The table predates the move from the old `sponsorships` app (issue
+        # #202) and keeps its name; the move was state-only.
+        db_table = "sponsorships_sponsorshiprequest"
 
     def __str__(self):
         return f"{self.name} ({self.year})"

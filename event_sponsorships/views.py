@@ -17,7 +17,7 @@ from .models import SponsorshipRequest
 
 class SponsorshipRequestView(PermissionRequiredMixin, CRUDView):
     model = SponsorshipRequest
-    url_base = "sponsorships"
+    url_base = "event-sponsorships"
 
     # Status, paid, year and region are managed elsewhere / derived, so they
     # stay off the request form (see SponsorshipRequestForm.Meta.fields).
@@ -29,10 +29,10 @@ class SponsorshipRequestView(PermissionRequiredMixin, CRUDView):
     # Requiring the full set keeps this a management console: only users who can
     # do everything (the Executor group and superusers) get in at all.
     permission_required = [
-        "sponsorships.view_sponsorshiprequest",
-        "sponsorships.add_sponsorshiprequest",
-        "sponsorships.change_sponsorshiprequest",
-        "sponsorships.delete_sponsorshiprequest",
+        "event_sponsorships.view_sponsorshiprequest",
+        "event_sponsorships.add_sponsorshiprequest",
+        "event_sponsorships.change_sponsorshiprequest",
+        "event_sponsorships.delete_sponsorshiprequest",
     ]
 
 
@@ -50,9 +50,9 @@ class PublicSponsorshipRequestView(CreateView):
 
     model = SponsorshipRequest
     form_class = PublicSponsorshipRequestForm
-    template_name = "sponsorships/request_form.html"
-    success_url = reverse_lazy("sponsorship-request-done")
+    template_name = "event_sponsorships/request_form.html"
+    success_url = reverse_lazy("event-sponsorship-request-done")
 
 
 class SponsorshipRequestDoneView(TemplateView):
-    template_name = "sponsorships/request_done.html"
+    template_name = "event_sponsorships/request_done.html"

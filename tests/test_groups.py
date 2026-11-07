@@ -75,10 +75,13 @@ def test_cms_access_depends_on_council_membership(client, in_council):
 
 
 def test_executor_group_keeps_its_sponsorship_permissions():
-    codenames = set(Group.objects.get(name=EXECUTOR_GROUP_NAME).permissions.values_list("codename", flat=True))
+    # Under the event_sponsorships label since the app rename (issue #202).
+    perms = set(
+        Group.objects.get(name=EXECUTOR_GROUP_NAME).permissions.values_list("content_type__app_label", "codename")
+    )
     assert {
-        "add_sponsorshiprequest",
-        "change_sponsorshiprequest",
-        "delete_sponsorshiprequest",
-        "view_sponsorshiprequest",
-    } <= codenames
+        ("event_sponsorships", "add_sponsorshiprequest"),
+        ("event_sponsorships", "change_sponsorshiprequest"),
+        ("event_sponsorships", "delete_sponsorshiprequest"),
+        ("event_sponsorships", "view_sponsorshiprequest"),
+    } <= perms

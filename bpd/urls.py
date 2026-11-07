@@ -11,11 +11,6 @@ from wagtail.documents import urls as wagtaildocs_urls
 
 from communities.views import CommunityAdminConsole, LeaveCommunityView
 from core import views as core_views
-from sponsorships.views import (
-    PublicSponsorshipRequestView,
-    SponsorshipRequestDoneView,
-    SponsorshipRequestView,
-)
 from users import views as user_views
 
 urlpatterns = [
@@ -50,12 +45,9 @@ urlpatterns = [
     # Front-end console for community admins (neapolitan). No create/delete
     # role: staff create/delete communities in the Django admin only.
     *CommunityAdminConsole.get_urls(roles={Role.LIST, Role.DETAIL, Role.UPDATE}),
-    # Public sponsorship intake. Listed before the CRUD routes so these fixed
-    # paths are matched before neapolitan's generated ones.
-    path("sponsorships/request/", PublicSponsorshipRequestView.as_view(), name="sponsorship-request"),
-    path("sponsorships/request/thanks/", SponsorshipRequestDoneView.as_view(), name="sponsorship-request-done"),
-    # Front-end CRUD for the Executor group (neapolitan).
-    *SponsorshipRequestView.get_urls(),
+    # Event sponsorships at /event-sponsorships/: the public intake form and
+    # the Executor console (neapolitan), plus 301s from the old /sponsorships/.
+    path("", include("event_sponsorships.urls")),
     # Front-end CRUD for corporate sponsors (neapolitan) at
     # /corporate-sponsors/, plus 301s from the old /sponsors/ paths.
     path("", include("corporate_sponsorships.urls")),
