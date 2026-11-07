@@ -8,7 +8,7 @@ prefix.
 from django.http import HttpResponsePermanentRedirect
 from django.urls import path
 
-from .views import SponsorView
+from .views import SponsorView, my_sponsorship
 
 CONSOLE_PREFIX = "/corporate-sponsors/"
 
@@ -27,5 +27,8 @@ def legacy_sponsors_redirect(request, rest=""):
 urlpatterns = [
     path("sponsors/", legacy_sponsors_redirect, name="legacy-sponsors-redirect"),
     path("sponsors/<path:rest>", legacy_sponsors_redirect),
+    # Listed before the CRUD routes so neapolitan's generated patterns can
+    # never capture "mine" (issue #203).
+    path("corporate-sponsors/mine/", my_sponsorship, name="corporate-sponsors-mine"),
     *SponsorView.get_urls(),
 ]

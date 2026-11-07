@@ -18,6 +18,7 @@ from core.models import (
     Leader,
     can_manage_corporate_sponsorships,
     can_manage_event_sponsorships,
+    is_corporate_sponsor,
     is_council_member,
     is_leadership_or_above,
     is_student,
@@ -77,6 +78,8 @@ def members(request):
         # separate processes, each with its own console and permissions.
         "can_manage_event_sponsorships": can_manage_event_sponsorships(request.user),
         "can_manage_corporate_sponsorships": can_manage_corporate_sponsorships(request.user),
+        # Members representing a corporate sponsor get a link to its read-only page.
+        "is_corporate_sponsor": is_corporate_sponsor(request.user),
         # Leadership members get a link to messages sent to them.
         "is_leadership_member": is_leadership(request.user),
         # Leadership Council + Executor get the meeting-minutes console.

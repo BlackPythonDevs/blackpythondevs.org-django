@@ -50,6 +50,16 @@
     </section>
   {% endif %}
 
+  {% if is_corporate_sponsor %}
+    <section class="auth-panel">
+      <h2>My sponsorship</h2>
+      <p>See your company's sponsorship of Black Python Devs.</p>
+      <p>
+        <a role="button" class="btn" href="{% url 'corporate-sponsors-mine' %}">My sponsorship</a>
+      </p>
+    </section>
+  {% endif %}
+
   {% if is_leadership_member %}
     <section class="auth-panel">
       <h2>Messages from communities</h2>

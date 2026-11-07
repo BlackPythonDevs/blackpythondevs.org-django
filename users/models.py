@@ -118,6 +118,20 @@ class User(AbstractUser):
     linkedin = models.URLField(blank=True)
     website = models.URLField("Personal website", blank=True)
 
+    # The corporate sponsor this member represents (issue #203). Grants the
+    # read-only /corporate-sponsors/mine/ page together with the "Corporate
+    # Sponsor" group. Set only in Django admin: it must never be added to the
+    # member-facing forms in users/forms.py, or anyone could claim a sponsor.
+    corporation_affiliate = models.ForeignKey(
+        "corporate_sponsorships.Sponsor",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="affiliates",
+        help_text="The corporate sponsor this member represents. If the sponsor has no primary contact yet, "
+        "this member becomes it.",
+    )
+
     def __str__(self):
         return self.display_name or self.get_full_name() or self.email
 
@@ -126,7 +140,33 @@ class User(AbstractUser):
             self.region = region_for_country(self.country.code) or self.region
             if self.country.code == "US":
                 self.region = census_region_for_state(self.state_province) or self.region
+        affiliation_changed = bool(self.corporation_affiliate_id) and (
+            self._state.adding
+            or not User.objects.filter(pk=self.pk, corporation_affiliate_id=self.corporation_affiliate_id).exists()
+        )
         super().save(*args, **kwargs)
+        if affiliation_changed:
+            self._claim_empty_primary_contact()
+
+    def _claim_empty_primary_contact(self):
+        """Make this member the primary contact of their corporate sponsor when
+        it has none (issue #203), so the first affiliate becomes the contact.
+        Runs only when the affiliation is set or changed, not on every save.
+
+        Only fills an empty primary_contact_email and never overwrites an
+        existing contact. Sponsor.save() links primary_contact_user from the
+        email, so only the contact fields are written.
+        """
+        if not self.email:
+            return
+        from corporate_sponsorships.models import Sponsor
+
+        sponsor = Sponsor.objects.filter(pk=self.corporation_affiliate_id, primary_contact_email="").first()
+        if sponsor is None:
+            return
+        sponsor.primary_contact_email = self.email
+        sponsor.primary_contact_name = self.display_name or self.get_full_name()
+        sponsor.save(update_fields=["primary_contact_email", "primary_contact_name", "primary_contact_user"])
 
     @property
     def needs_onboarding(self):

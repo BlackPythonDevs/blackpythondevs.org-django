@@ -104,6 +104,16 @@
         </section>
       {% endif %}
 
+      {% if is_corporate_sponsor %}
+        <section class="cc-card">
+          <h2>My sponsorship</h2>
+          <p>See your company's sponsorship of Black Python Devs.</p>
+          <p class="cc-actions">
+            <a role="button" class="btn" href="{% url 'corporate-sponsors-mine' %}">My sponsorship</a>
+          </p>
+        </section>
+      {% endif %}
+
       {% if can_nominate %}
         <section class="cc-card">
           <h2>Council nominations</h2>
