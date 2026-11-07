@@ -1,9 +1,15 @@
 from datetime import timedelta
 
 import django_filters
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import PermissionRequiredMixin
+from django.http import Http404
+from django.shortcuts import render
 from django.utils import timezone
+from django.views.decorators.http import require_GET
 from neapolitan.views import CRUDView
+
+from core.models import is_corporate_sponsor
 
 from .forms import SponsorForm
 from .models import Sponsor
@@ -82,3 +88,22 @@ class SponsorView(PermissionRequiredMixin, CRUDView):
         "corporate_sponsorships.change_sponsor",
         "corporate_sponsorships.delete_sponsor",
     ]
+
+
+@require_GET
+@login_required
+def my_sponsorship(request):
+    """Read-only page for a member who represents a corporate sponsor (issue #203).
+
+    Takes no identifier from the request: the Sponsor comes only from
+    request.user.corporation_affiliate, so there is nothing to tamper with to
+    reach another company's record. Anyone who isn't in the "Corporate
+    Sponsor" group with an affiliation set gets a 404.
+
+    The template shows an explicit allowlist of fields and never the
+    internal ones (contract amount, invoice date, contacts, checklist).
+    """
+    if not is_corporate_sponsor(request.user):
+        raise Http404
+    sponsor = request.user.corporation_affiliate
+    return render(request, "corporate_sponsorships/my_sponsorship.html", {"sponsor": sponsor})

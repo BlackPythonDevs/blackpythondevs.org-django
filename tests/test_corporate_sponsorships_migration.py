@@ -90,7 +90,14 @@ BEFORE = [("corporate_sponsorships", None)]
 # The historical state to seed from once BEFORE is applied: core as it was
 # just before the move.
 BEFORE_STATE = [("core", "0016_sponsor_primary_contact_user")]
-AFTER = [("corporate_sponsorships", "0001_initial"), ("core", "0017_move_sponsor_to_corporate_sponsorships")]
+# users 0009 (User.corporation_affiliate, issue #203) depends on
+# corporate_sponsorships 0001, so rolling back to BEFORE unapplies it too;
+# AFTER brings it back so the current User model matches the schema again.
+AFTER = [
+    ("corporate_sponsorships", "0001_initial"),
+    ("core", "0017_move_sponsor_to_corporate_sponsorships"),
+    ("users", "0009_user_corporation_affiliate"),
+]
 
 
 @pytest.fixture
@@ -131,8 +138,10 @@ def seed_old_sponsor(old_apps):
 
     group, _ = Group.objects.get_or_create(name="Executor")
     group.permissions.add(*perms)
-    user = get_user_model().objects.create_user(username="direct", email="direct@example.com", password="pw")
-    user.user_permissions.add(*perms)
+    # The historical User: at this point the schema predates users 0009.
+    OldUser = old_apps.get_model("users", "User")
+    user = OldUser.objects.create(username="direct", email="direct@example.com", password="!")
+    user.user_permissions.add(*perms.values_list("pk", flat=True))
 
     task = Task.objects.create(content_type=content_type, object_id=sponsor.pk, title="Contract sent")
     note = Note.objects.create(content_type=content_type, object_id=sponsor.pk, body="Called them")

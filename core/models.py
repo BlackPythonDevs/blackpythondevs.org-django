@@ -166,6 +166,13 @@ ONBOARDING_GROUP_NAME = "Onboarding Team"
 # admin, the same way Council/Executor membership is.
 STUDENT_GROUP_NAME = "Student"
 
+# Corporate sponsorship roles (issue #203), provisioned by
+# corporate_sponsorships/migrations/0002. The coordinator group carries the
+# four Sponsor perms (see can_manage_corporate_sponsorships); the sponsor group
+# carries none and is distinct from the notifications "Sponsors" group.
+CORPORATE_SPONSORSHIP_COORDINATOR_GROUP_NAME = "Corporate Sponsorship Coordinator"
+CORPORATE_SPONSOR_GROUP_NAME = "Corporate Sponsor"
+
 
 def is_council_member(user):
     """Whether `user` is a member of the Leadership Council.
@@ -236,6 +243,21 @@ def can_manage_corporate_sponsorships(user):
     if user.is_superuser:
         return True
     return user.has_perms(CORPORATE_SPONSOR_PERMS)
+
+
+def is_corporate_sponsor(user):
+    """Whether `user` represents a corporate sponsor and may see its read-only
+    page at /corporate-sponsors/mine/ (issue #203).
+
+    Needs both the "Corporate Sponsor" group and a corporation_affiliate.
+    Superusers get no pass here: the page shows *their* sponsor, and a
+    superuser without an affiliation has none to show.
+    """
+    if not user.is_authenticated:
+        return False
+    if user.corporation_affiliate_id is None:
+        return False
+    return user.groups.filter(name=CORPORATE_SPONSOR_GROUP_NAME).exists()
 
 
 def is_student(user):

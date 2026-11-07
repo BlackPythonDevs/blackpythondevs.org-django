@@ -39,7 +39,11 @@ class CustomUserAdmin(UserAdmin):
                 )
             },
         ),
+        # The only place a member is tied to a corporate sponsor (issue #203);
+        # never exposed on the member-facing forms.
+        ("Corporate sponsorship", {"fields": ("corporation_affiliate",)}),
     )
+    raw_id_fields = ("corporation_affiliate",)
     readonly_fields = ("region", "onboarding_completed_at")
 
 

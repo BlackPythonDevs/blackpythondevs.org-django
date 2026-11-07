@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% load static wagtailimages_tags %}
+
+{% comment %}
+  Read-only view of a corporate sponsor for its own affiliated member (issue #203).
+  Explicit field allowlist: name, url, logo, active, status, expires_at. Do not
+  add contract_amount, invoice_paid_date, primary contact details or the
+  checklist here, and do not extend sponsor_detail.html.
+{% endcomment %}
+
+{% block title %}My sponsorship{% endblock %}
+
+{% block content %}
+  <section>
+    <p><a href="{% url 'members' %}">&larr; Member area</a></p>
+
+    <h1>{{ sponsor.name }}</h1>
+    <p class="lead">Your company's sponsorship of Black Python Devs.</p>
+
+    <div class="card">
+      <dl>
+        <dt>Status</dt>
+        <dd>{{ sponsor.get_status_display }}</dd>
+
+        <dt>Expires</dt>
+        <dd>{{ sponsor.expires_at|date:"d M Y"|default:"—" }}</dd>
+
+        <dt>Shown in the sponsor strip</dt>
+        <dd>{% if sponsor.active %}Yes{% else %}No{% endif %}</dd>
+
+        <dt>Website</dt>
+        <dd>{% if sponsor.url %}<a href="{{ sponsor.url }}" rel="noopener">{{ sponsor.url }}</a>{% else %}—{% endif %}</dd>
+
+        <dt>Logo</dt>
+        <dd>
+          {% if sponsor.logo %}
+            {% image sponsor.logo height-64 alt=sponsor.name|add:" logo" %}
+          {% elif sponsor.logo_static_path %}
+            <img src="{% static sponsor.logo_static_path %}" alt="{{ sponsor.name }} logo" />
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+      </dl>
+    </div>
+
+    <p>To change any of this, contact the Black Python Devs team.</p>
+  </section>
+{% endblock %}
