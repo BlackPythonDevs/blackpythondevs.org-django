@@ -103,6 +103,18 @@ class SponsorshipRequest(models.Model):
         # #202) and keeps its name; the move was state-only.
         db_table = "sponsorships_sponsorshiprequest"
 
+    # The registered default checklist steps whose done state this model's
+    # status owns. Kept in step with event_sponsorships.apps's register() call;
+    # only these two are ever toggled by a status change, so a manually ticked
+    # "Prospectus reviewed" isn't clobbered.
+    STATUS_TASK_TITLES = {
+        APPROVED: "Approved",
+        COMPLETED: "Event completed",
+    }
+    # The titles a status change may touch — the ticked title and the cleared
+    # one(s). A title is cleared when the new status isn't the one that owns it.
+    MANAGED_TASK_TITLES = ["Approved", "Event completed"]
+
     def __str__(self):
         return f"{self.name} ({self.year})"
 
@@ -126,6 +138,23 @@ class SponsorshipRequest(models.Model):
         else:
             self.contact_user = None
         super().save(*args, **kwargs)
+
+    def sync_checklist(self, *, actor):
+        """Tick/clear this request's default checklist to match `status`.
+
+        Called by the permission-gated status view after `save()`. The write is
+        strictly one-directional: status drives the tasks, never the reverse,
+        so ticking a checklist task can't publish an event (only a status
+        change under event_sponsorships.change_sponsorshiprequest can).
+        """
+        from checklists.models import Task
+
+        Task.sync_default(
+            self,
+            done_titles=[title for status, title in self.STATUS_TASK_TITLES.items() if status == self.status],
+            managed_titles=self.MANAGED_TASK_TITLES,
+            actor=actor,
+        )
 
     @property
     def is_published(self):

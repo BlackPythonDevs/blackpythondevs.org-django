@@ -487,6 +487,94 @@ class TestReorder:
         assert reordered_titles == [task.title for task in reversed(sponsor_tasks)]
 
 
+class TestSyncDefault:
+    """Task.sync_default keeps a record's managed default tasks in step with
+    its owner's state, and only those tasks."""
+
+    def test_marks_only_the_done_titles_and_attributes_the_actor(self, sponsorship_request, executor):
+        content_type = ContentType.objects.get_for_model(SponsorshipRequest)
+        Task.sync_default(
+            sponsorship_request,
+            done_titles=["Approved"],
+            managed_titles=["Approved", "Event completed"],
+            actor=executor,
+        )
+        approved = Task.objects.get(content_type=content_type, object_id=sponsorship_request.pk, title="Approved")
+        completed = Task.objects.get(
+            content_type=content_type, object_id=sponsorship_request.pk, title="Event completed"
+        )
+        assert approved.is_done is True
+        assert approved.done_by == executor
+        assert approved.done_at is not None
+        assert completed.is_done is False
+        assert completed.done_at is None
+
+    def test_clears_a_title_no_longer_done_and_clears_done_at(self, sponsorship_request, executor):
+        content_type = ContentType.objects.get_for_model(SponsorshipRequest)
+        approved = Task.objects.get(content_type=content_type, object_id=sponsorship_request.pk, title="Approved")
+        approved.is_done = True
+        approved.done_by = executor
+        approved.save()
+
+        Task.sync_default(
+            sponsorship_request,
+            done_titles=[],
+            managed_titles=["Approved", "Event completed"],
+            actor=executor,
+        )
+        approved.refresh_from_db()
+        assert approved.is_done is False
+        assert approved.done_by is None
+        assert approved.done_at is None
+
+    def test_titles_outside_the_managed_set_are_untouched(self, sponsorship_request, executor):
+        content_type = ContentType.objects.get_for_model(SponsorshipRequest)
+        reviewed = Task.objects.get(
+            content_type=content_type, object_id=sponsorship_request.pk, title="Prospectus reviewed"
+        )
+        reviewed.is_done = True
+        reviewed.done_by = executor
+        reviewed.save()
+
+        Task.sync_default(
+            sponsorship_request,
+            done_titles=["Approved"],
+            managed_titles=["Approved", "Event completed"],
+            actor=executor,
+        )
+        reviewed.refresh_from_db()
+        assert reviewed.is_done is True
+        assert reviewed.done_by == executor
+
+    def test_adhoc_tasks_are_untouched(self, sponsorship_request, executor):
+        content_type = ContentType.objects.get_for_model(SponsorshipRequest)
+        adhoc = Task.objects.create(
+            content_type=content_type, object_id=sponsorship_request.pk, title="Approved", is_default=False
+        )
+        Task.sync_default(
+            sponsorship_request,
+            done_titles=["Approved"],
+            managed_titles=["Approved", "Event completed"],
+            actor=executor,
+        )
+        adhoc.refresh_from_db()
+        assert adhoc.is_done is False
+
+    def test_other_objects_managed_titles_are_untouched(self, sponsorship_request, executor):
+        other = SponsorshipRequest.objects.create(
+            name="Other Event", start_date=datetime.date(2026, 6, 1), country="KE"
+        )
+        Task.sync_default(
+            sponsorship_request,
+            done_titles=["Approved"],
+            managed_titles=["Approved", "Event completed"],
+            actor=executor,
+        )
+        content_type = ContentType.objects.get_for_model(SponsorshipRequest)
+        other_approved = Task.objects.get(content_type=content_type, object_id=other.pk, title="Approved")
+        assert other_approved.is_done is False
+
+
 class TestWidgetEmbedding:
     """{% checklist_widget %} embedded in event_sponsorships' own neapolitan detail page."""
 
