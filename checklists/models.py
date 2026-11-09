@@ -65,6 +65,41 @@ class Task(models.Model):
             self.done_at = None
         super().save(*args, **kwargs)
 
+    @classmethod
+    def sync_default(cls, instance, *, done_titles, managed_titles, actor):
+        """Bring `instance`'s default checklist in line with `done_titles`.
+
+        A caller that owns a record with a registered checklist (see
+        registry.py) uses this to keep the checklist's done state in step
+        with the record's own state machine — without this app knowing
+        anything about that state machine. Only rows seeded from the
+        registered template (`is_default=True`) whose title is in
+        `managed_titles` are touched: titles in `done_titles` are marked done
+        (with `done_by=actor`), the rest of `managed_titles` are cleared.
+        Ad-hoc tasks, titles outside `managed_titles`, and other records'
+        tasks are all left alone.
+
+        Saves each matched row through `save()` so the is_done<->done_at
+        invariant holds (a bulk_update of `is_done` alone would not).
+        """
+        done_titles = set(done_titles)
+        managed_titles = set(managed_titles)
+        content_type = ContentType.objects.get_for_model(instance)
+        tasks = cls.objects.filter(
+            content_type=content_type,
+            object_id=instance.pk,
+            is_default=True,
+            title__in=managed_titles,
+        )
+        for task in tasks:
+            should_be_done = task.title in done_titles
+            done_by_id = actor.pk if should_be_done else None
+            if task.is_done == should_be_done and task.done_by_id == done_by_id:
+                continue
+            task.is_done = should_be_done
+            task.done_by = actor if should_be_done else None
+            task.save()
+
     @property
     def is_overdue(self):
         return bool(self.due_date and not self.is_done and self.due_date < timezone.localdate())

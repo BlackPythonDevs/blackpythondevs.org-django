@@ -69,7 +69,12 @@ class SponsorshipRequestStatusView(PermissionRequiredMixin, View):
         sponsorship = get_object_or_404(SponsorshipRequest, pk=kwargs["pk"])
         form = SponsorshipStatusForm(request.POST, instance=sponsorship)
         if form.is_valid():
-            form.save()
+            sponsorship = form.save()
+            # Keep the request's default checklist in step with its status,
+            # attributed to the acting Executor. Status -> tasks only: a
+            # checklist toggle never writes status (see
+            # SponsorshipRequest.sync_checklist).
+            sponsorship.sync_checklist(actor=request.user)
         else:
             for field_errors in form.errors.values():
                 for error in field_errors:

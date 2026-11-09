@@ -272,3 +272,115 @@ class TestStatusChange:
         body = client.get(f"/event-sponsorships/{sponsorship.pk}/").content.decode()
         assert self.status_url(sponsorship) in body
         assert 'name="status"' in body
+
+    def task(self, sponsorship, title):
+        from django.contrib.contenttypes.models import ContentType
+
+        from checklists.models import Task
+
+        content_type = ContentType.objects.get_for_model(SponsorshipRequest)
+        return Task.objects.get(content_type=content_type, object_id=sponsorship.pk, title=title)
+
+    def test_approving_ticks_the_default_approved_task(self, client, executor, sponsorship):
+        client.force_login(executor)
+        client.post(self.status_url(sponsorship), {"status": SponsorshipRequest.APPROVED})
+        task = self.task(sponsorship, "Approved")
+        assert task.is_done is True
+        assert task.done_by == executor
+        assert task.done_at is not None
+
+    def test_completing_ticks_the_default_event_completed_task(self, client, executor, sponsorship):
+        client.force_login(executor)
+        client.post(self.status_url(sponsorship), {"status": SponsorshipRequest.COMPLETED})
+        task = self.task(sponsorship, "Event completed")
+        assert task.is_done is True
+        assert task.done_by == executor
+        assert task.done_at is not None
+
+    def test_completing_clears_the_approved_task(self, client, executor, sponsorship):
+        """Leaving `approved` clears the task `approved` owned, even though
+        the move is to `completed` rather than back to `requested`."""
+        client.force_login(executor)
+        client.post(self.status_url(sponsorship), {"status": SponsorshipRequest.APPROVED})
+        client.post(self.status_url(sponsorship), {"status": SponsorshipRequest.COMPLETED})
+        approved = self.task(sponsorship, "Approved")
+        assert approved.is_done is False
+        assert approved.done_by is None
+        assert approved.done_at is None
+
+    def test_reverting_to_requested_clears_the_tasks(self, client, executor, sponsorship):
+        client.force_login(executor)
+        client.post(self.status_url(sponsorship), {"status": SponsorshipRequest.COMPLETED})
+        client.post(self.status_url(sponsorship), {"status": SponsorshipRequest.REQUESTED})
+        for title in ("Approved", "Event completed"):
+            task = self.task(sponsorship, title)
+            assert task.is_done is False
+            assert task.done_by is None
+            assert task.done_at is None
+
+    def test_status_change_leaves_other_default_tasks_alone(self, client, executor, sponsorship):
+        """Only the mapped titles are managed; a manually ticked step keeps
+        its state through a status change."""
+        from django.contrib.contenttypes.models import ContentType
+
+        from checklists.models import Task
+
+        content_type = ContentType.objects.get_for_model(SponsorshipRequest)
+        Task.objects.filter(content_type=content_type, object_id=sponsorship.pk, title="Prospectus reviewed").update(
+            is_done=True
+        )
+        client.force_login(executor)
+        client.post(self.status_url(sponsorship), {"status": SponsorshipRequest.APPROVED})
+        assert self.task(sponsorship, "Prospectus reviewed").is_done is True
+        assert self.task(sponsorship, "Approved").is_done is True
+        assert self.task(sponsorship, "Funds transferred").is_done is False
+
+    def test_adhoc_tasks_are_left_alone(self, client, executor, sponsorship):
+        from django.contrib.contenttypes.models import ContentType
+
+        from checklists.models import Task
+
+        content_type = ContentType.objects.get_for_model(SponsorshipRequest)
+        adhoc = Task.objects.create(
+            content_type=content_type, object_id=sponsorship.pk, title="Approved", is_default=False
+        )
+        client.force_login(executor)
+        client.post(self.status_url(sponsorship), {"status": SponsorshipRequest.APPROVED})
+        adhoc.refresh_from_db()
+        assert adhoc.is_done is False
+
+    def test_other_requests_default_tasks_are_left_alone(self, client, executor, sponsorship):
+        other = SponsorshipRequest.objects.create(
+            name="Other Event", start_date=datetime.date(2026, 6, 1), country="KE"
+        )
+        client.force_login(executor)
+        client.post(self.status_url(sponsorship), {"status": SponsorshipRequest.APPROVED})
+        assert self.task(other, "Approved").is_done is False
+
+    def test_member_cannot_publish_by_ticking_the_event_completed_task(self, client, member, sponsorship):
+        """Ticking a checklist task must never write status; only the
+        permission-gated status endpoint can publish."""
+        task = self.task(sponsorship, "Event completed")
+        client.force_login(member)
+        response = client.post(
+            f"/checklists/event_sponsorships/sponsorshiprequest/{sponsorship.pk}/",
+            {"action": "toggle", "task_id": task.pk},
+        )
+        assert response.status_code == 403
+        sponsorship.refresh_from_db()
+        assert sponsorship.status == SponsorshipRequest.REQUESTED
+        assert not sponsorship.is_published
+        task.refresh_from_db()
+        assert task.is_done is False
+
+    def test_executor_ticking_a_task_does_not_publish(self, client, executor, sponsorship):
+        """Even with checklist rights, ticking alone never flips status."""
+        task = self.task(sponsorship, "Event completed")
+        client.force_login(executor)
+        client.post(
+            f"/checklists/event_sponsorships/sponsorshiprequest/{sponsorship.pk}/",
+            {"action": "toggle", "task_id": task.pk},
+        )
+        sponsorship.refresh_from_db()
+        assert sponsorship.status == SponsorshipRequest.REQUESTED
+        assert not sponsorship.is_published
