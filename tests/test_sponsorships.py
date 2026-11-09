@@ -201,3 +201,74 @@ class TestPublicIntake:
         """`request/` must not be read as a CRUD pk lookup."""
         response = client.get("/event-sponsorships/request/")
         assert response.resolver_match.url_name == "event-sponsorship-request"
+
+
+class TestStatusChange:
+    """The console's status control: POST-only, validated, and audited.
+
+    STATUS_CHOICES is the gate on `is_published`, so the endpoint must reject
+    anything outside it rather than assigning the raw input to the field.
+    """
+
+    def status_url(self, sponsorship):
+        return f"/event-sponsorships/{sponsorship.pk}/status/"
+
+    def test_executor_can_change_status(self, client, executor, sponsorship):
+        client.force_login(executor)
+        response = client.post(self.status_url(sponsorship), {"status": SponsorshipRequest.COMPLETED})
+        assert response.status_code == 302
+        sponsorship.refresh_from_db()
+        assert sponsorship.status == SponsorshipRequest.COMPLETED
+
+    def test_get_is_rejected(self, client, executor, sponsorship):
+        """A state change must never be reachable by GET."""
+        client.force_login(executor)
+        assert client.get(self.status_url(sponsorship)).status_code == 405
+        sponsorship.refresh_from_db()
+        assert sponsorship.status == SponsorshipRequest.REQUESTED
+
+    @pytest.mark.parametrize("login_as,expected_status", [("member", 403), (None, 302)], ids=["member", "anonymous"])
+    def test_non_executor_is_denied(self, request, client, sponsorship, login_as, expected_status):
+        if login_as:
+            client.force_login(request.getfixturevalue(login_as))
+        response = client.post(self.status_url(sponsorship), {"status": SponsorshipRequest.APPROVED})
+        assert response.status_code == expected_status
+        sponsorship.refresh_from_db()
+        assert sponsorship.status == SponsorshipRequest.REQUESTED
+
+    def test_invalid_status_is_rejected(self, client, executor, sponsorship):
+        client.force_login(executor)
+        response = client.post(self.status_url(sponsorship), {"status": "published"})
+        assert response.status_code == 302
+        sponsorship.refresh_from_db()
+        assert sponsorship.status == SponsorshipRequest.REQUESTED
+        assert not sponsorship.is_published
+
+    def test_status_change_is_audited(self, client, executor, sponsorship):
+        from auditlog.models import LogEntry
+        from django.contrib.contenttypes.models import ContentType
+
+        client.force_login(executor)
+        LogEntry.objects.all().delete()
+        client.post(self.status_url(sponsorship), {"status": SponsorshipRequest.APPROVED})
+
+        content_type = ContentType.objects.get_for_model(SponsorshipRequest)
+        entry = LogEntry.objects.get(content_type=content_type, object_id=sponsorship.pk)
+        assert entry.actor == executor
+        assert entry.changes["status"] == [SponsorshipRequest.REQUESTED, SponsorshipRequest.APPROVED]
+
+    def test_status_change_leaves_notes_and_amount_untouched(self, client, executor, sponsorship):
+        sponsorship.notes = "Keep this private."
+        sponsorship.amount_requested = Decimal("1234.00")
+        sponsorship.save()
+        client.force_login(executor)
+        client.post(self.status_url(sponsorship), {"status": SponsorshipRequest.APPROVED})
+        sponsorship.refresh_from_db()
+        assert sponsorship.notes == "Keep this private."
+        assert sponsorship.amount_requested == Decimal("1234.00")
+
+    def test_detail_page_offers_the_control_to_executors(self, client, executor, sponsorship):
+        client.force_login(executor)
+        body = client.get(f"/event-sponsorships/{sponsorship.pk}/").content.decode()
+        assert self.status_url(sponsorship) in body
+        assert 'name="status"' in body

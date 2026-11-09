@@ -10,7 +10,12 @@ from urllib.parse import quote
 from django.http import HttpResponsePermanentRedirect
 from django.urls import path
 
-from .views import PublicSponsorshipRequestView, SponsorshipRequestDoneView, SponsorshipRequestView
+from .views import (
+    PublicSponsorshipRequestView,
+    SponsorshipRequestDoneView,
+    SponsorshipRequestStatusView,
+    SponsorshipRequestView,
+)
 
 PREFIX = "/event-sponsorships/"
 
@@ -43,5 +48,12 @@ urlpatterns = [
         name="event-sponsorship-request-done",
     ),
     # Front-end CRUD for the Executor group (neapolitan).
+    # Status change is POST-only and lives on its own named route, so no GET
+    # can ever flip `status` (and with it public visibility).
+    path(
+        "event-sponsorships/<int:pk>/status/",
+        SponsorshipRequestStatusView.as_view(),
+        name="event-sponsorships-status",
+    ),
     *SponsorshipRequestView.get_urls(),
 ]

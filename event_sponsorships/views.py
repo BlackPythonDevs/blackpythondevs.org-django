@@ -6,12 +6,15 @@ group already holds (see migration 0003); superusers pass automatically, and
 anyone else is bounced to the login screen.
 """
 
+from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
+from django.views import View
 from django.views.generic import CreateView, TemplateView
 from neapolitan.views import CRUDView
 
-from .forms import PublicSponsorshipRequestForm, SponsorshipRequestForm
+from .forms import PublicSponsorshipRequestForm, SponsorshipRequestForm, SponsorshipStatusForm
 from .models import SponsorshipRequest
 
 
@@ -34,6 +37,44 @@ class SponsorshipRequestView(PermissionRequiredMixin, CRUDView):
         "event_sponsorships.change_sponsorshiprequest",
         "event_sponsorships.delete_sponsorshiprequest",
     ]
+
+    def get_context_data(self, **kwargs):
+        """Add the status control to the detail page only.
+
+        The form is unbound: the write itself is a POST to a dedicated route
+        (see SponsorshipRequestStatusView), so a GET of the detail page can
+        never change state. `can_change` hides the control from anyone who
+        couldn't submit it anyway.
+        """
+        context = super().get_context_data(**kwargs)
+        if self.role.url_name_component == "detail":
+            context["status_form"] = SponsorshipStatusForm(instance=self.object)
+            context["can_change"] = self.request.user.has_perm("event_sponsorships.change_sponsorshiprequest")
+        return context
+
+
+class SponsorshipRequestStatusView(PermissionRequiredMixin, View):
+    """Move a sponsorship request through its lifecycle, from the console.
+
+    POST-only (a GET is a 405) and gated on the same Executor permission the
+    rest of the console uses. The submitted value is validated against
+    STATUS_CHOICES by `SponsorshipStatusForm`, then written through
+    `instance.save()` so django-auditlog records the actor and the field diff
+    — and so the derived fields stay in step.
+    """
+
+    permission_required = "event_sponsorships.change_sponsorshiprequest"
+
+    def post(self, request, *args, **kwargs):
+        sponsorship = get_object_or_404(SponsorshipRequest, pk=kwargs["pk"])
+        form = SponsorshipStatusForm(request.POST, instance=sponsorship)
+        if form.is_valid():
+            form.save()
+        else:
+            for field_errors in form.errors.values():
+                for error in field_errors:
+                    messages.error(request, error)
+        return redirect("event-sponsorships-detail", pk=sponsorship.pk)
 
 
 class PublicSponsorshipRequestView(CreateView):

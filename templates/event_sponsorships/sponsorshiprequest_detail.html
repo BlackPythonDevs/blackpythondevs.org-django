@@ -33,6 +33,16 @@
       {% endif %}
     </p>
 
+    {% if can_change %}
+      <form method="post" action="{% url 'event-sponsorships-status' object.pk %}" class="status-form">
+        {% csrf_token %}
+        <label for="{{ status_form.status.id_for_label }}">Status</label>
+        {{ status_form.status }}
+        <button type="submit" class="btn">Update status</button>
+      </form>
+      <p><small>Completed is the only status that appears on the public events page.</small></p>
+    {% endif %}
+
     <div class="card">
       <dl>
         <dt>Event website</dt>
