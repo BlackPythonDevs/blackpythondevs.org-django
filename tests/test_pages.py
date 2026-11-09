@@ -222,6 +222,39 @@ class TestCTABlock:
         assert 'class="btn' not in html
 
 
+class TestButtonSpacing:
+    """Issue #212: a button with a section below it must not sit flush against it.
+
+    A CTA StreamField block renders a bare ``<a class="btn">`` as the only child
+    of its ``.w-block-cta`` wrapper, so the wrapper must carry the same bottom
+    margin as the other page-body blocks.
+    """
+
+    def test_cta_renders_inside_its_block_wrapper(self, client, bootstrapped_site):
+        from wagtail.models import Page
+
+        from home.models import StandardPage
+
+        target = Page.objects.get(slug="about")
+        page = StandardPage.objects.get(slug="student-ambassador-program")
+        page.body = [("cta", {"button_text": "Join us", "style": "primary", "page": target})]
+        page.save_revision().publish()
+
+        html = client.get(page.url).content.decode()
+        assert '<div class="w-block-cta block-cta">' in html
+        assert '<a role="button" class="btn primary" href="/about/">Join us</a>' in html
+
+    def test_cta_block_wrapper_carries_section_spacing(self):
+        """The CTA wrapper must be in the shared body-block spacing rule, or the
+        next section starts flush against the button."""
+        from django.conf import settings
+
+        css = (settings.BASE_DIR / "static" / "css" / "bpd.css").read_text()
+        assert "section .w-block-cta," in css
+        rule = css.split("section .w-block-callout,", 1)[1].split("}", 1)[0]
+        assert "margin-bottom: 2.5rem" in rule
+
+
 class TestSponsorStrip:
     """Issue #170: sponsor logos must keep their aspect ratio, never stretch."""
 
