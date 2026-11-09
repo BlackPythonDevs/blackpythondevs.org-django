@@ -242,7 +242,10 @@ class TestTaskAssignment:
         client.force_login(executor)
         content = client.get(f"/checklists/corporate_sponsorships/sponsor/{sponsor.pk}/").content.decode()
         assert executor.username in content
-        assert f'value="{member.pk}"' not in content
+        # Scope to <option> tags: hidden task_id inputs also render value="<pk>",
+        # so a bare value="N" check collides whenever a task pk equals member.pk.
+        assert f'<option value="{member.pk}"' not in content
+        assert f'<option value="{executor.pk}"' in content
 
 
 class TestTaskComments:
