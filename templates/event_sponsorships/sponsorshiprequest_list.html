@@ -71,8 +71,8 @@
 
   {% if is_paginated %}
     <section>
-      {# Carrying the whole querystring can repeat `page`; Django reads the last
-         value, and ours is appended last, so the active filters survive paging. #}
+      {% comment %}Carrying the whole querystring can repeat `page`; Django reads the last
+         value, and ours is appended last, so the active filters survive paging.{% endcomment %}
       <div class="pagination">
         {% if page_obj.has_previous %}
           <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}">Previous</a>

@@ -79,6 +79,23 @@ class TestConsoleTemplates:
             names = [t.name for t in client.get(url).templates if t.name]
             assert template in names, f"{url} rendered {names}"
 
+    def test_list_does_not_leak_template_comment(self, client, executor):
+        """A multi-line `{# #}` comment only closes at the first newline, so its
+        second line leaked as visible text on the paginated list (issue #220).
+        Pagination must render before the block is reached, and no comment
+        fragment may appear in the body."""
+        for i in range(26):
+            SponsorshipRequest.objects.create(
+                name=f"Event {i}",
+                start_date=datetime.date(2026, 5, 1),
+                country="NG",
+            )
+        client.force_login(executor)
+        body = client.get("/event-sponsorships/").content.decode()
+        assert "Page 1 of 2" in body  # the pagination section rendered
+        assert "active filters survive paging" not in body
+        assert "Django reads the last" not in body
+
     def test_detail_shows_staff_only_fields(self, client, executor, sponsorship):
         sponsorship.notes = "Chased the organiser twice."
         sponsorship.save()
