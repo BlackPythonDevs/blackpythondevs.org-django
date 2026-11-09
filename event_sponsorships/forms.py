@@ -26,6 +26,21 @@ class SponsorshipRequestForm(forms.ModelForm):
         }
 
 
+class SponsorshipStatusForm(forms.ModelForm):
+    """The console's status-only write surface.
+
+    A ModelForm rather than a bare ChoiceField so the value is validated
+    against the model's `STATUS_CHOICES` and an arbitrary string cannot reach
+    the `is_published` gate. Nothing else is writable here — notes,
+    amount_requested, paid and the derived year/region stay out — and the view
+    saves through `model.save()` so django-auditlog records the actor and diff.
+    """
+
+    class Meta:
+        model = SponsorshipRequest
+        fields = ["status"]
+
+
 class PublicSponsorshipRequestForm(SponsorshipRequestForm):
     """The form event organisers fill in themselves.
 
