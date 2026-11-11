@@ -8,14 +8,23 @@ Two surfaces share the Job model:
   manage postings for the sponsor they represent. Every object lookup is
   scoped to `request.user.corporation_affiliate`, so a champion can never see
   or touch another sponsor's job (see the security note on #224).
+
+A third, narrow entry point (issue #231) lets a corporate-sponsorship manager
+add a single job for a sponsor straight from that sponsor's console page,
+without needing the champion role.
 """
 
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.http import Http404
 from django.shortcuts import render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_safe
+from django.views.generic import CreateView
 from neapolitan.views import CRUDView
+
+from core.models import CORPORATE_SPONSOR_PERMS
+from corporate_sponsorships.models import Sponsor
 
 from .forms import JobForm
 from .models import JOB_CHAMPION_PERMS, Job, can_champion_jobs
@@ -107,3 +116,46 @@ class JobChampionView(LoginRequiredMixin, PermissionRequiredMixin, ChampionScope
         if form.instance.is_published and form.instance.published_at is None:
             form.instance.published_at = timezone.now()
         return super().form_valid(form)
+
+
+class SponsorJobCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    """Create one job for a sponsor from the corporate-sponsor console (issue #231).
+
+    Community reps who manage sponsors can add a one-time posting for a
+    sponsor without becoming job champions. Access is gated on the same full
+    corporate-sponsor permission set as `SponsorView`, so reaching this view
+    is equivalent to being allowed to edit the sponsor it writes to.
+
+    The owning sponsor always comes from the `sponsor_pk` in the URL, never
+    from the POST: `JobForm` exposes no `sponsor` field, so a `sponsor` id
+    submitted in the body is ignored and a job can never be bound to a
+    company the requester did not explicitly open.
+    """
+
+    model = Job
+    form_class = JobForm
+    template_name = "jobs/sponsor_job_form.html"
+    permission_required = list(CORPORATE_SPONSOR_PERMS)
+
+    def dispatch(self, request, *args, **kwargs):
+        # Resolve the sponsor up front so both GET and POST 404 the same way
+        # for an unknown pk, and so the template can name it.
+        self.sponsor = Sponsor.objects.filter(pk=kwargs["sponsor_pk"]).first()
+        if self.sponsor is None:
+            raise Http404
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        """Pin the job to the URL's sponsor and stamp `published_at` once."""
+        form.instance.sponsor = self.sponsor
+        if form.instance.is_published and form.instance.published_at is None:
+            form.instance.published_at = timezone.now()
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["sponsor"] = self.sponsor
+        return context
+
+    def get_success_url(self):
+        return reverse("corporate-sponsors-detail", args=[self.sponsor.pk])
