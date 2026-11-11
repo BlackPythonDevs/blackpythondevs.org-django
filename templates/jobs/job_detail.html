@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% comment %}
+  Detail view for one of the champion's own jobs (#224). Only reached through
+  JobChampionView's sponsor-scoped queryset.
+{% endcomment %}
+
+{% block title %}{{ object.title }}{% endblock %}
+
+{% block content %}
+  <section>
+    <p><a href="{% url 'jobs/manage-list' %}">&larr; Your jobs</a></p>
+
+    <small>{{ object.get_status_display }} · {% if object.is_published %}Published{% else %}Not published{% endif %}</small>
+    <h1>{{ object.title }}</h1>
+
+    <p>
+      <a role="button" href="{% url 'jobs/manage-update' object.pk %}">Edit</a>
+      <a role="button" class="secondary" href="{% url 'jobs/manage-delete' object.pk %}">Delete</a>
+    </p>
+
+    <div class="card">
+      <dl>
+        <dt>Type</dt>
+        <dd>{{ object.get_employment_type_display }}</dd>
+
+        <dt>Location</dt>
+        <dd>{% if object.remote %}Remote{% else %}{{ object.location|default:"—" }}{% endif %}</dd>
+
+        <dt>Apply URL</dt>
+        <dd><a href="{{ object.apply_url }}" rel="noopener">{{ object.apply_url }}</a></dd>
+
+        <dt>Posted</dt>
+        <dd>{{ object.published_at|date:"d M Y"|default:"—" }}</dd>
+      </dl>
+    </div>
+
+    {% if object.description %}
+      <div>{{ object.description|linebreaks }}</div>
+    {% endif %}
+  </section>
+{% endblock %}

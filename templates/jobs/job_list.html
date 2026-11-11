@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% comment %}
+  Sponsor-champion jobs console (#224). Neapolitan resolves
+  "jobs/job_list.html" for JobChampionView's list role. The queryset is already
+  scoped to the champion's own sponsor in the view.
+{% endcomment %}
+
+{% block title %}Your jobs{% endblock %}
+
+{% block content %}
+  <section>
+    <h1>Your jobs</h1>
+    <p class="lead">
+      Postings for the company you represent. Only your company's jobs are shown here.
+    </p>
+
+    {% if filterset %}
+      <form method="get" class="card" style="margin-bottom: 2rem;">
+        {{ filterset.form.as_p }}
+        <button type="submit" class="btn">Filter</button>
+        <a role="button" class="secondary" href="{% url 'jobs/manage-list' %}">Clear</a>
+      </form>
+    {% endif %}
+
+    {% if create_view_url %}
+      <p><a role="button" class="btn" href="{{ create_view_url }}">Add a job</a></p>
+    {% endif %}
+
+    {% if object_list %}
+      <figure>
+        <table role="grid">
+          <thead>
+            <tr>
+              <th scope="col">Title</th>
+              <th scope="col">Type</th>
+              <th scope="col">Location</th>
+              <th scope="col">Status</th>
+              <th scope="col">Published</th>
+              <th scope="col"><span class="screen-reader-text">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for job in object_list %}
+              <tr>
+                <th scope="row"><a href="{% url 'jobs/manage-detail' job.pk %}">{{ job.title }}</a></th>
+                <td>{{ job.get_employment_type_display }}</td>
+                <td>{% if job.remote %}Remote{% else %}{{ job.location|default:"—" }}{% endif %}</td>
+                <td>{{ job.get_status_display }}</td>
+                <td>{{ job.is_published|yesno:"Yes,No" }}</td>
+                <td>
+                  <a href="{% url 'jobs/manage-update' job.pk %}">Edit</a>
+                  &middot;
+                  <a href="{% url 'jobs/manage-delete' job.pk %}">Delete</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </figure>
+
+      {% if page_obj.has_other_pages %}
+        <nav aria-label="Pagination">
+          <ul>
+            {% if page_obj.has_previous %}
+              <li><a href="?page={{ page_obj.previous_page_number }}">&larr; Previous</a></li>
+            {% endif %}
+            <li>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</li>
+            {% if page_obj.has_next %}
+              <li><a href="?page={{ page_obj.next_page_number }}">Next &rarr;</a></li>
+            {% endif %}
+          </ul>
+        </nav>
+      {% endif %}
+    {% else %}
+      <p>No jobs yet. Add the first posting for your company.</p>
+    {% endif %}
+  </section>
+{% endblock %}

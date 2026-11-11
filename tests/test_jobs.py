@@ -4,6 +4,8 @@ import pytest
 from django.contrib import admin
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
+from django.urls import reverse
+from django.utils import timezone
 
 from corporate_sponsorships.models import Sponsor
 from jobs.admin import JobAdmin
@@ -118,3 +120,80 @@ def test_admin_search_fields_exclude_internal_only_fields():
     # search_fields must not invite searching internal ingest bookkeeping.
     assert "source" not in JobAdmin.search_fields
     assert "external_id" not in JobAdmin.search_fields
+
+
+def _publish(job):
+    job.status = Job.STATUS_PUBLISHED
+    job.is_published = True
+    job.published_at = timezone.now()
+    job.save()
+    return job
+
+
+class TestPublicJobPages:
+    """Issue #224: /jobs/ and /jobs/<pk>/ render published jobs only."""
+
+    def test_list_shows_published_job(self, client, sponsor):
+        job = _publish(
+            Job.objects.create(
+                title="Backend Engineer",
+                apply_url="https://jobs.example.com/a",
+                sponsor=sponsor,
+            )
+        )
+        response = client.get(reverse("jobs-public-list"))
+        assert response.status_code == 200
+        assert "Backend Engineer" in response.content.decode()
+        assert job.title in response.content.decode()
+
+    @pytest.mark.parametrize("status", [Job.STATUS_DRAFT, Job.STATUS_EXPIRED])
+    def test_non_published_status_never_lists_or_details(self, client, sponsor, status):
+        job = Job.objects.create(
+            title="Hidden Role",
+            apply_url="https://jobs.example.com/a",
+            sponsor=sponsor,
+            status=status,
+            is_published=True,
+        )
+        assert "Hidden Role" not in client.get(reverse("jobs-public-list")).content.decode()
+        assert client.get(reverse("jobs-public-detail", args=[job.pk])).status_code == 404
+
+    def test_unpublished_flag_hides_published_status_job(self, client, sponsor):
+        job = Job.objects.create(
+            title="Flagged Off Role",
+            apply_url="https://jobs.example.com/a",
+            sponsor=sponsor,
+            status=Job.STATUS_PUBLISHED,
+            is_published=False,
+        )
+        assert "Flagged Off Role" not in client.get(reverse("jobs-public-list")).content.decode()
+        assert client.get(reverse("jobs-public-detail", args=[job.pk])).status_code == 404
+
+    def test_detail_404_for_unknown_id(self, client, db):
+        assert client.get(reverse("jobs-public-detail", args=[999999])).status_code == 404
+
+    def test_published_detail_shows_only_public_fields(self, client, sponsor):
+        sponsor.contract_amount = 987654
+        sponsor.primary_contact_name = "Secret Contact"
+        sponsor.primary_contact_email = "secret@example.com"
+        sponsor.save()
+        job = _publish(
+            Job.objects.create(
+                title="Backend Engineer",
+                description="Build things.",
+                apply_url="https://jobs.example.com/a",
+                location="Accra",
+                sponsor=sponsor,
+                source="feed",
+                external_id="42",
+            )
+        )
+        content = client.get(reverse("jobs-public-detail", args=[job.pk])).content.decode()
+        assert "Backend Engineer" in content
+        for hidden in ("987654", "Secret Contact", "secret@example.com", "feed", "42"):
+            assert hidden not in content, hidden
+
+    def test_public_routes_reject_post(self, client, sponsor):
+        job = _publish(Job.objects.create(title="Role", apply_url="https://jobs.example.com/a", sponsor=sponsor))
+        assert client.post(reverse("jobs-public-list")).status_code == 405
+        assert client.post(reverse("jobs-public-detail", args=[job.pk])).status_code == 405

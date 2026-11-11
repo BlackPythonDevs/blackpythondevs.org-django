@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% comment %}
+  Public detail page for one published job (#224). `job` is a dict built from
+  Job.PUBLIC_FIELDS by jobs.views._public_job — it holds no Sponsor internals.
+  Do not reach for `job.sponsor` or any non-allowlisted field here.
+{% endcomment %}
+
+{% block title %}{{ job.title }}{% endblock %}
+
+{% block content %}
+  <section>
+    <p><a href="{% url 'jobs-public-list' %}">&larr; All jobs</a></p>
+
+    <h1>{{ job.title }}</h1>
+    <p class="lead">
+      {% if job.sponsor_name %}
+        {% if job.sponsor_url %}<a href="{{ job.sponsor_url }}" rel="noopener">{{ job.sponsor_name }}</a>{% else %}{{ job.sponsor_name }}{% endif %}
+      {% endif %}
+    </p>
+
+    <div class="card">
+      <dl>
+        <dt>Type</dt>
+        <dd>{{ job.employment_type_display }}</dd>
+
+        <dt>Location</dt>
+        <dd>{% if job.remote %}Remote{% else %}{{ job.location|default:"—" }}{% endif %}</dd>
+
+        {% if job.published_at %}
+          <dt>Posted</dt>
+          <dd>{{ job.published_at|date:"d M Y" }}</dd>
+        {% endif %}
+      </dl>
+    </div>
+
+    {% if job.description %}
+      <div>{{ job.description|linebreaks }}</div>
+    {% endif %}
+
+    <p><a role="button" class="btn" href="{{ job.apply_url }}" rel="noopener">Apply for this role</a></p>
+  </section>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% comment %}
+  Public list of published jobs (#224). Only the allowlisted public values are
+  placed in context by the view, so nothing here can reach internal fields or
+  Sponsor internals. Do not add a `job.sponsor...` lookup.
+{% endcomment %}
+
+{% block title %}Jobs{% endblock %}
+
+{% block content %}
+  <section>
+    <header>
+      <h1>Jobs from our corporate sponsors</h1>
+      <p class="lead">
+        Open roles at the companies that support Black Python Devs.
+      </p>
+    </header>
+
+    {% if jobs %}
+      <div class="grid">
+        {% for job in jobs %}
+          <article class="card">
+            <h2><a href="{% url 'jobs-public-detail' job.id %}">{{ job.title }}</a></h2>
+            <p>
+              {% if job.sponsor_name %}
+                {% if job.sponsor_url %}<a href="{{ job.sponsor_url }}" rel="noopener">{{ job.sponsor_name }}</a>{% else %}{{ job.sponsor_name }}{% endif %}
+              {% endif %}
+            </p>
+            <small>
+              {{ job.employment_type_display }}
+              <span aria-hidden="true">&middot;</span>
+              {% if job.remote %}Remote{% else %}{{ job.location|default:"Location not stated" }}{% endif %}
+            </small>
+            <p><a role="button" class="btn" href="{{ job.apply_url }}" rel="noopener">Apply</a></p>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p>No open roles right now. Check back soon.</p>
+    {% endif %}
+  </section>
+{% endblock %}

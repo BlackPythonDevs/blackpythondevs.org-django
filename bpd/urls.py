@@ -53,6 +53,8 @@ urlpatterns = [
     path("", include("corporate_sponsorships.urls")),
     # Generic follow-through checklists/notes portal (Executor group).
     path("checklists/", include("checklists.urls")),
+    # Public job pages and the sponsor-champion jobs console (neapolitan).
+    path("", include("jobs.urls")),
     path("sitemap.xml", sitemap),
     path("robots.txt", core_views.robots_txt, name="robots"),
     path("community-map/", core_views.community_map, name="community-map"),

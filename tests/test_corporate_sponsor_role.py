@@ -81,9 +81,15 @@ class TestGroups:
             ("corporate_sponsorships", "delete_sponsor"),
         }
 
-    def test_corporate_sponsor_group_has_no_perms(self):
+    def test_corporate_sponsor_group_has_only_the_job_perms(self):
+        """The group carries Job CRUD (issue #224) and no Sponsor perms."""
         group = Group.objects.get(name=CORPORATE_SPONSOR_GROUP_NAME)
-        assert not group.permissions.exists()
+        assert set(group.permissions.values_list("content_type__app_label", "codename")) == {
+            ("jobs", "view_job"),
+            ("jobs", "add_job"),
+            ("jobs", "change_job"),
+            ("jobs", "delete_job"),
+        }
 
     def test_not_the_notifications_sponsors_group(self):
         assert CORPORATE_SPONSOR_GROUP_NAME != "Sponsors"
