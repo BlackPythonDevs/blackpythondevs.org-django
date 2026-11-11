@@ -112,6 +112,10 @@ AUDITLOG_EXCLUDE_TRACKING_MODELS = (
     # report text would be readable by every superuser — see
     # coc_reports.models.CocReport. (Same reasoning as elections.Ballot.)
     "coc_reports.CocReport",
+    # Project-issued job API keys: an audit entry would serialize the stored
+    # `key_hash` into a payload every superuser can read. Key creation/revoke
+    # is visible on the JobAPIKey admin itself.
+    "jobs.JobAPIKey",
 )
 
 ROOT_URLCONF = "bpd.urls"
