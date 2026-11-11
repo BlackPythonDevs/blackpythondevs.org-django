@@ -46,6 +46,9 @@ WRITABLE_FIELDS = (
 TITLE_MAX = 200
 LOCATION_MAX = 200
 DESCRIPTION_MAX = 20000
+# Matches the model's URLField max_length. The scheme validator alone does not
+# catch an over-long URL, and an uncaught ValidationError would be a 500.
+APPLY_URL_MAX = 200
 
 # Field name -> public JSON name. `sponsor` is the sponsor's name, never its id
 # or any internal column.
@@ -192,6 +195,8 @@ def _clean_fields(data, *, partial):
         apply_url = data["apply_url"]
         if not isinstance(apply_url, str) or not apply_url.strip():
             return None, _error(400, "apply_url must be a non-empty string.", "apply_url")
+        if len(apply_url) > APPLY_URL_MAX:
+            return None, _error(400, f"apply_url must be at most {APPLY_URL_MAX} characters.", "apply_url")
         validator = Job._meta.get_field("apply_url").validators[0]
         try:
             validator(apply_url)
@@ -202,6 +207,24 @@ def _clean_fields(data, *, partial):
         return None, _error(400, "apply_url is required.", "apply_url")
 
     return cleaned, None
+
+
+def _model_errors(job):
+    """Run model validation and return a 400 response, or None if it passes.
+
+    `_clean_fields` covers the values we expect, but the model remains the last
+    word (e.g. its max_lengths). A `ValidationError` from `full_clean` must
+    become a 400, never a 500.
+    """
+    try:
+        job.full_clean(exclude=["sponsor"], validate_unique=False)
+    except ValidationError as exc:
+        messages = getattr(exc, "message_dict", None)
+        if messages:
+            field, errors = next(iter(messages.items()))
+            return _error(400, errors[0], field)
+        return _error(400, "Invalid job data.")
+    return None
 
 
 def _serialize(job):
@@ -240,7 +263,8 @@ def job_api(request, pk=None):
         if error is not None:
             return error
         job = Job(sponsor=key.sponsor, **cleaned)
-        job.full_clean(exclude=["sponsor"], validate_unique=False)
+        if (error := _model_errors(job)) is not None:
+            return error
         job.save()
         key.touch()
         return JsonResponse(_serialize(job), status=201)
@@ -255,7 +279,8 @@ def job_api(request, pk=None):
         return error
     for field, value in cleaned.items():
         setattr(job, field, value)
-    job.full_clean(exclude=["sponsor"], validate_unique=False)
+    if (error := _model_errors(job)) is not None:
+        return error
     job.save()
     key.touch()
     return JsonResponse(_serialize(job))

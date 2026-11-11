@@ -7,6 +7,7 @@ be mass-assigned from the body, and ingested HTML is escaped when rendered.
 """
 
 import json
+import re
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -239,6 +240,28 @@ class TestCreate:
         assert response.status_code == 400
         assert Job.objects.count() == 0
 
+    def test_apply_url_over_model_max_length_is_400_not_500(self, client, key):
+        """A scheme-valid URL longer than the URLField max_length must 400."""
+        _, presented = key
+        long_url = "https://example.com/" + "a" * 250
+        assert len(long_url) > 200
+        response = _post(client, presented, {"title": "Role", "apply_url": long_url})
+        assert response.status_code == 400
+        assert Job.objects.count() == 0
+
+    def test_update_apply_url_over_max_length_is_400_not_500(self, client, key):
+        _, presented = key
+        created = _post(client, presented, {"title": "Role", "apply_url": "https://a.example.com"})
+        job_id = created.json()["id"]
+        long_url = "https://example.com/" + "a" * 250
+        response = client.put(
+            _update_url(job_id),
+            data=json.dumps({"apply_url": long_url}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {presented}",
+        )
+        assert response.status_code == 400
+
     def test_invalid_employment_type_rejected(self, client, key):
         _, presented = key
         response = _post(
@@ -347,10 +370,17 @@ class TestUpdate:
         assert job.status == Job.STATUS_DRAFT
 
 
-class TestChampionScope:
-    """An out-of-scope champion cannot use the API key surface (#225)."""
+class TestSessionCannotSubstituteForKey:
+    """The API is key-only: a signed-in browser session is not authentication.
 
-    def test_out_of_scope_champion_is_not_authorised(self, client, other_sponsor, key):
+    The issue's "out-of-scope champion 403" is a property of the champion web
+    console, which is key-less and lives at /jobs/manage/ (covered by
+    tests/test_job_champions.py). This endpoint accepts only a project API key,
+    so a champion session — in scope or not — is simply not a credential here
+    and every write is 401.
+    """
+
+    def test_champion_session_without_key_is_401(self, client, other_sponsor):
         user = get_user_model().objects.create_user(
             username="champ",
             email="champ@example.com",
@@ -359,23 +389,38 @@ class TestChampionScope:
             onboarding_completed_at=timezone.now(),
         )
         user.groups.add(Group.objects.get(name=CORPORATE_SPONSOR_GROUP_NAME))
+        user.user_permissions.add(*Permission.objects.filter(codename__in=JOB_CHAMPION_PERMS))
         client.force_login(user)
-        _, presented = key
-        # A logged-in session must not substitute for the API key.
+        assert can_champion_jobs(user) is True
+
         response = client.post(
             CREATE_URL,
             data=json.dumps({"title": "Role", "apply_url": "https://a.example.com"}),
             content_type="application/json",
         )
         assert response.status_code == 401
-        # And a champion session cannot reach another sponsor's job via PUT.
-        foreign = Job.objects.create(title="Acme Role", apply_url="https://acme.example.com/a", sponsor=key[0].sponsor)
+        assert Job.objects.count() == 0
+
+    def test_champion_session_cannot_update_via_api(self, client, other_sponsor):
+        user = get_user_model().objects.create_user(
+            username="champ-put",
+            email="champ-put@example.com",
+            password="pw",
+            corporation_affiliate=other_sponsor,
+            onboarding_completed_at=timezone.now(),
+        )
+        user.groups.add(Group.objects.get(name=CORPORATE_SPONSOR_GROUP_NAME))
+        user.user_permissions.add(*Permission.objects.filter(codename__in=JOB_CHAMPION_PERMS))
+        client.force_login(user)
+        own = Job.objects.create(title="Own Role", apply_url="https://other.example.com/a", sponsor=other_sponsor)
         response = client.put(
-            _update_url(foreign.pk),
+            _update_url(own.pk),
             data=json.dumps({"title": "Hijack"}),
             content_type="application/json",
         )
         assert response.status_code == 401
+        own.refresh_from_db()
+        assert own.title == "Own Role"
 
     def test_can_champion_jobs_still_true_for_valid_champion(self, other_sponsor):
         user = get_user_model().objects.create_user(
@@ -388,6 +433,35 @@ class TestChampionScope:
         user.groups.add(Group.objects.get(name=CORPORATE_SPONSOR_GROUP_NAME))
         user.user_permissions.add(*Permission.objects.filter(codename__in=JOB_CHAMPION_PERMS))
         assert can_champion_jobs(user) is True
+
+
+class TestKeySponsorScope:
+    """A valid key can only ever touch its own sponsor's jobs."""
+
+    def test_key_cannot_update_another_sponsors_job(self, client, key, other_sponsor):
+        _, presented = key
+        foreign = Job.objects.create(
+            title="Foreign Role", apply_url="https://rival.example.com/a", sponsor=other_sponsor
+        )
+        response = client.put(
+            _update_url(foreign.pk),
+            data=json.dumps({"title": "Hijacked"}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {presented}",
+        )
+        assert response.status_code == 404
+        foreign.refresh_from_db()
+        assert foreign.title == "Foreign Role"
+
+    def test_body_sponsor_cannot_widen_scope_on_create(self, client, key, other_sponsor):
+        _, presented = key
+        response = _post(
+            client,
+            presented,
+            {"title": "Role", "apply_url": "https://a.example.com", "sponsor": other_sponsor.pk},
+        )
+        assert response.status_code == 400
+        assert Job.objects.count() == 0
 
 
 class TestHtmlEscaping:
@@ -471,19 +545,55 @@ class TestKeyStorage:
         assert obj.key_hash not in str(obj)
         assert "My label" in str(obj)
 
-    def test_admin_issues_a_hashed_key_and_revokes_it(self, client, sponsor):
-        """The admin is the only issuing path; revoking disables the key."""
+    def test_admin_issue_then_authenticate_then_revoke(self, client, sponsor):
+        """A key minted in the admin is shown once and works until revoked.
+
+        The add view redirects, so the plaintext must be surfaced in the
+        response to that same POST (follow=True); a key whose secret the admin
+        cannot read would be unusable.
+        """
         admin = get_user_model().objects.create_superuser(username="root", email="root@example.com", password="pw")
         client.force_login(admin)
         url = reverse("admin:jobs_jobapikey_add")
         assert client.get(url).status_code == 200
-        response = client.post(url, {"label": "feed", "sponsor": sponsor.pk, "active": "on"})
-        assert response.status_code == 302
+        response = client.post(url, {"label": "feed", "sponsor": sponsor.pk, "active": "on"}, follow=True)
+        assert response.status_code == 200
+        content = response.content.decode()
+        match = re.search(r"API key created[^<]*<code>([^<]+)</code>", content)
+        assert match, "the issued secret must appear once in the admin response"
+        presented = match.group(1)
+        assert re.fullmatch(r"[^.]+\.\S+", presented)
+
         obj = JobAPIKey.objects.get()
-        assert obj.key_id
         assert obj.key_hash
-        # Revoking through the admin action disables the key.
-        obj.revoke()
+        # The stored hash is not the plaintext, and the plaintext is not stored.
+        assert presented not in obj.key_hash
+        assert obj.verify(presented.split(".", 1)[1]) is True
+
+        # The freshly issued key authenticates against the API.
+        api = _post(client, presented, {"title": "Role", "apply_url": "https://a.example.com"})
+        assert api.status_code == 201
+        assert Job.objects.count() == 1
+
+        # Revoke through the real admin action, then the same key fails.
+        revoke_url = reverse("admin:jobs_jobapikey_changelist")
+        response = client.post(
+            revoke_url,
+            {"action": "revoke_keys", "_selected_action": [obj.pk]},
+            follow=True,
+        )
+        assert response.status_code == 200
         obj.refresh_from_db()
         assert obj.is_active() is False
-        assert client.get(reverse("admin:jobs_jobapikey_change", args=[obj.pk])).status_code == 200
+        assert obj.revoked_at is not None
+
+        denied = _post(client, presented, {"title": "Second", "apply_url": "https://a.example.com/b"})
+        assert denied.status_code == 401
+        assert Job.objects.count() == 1
+
+    def test_admin_change_page_never_renders_the_hash(self, client, sponsor, issuer):
+        obj, _ = JobAPIKey.issue(sponsor, label="x", created_by=issuer)
+        admin = get_user_model().objects.create_superuser(username="root2", email="root2@example.com", password="pw")
+        client.force_login(admin)
+        content = client.get(reverse("admin:jobs_jobapikey_change", args=[obj.pk])).content.decode()
+        assert obj.key_hash not in content

@@ -5,7 +5,7 @@ admin an administrator uses to seed jobs by hand and to issue/revoke the
 project API keys external posting feeds authenticate with.
 """
 
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth.hashers import make_password
 from django.utils.html import format_html
 
@@ -43,7 +43,7 @@ class JobAPIKeyAdmin(admin.ModelAdmin):
     list_display = ("label", "key_id", "sponsor", "active", "expires_at", "last_used", "created_at")
     list_filter = ("active", "sponsor")
     search_fields = ("label", "key_id", "sponsor__name")
-    readonly_fields = ("key_id", "last_used", "created_at", "revoked_at", "one_time_secret")
+    readonly_fields = ("key_id", "last_used", "created_at", "revoked_at")
     fields = (
         "label",
         "sponsor",
@@ -51,7 +51,6 @@ class JobAPIKeyAdmin(admin.ModelAdmin):
         "active",
         "expires_at",
         "key_id",
-        "one_time_secret",
         "last_used",
         "created_at",
         "revoked_at",
@@ -59,15 +58,10 @@ class JobAPIKeyAdmin(admin.ModelAdmin):
     actions = ("revoke_keys",)
 
     def get_readonly_fields(self, request, obj=None):
-        """Hide the one-time secret and key id on the add form.
-
-        A new key has no id or secret until it is saved, so showing empty
-        placeholders there would only confuse; they appear on the change page
-        right after creation.
-        """
+        """Hide the minted fields on the add form; they appear once saved."""
         fields = list(super().get_readonly_fields(request, obj))
         if obj is None:
-            for name in ("key_id", "one_time_secret", "last_used", "created_at", "revoked_at"):
+            for name in ("key_id", "last_used", "created_at", "revoked_at"):
                 fields.remove(name)
         return tuple(fields)
 
@@ -80,8 +74,9 @@ class JobAPIKeyAdmin(admin.ModelAdmin):
         """Mint the id+secret on first save.
 
         `key_hash` is never part of the form, so the only way a key comes into
-        existence is through this method; the plaintext is stashed on the
-        instance purely for `one_time_secret` to reveal once.
+        existence is through this method. The plaintext is stashed on the
+        instance only long enough for `response_add` to show it once; it is
+        never written to the database, a URL, a log, or an audit entry.
         """
         if not change and not obj.pk:
             from .models import API_KEY_SEPARATOR, generate_api_key
@@ -95,14 +90,29 @@ class JobAPIKeyAdmin(admin.ModelAdmin):
                 obj.created_by = request.user
         super().save_model(request, obj, form, change)
 
-    @admin.display(description="API key (shown once, copy it now)")
-    def one_time_secret(self, obj):
+    def response_add(self, request, obj, post_url_continue=None):
+        """Show the freshly minted key in the same request that creates it.
+
+        The add view redirects after saving, which reloads the object from the
+        database and loses the plaintext, so the one-time secret has to be
+        surfaced here via a message (not a URL parameter and not a log line).
+        """
         secret = getattr(obj, "_one_time_secret", None)
-        if not secret:
-            return "—"
-        return format_html("<code>{}</code>", secret)
+        if secret:
+            messages.success(
+                request,
+                format_html(
+                    "API key created. Copy it now — it is shown only once and cannot be recovered: <code>{}</code>",
+                    secret,
+                ),
+            )
+        return super().response_add(request, obj, post_url_continue)
 
     @admin.action(description="Revoke selected API keys")
     def revoke_keys(self, request, queryset):
+        revoked = 0
         for key in queryset:
-            key.revoke()
+            if key.is_active():
+                key.revoke()
+                revoked += 1
+        self.message_user(request, f"Revoked {revoked} API key(s).")
