@@ -220,6 +220,44 @@ CMS (Snippets → Social applications) with the client id and secret. For the
 auto-join, invite a bot with the *Manage Roles* permission whose role sits above
 the member role in the server hierarchy.
 
+### Clearing a "too many attempts" lockout
+
+Sign-in codes are rate-limited (see `ACCOUNT_RATE_LIMITS` in
+`bpd/settings/base.py`) to keep anyone from spamming a member's inbox. A member
+who requests codes too often sees a "too many attempts" (429) page instead of a
+fresh code.
+
+When a member reports this and confirms they really are the account holder, a
+maintainer clears their request-login-code counter. **Run this on production
+only**, from a machine with `fnox` set up; substitute the member's email address
+for the example one so it is hashed in place and never printed. allauth hashes
+the **lowercased** address, so the snippet lowercases it — pass the address as
+typed and the command normalises it:
+
+```bash
+mise run prod-manage -- shell -c "
+import hashlib
+from django.core.cache import cache
+h = hashlib.sha256('member@example.com'.lower().encode()).hexdigest()
+print(cache.delete_pattern(f'allauth:rl:*{h}*'))
+"
+```
+
+The pattern is scoped to that member's email digest, so only their counters are
+deleted — never widen it to `allauth:rl:*`, which would lift the abuse
+protection for everybody at once. The command prints the number of keys removed;
+the member can then request a new code immediately.
+
+Two things this does **not** clear, so try again after a few minutes if the
+member is still blocked and only reach for the cache when the lockout persists:
+
+- **Per-IP limits.** `request_login_code` is limited to `3/5m/ip` as well as
+  `1/1m/key`, so a member behind a shared address can be caught by the IP rule,
+  which this per-email pattern does not touch.
+- **The code-entry attempt counter.** Three wrong codes ends the login attempt
+  (`ACCOUNT_LOGIN_BY_CODE_MAX_ATTEMPTS`); that count lives in the member's
+  session, not the cache, and resets on its own when they start a fresh login.
+
 ## Permissions
 
 The `wagtailcore` migrations create the standard `Editors` and `Moderators`
