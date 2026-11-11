@@ -130,6 +130,12 @@ class TestConsoleAccess:
         assert response.status_code == 200
         assert "Own Job" in response.content.decode()
 
+    def test_create_form_renders(self, client, champion):
+        client.force_login(champion)
+        response = client.get(MANAGE_CREATE)
+        assert response.status_code == 200
+        assert "jobs/job_form.html" in [t.name for t in response.templates]
+
     def test_list_never_shows_another_sponsors_job(self, client, champion, own_job, other_job):
         client.force_login(champion)
         content = client.get(MANAGE_LIST).content.decode()
