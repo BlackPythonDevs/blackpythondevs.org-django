@@ -129,9 +129,9 @@ def test_rate_limit_lockout_runbook_clears_only_that_members_key(rf):
     """The README's "too many attempts" runbook must actually unblock one member.
 
     It clears allauth's per-key ``request_login_code`` counter with a pattern of
-    ``allauth:rl:*<sha256(email)>*``. This pins that pattern to allauth's real key
-    format and proves it is scoped to the single member: if either drifts, the
-    documented command quietly stops working.
+    ``allauth:rl:*<sha256(lowercased email)>*``. This pins that pattern to allauth's
+    real key format — including the lowercasing — and proves it is scoped to the
+    single member: if either drifts, the documented command quietly stops working.
     """
     # Build the cache key allauth uses for the per-email request-login-code throttle.
     request = rf.post("/accounts/login/code/")
@@ -139,14 +139,17 @@ def test_rate_limit_lockout_runbook_clears_only_that_members_key(rf):
     rate = Rate(1, 60, "key")
 
     def key_for(email):
-        return get_cache_key(request, action="request_login_code", rate=rate, key=email)
+        # allauth calls get_cache_key with the lowercased address (forms.py).
+        return get_cache_key(request, action="request_login_code", rate=rate, key=email.lower())
 
-    locked = key_for("locked@example.com")
+    # A mixed-case address on purpose: the digest must be of the lowered form.
+    email = "Locked.Member@Example.com"
+    locked = key_for(email)
     other = key_for("other@example.com")
     cache.set(locked, [1.0], 60)
     cache.set(other, [1.0], 60)
 
-    digest = hashlib.sha256(b"locked@example.com").hexdigest()
+    digest = hashlib.sha256(email.lower().encode()).hexdigest()
     removed = cache.delete_pattern(f"allauth:rl:*{digest}*")
 
     assert removed == 1

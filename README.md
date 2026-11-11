@@ -224,19 +224,21 @@ the member role in the server hierarchy.
 
 Sign-in codes are rate-limited (see `ACCOUNT_RATE_LIMITS` in
 `bpd/settings/base.py`) to keep anyone from spamming a member's inbox. A member
-who requests codes too often — or mistypes an emailed code three times — sees a
-"too many attempts" (429) page instead of a fresh code.
+who requests codes too often sees a "too many attempts" (429) page instead of a
+fresh code.
 
 When a member reports this and confirms they really are the account holder, a
 maintainer clears their request-login-code counter. **Run this on production
 only**, from a machine with `fnox` set up; substitute the member's email address
-for the example one so it is hashed in place and never printed:
+for the example one so it is hashed in place and never printed. allauth hashes
+the **lowercased** address, so the snippet lowercases it — pass the address as
+typed and the command normalises it:
 
 ```bash
 mise run prod-manage -- shell -c "
 import hashlib
 from django.core.cache import cache
-h = hashlib.sha256('member@example.com'.encode()).hexdigest()
+h = hashlib.sha256('member@example.com'.lower().encode()).hexdigest()
 print(cache.delete_pattern(f'allauth:rl:*{h}*'))
 "
 ```
