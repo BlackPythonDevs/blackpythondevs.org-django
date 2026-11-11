@@ -10,6 +10,7 @@ from wagtail.contrib.sitemaps.views import sitemap
 from wagtail.documents import urls as wagtaildocs_urls
 
 from communities.views import CommunityAdminConsole, LeaveCommunityView
+from community_partners.views import community_partners
 from core import views as core_views
 from users import views as user_views
 
@@ -58,6 +59,8 @@ urlpatterns = [
     path("sitemap.xml", sitemap),
     path("robots.txt", core_views.robots_txt, name="robots"),
     path("community-map/", core_views.community_map, name="community-map"),
+    # Public page listing the communities we support (issue #234).
+    path("community-partners/", community_partners, name="community-partners"),
 ]
 
 if settings.DEBUG:

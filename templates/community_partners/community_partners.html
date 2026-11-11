@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% comment %}
+  Public /community-partners/ page (#234). The view places only the
+  allowlisted public values in context (see CommunityPartner.PUBLIC_FIELDS),
+  so nothing here can reach internal notes or timestamps.
+{% endcomment %}
+
+{% block title %}Community partners{% endblock %}
+
+{% block content %}
+  <section>
+    <header>
+      <h1>Community partners</h1>
+      <p class="lead">
+        Communities we support on a semi-regular basis — helping them grow through
+        event sponsorship, sharing their posts, and inviting them to Black Python Devs events.
+      </p>
+    </header>
+
+    {% if partners %}
+      <div class="grid">
+        {% for partner in partners %}
+          <article class="card">
+            {% if partner.logo_static_path %}
+              <header>
+                <a href="{{ partner.website|default:'#' }}" rel="noopener">
+                  <img src="{% static partner.logo_static_path %}" alt="{{ partner.name }} logo" style="max-height: 80px; object-fit: contain" />
+                </a>
+              </header>
+            {% endif %}
+            <h2>
+              {% if partner.website %}<a href="{{ partner.website }}" rel="noopener">{{ partner.name }}</a>{% else %}{{ partner.name }}{% endif %}
+            </h2>
+            {% if partner.description %}<p>{{ partner.description }}</p>{% endif %}
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p>We're between partners right now. Check back soon.</p>
+    {% endif %}
+  </section>
+{% endblock %}
