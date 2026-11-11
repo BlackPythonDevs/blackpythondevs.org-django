@@ -1,24 +1,29 @@
 """Job postings from corporate sponsors.
 
 A `Job` belongs to exactly one `corporate_sponsorships.Sponsor`. Storage, the
-public read-only pages, and the sponsor-champion console live here; the
-key-authenticated feed API is a later part of #222.
+public read-only pages, the sponsor-champion console, and the key-authenticated
+write API live here; the outbound feed import is a later part of #222.
 
-Ingested fields (title, description, apply_url, ...) will eventually arrive
-from third-party job feeds, so they are treated as untrusted:
+Ingested fields (title, description, apply_url, ...) arrive from third-party
+job feeds, so they are treated as untrusted:
 
 * URLs go through Django's ``URLField`` (``URLValidator``), which rejects
   ``javascript:``/``data:`` and scheme-less protocol-relative values.
 * Titles/descriptions are stored as plain text — nothing here calls
   ``mark_safe``; the template layer's autoescaping is the only render path.
-* The public vs. internal field surface is fixed *now* by explicit field
-  tuples (``PUBLIC_FIELDS`` / ``INTERNAL_FIELDS``) rather than ``__all__``, so
-  later ingestion/view code has a single allowlist to share and cannot
-  accidentally expose internal bookkeeping.
+* The public vs. internal field surface is fixed by explicit field tuples
+  (``PUBLIC_FIELDS`` / ``INTERNAL_FIELDS``) rather than ``__all__``, so
+  ingestion/view code has a single allowlist to share and cannot accidentally
+  expose internal bookkeeping.
 """
 
+import secrets
+
+from django.conf import settings
+from django.contrib.auth.hashers import check_password, make_password
 from django.core.validators import URLValidator
 from django.db import models
+from django.utils import timezone
 
 from core.models import CORPORATE_SPONSOR_GROUP_NAME
 
@@ -173,3 +178,128 @@ class Job(models.Model):
         internal field along with the public ones.
         """
         return {field: getattr(self, field) for field in self.PUBLIC_FIELDS}
+
+
+# Separator between the public key id and the secret in a presented key. The
+# id is not a secret (it indexes the row); the secret is what `check_password`
+# verifies. `key_id` is generated with `secrets.token_urlsafe(12)` and is
+# unique, so lookup is a single indexed row rather than a scan-and-compare.
+KEY_ID_BYTES = 12
+KEY_SECRET_BYTES = 32
+API_KEY_SEPARATOR = "."
+
+
+def generate_api_key():
+    """Return ``(key_id, presented_key)`` for a freshly minted key.
+
+    ``presented_key`` is the only time the secret exists in plaintext; callers
+    must hand it to the caller and then forget it. Nothing here stores it.
+    """
+    key_id = secrets.token_urlsafe(KEY_ID_BYTES)
+    secret = secrets.token_urlsafe(KEY_SECRET_BYTES)
+    return key_id, f"{key_id}{API_KEY_SEPARATOR}{secret}"
+
+
+def parse_api_key(presented):
+    """Split a presented key into ``(key_id, secret)`` or return ``None``.
+
+    Tolerant of a missing separator: lookup by the whole string then fails to
+    match any row and the caller returns the same 401 as an unknown key, so
+    the shape of a bad key never leaks through the response.
+    """
+    if not isinstance(presented, str) or API_KEY_SEPARATOR not in presented:
+        return None
+    key_id, _, secret = presented.partition(API_KEY_SEPARATOR)
+    if not key_id or not secret:
+        return None
+    return key_id, secret
+
+
+class JobAPIKey(models.Model):
+    """A project-issued key letting a sponsor push jobs in from a feed.
+
+    Only a one-way hash of the secret is stored (``key_hash``); the plaintext
+    exists once, in ``JobAPIKey.issue()``'s return value, and is never written
+    to the database, logs, templates, URLs, audit entries, or error responses.
+
+    These are *our* keys, not the sponsor's Ashby/Greenhouse/Rippling
+    credentials — no third-party credential is ever accepted or stored.
+    """
+
+    key_id = models.CharField(max_length=64, unique=True, editable=False)
+    key_hash = models.CharField(max_length=128, editable=False)
+    label = models.CharField(max_length=120, blank=True)
+
+    sponsor = models.ForeignKey(
+        "corporate_sponsorships.Sponsor",
+        on_delete=models.CASCADE,
+        related_name="api_keys",
+        help_text="Every job this key writes is scoped to this sponsor.",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="jobs_api_keys",
+    )
+
+    active = models.BooleanField(default=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    last_used = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    revoked_at = models.DateTimeField(null=True, blank=True, editable=False)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "job API key"
+        verbose_name_plural = "job API keys"
+
+    def __str__(self):
+        # Never include the hash or the secret in string representations that
+        # end up in logs, admin templates, or audit entries.
+        return f"JobAPIKey {self.key_id} ({self.label or 'unlabelled'})"
+
+    @classmethod
+    def issue(cls, sponsor, *, label="", created_by=None, expires_at=None):
+        """Create a key and return ``(instance, presented_key)``.
+
+        The plaintext ``presented_key`` is the caller's to store (e.g. show
+        once in the admin) and is not retained anywhere on the model.
+        """
+        key_id, presented = generate_api_key()
+        _, secret = presented.split(API_KEY_SEPARATOR, 1)
+        obj = cls.objects.create(
+            key_id=key_id,
+            key_hash=make_password(secret),
+            label=label,
+            sponsor=sponsor,
+            created_by=created_by,
+            expires_at=expires_at,
+        )
+        return obj, presented
+
+    def is_active(self):
+        """Whether the key would authenticate right now."""
+        if not self.active or self.revoked_at is not None:
+            return False
+        if self.expires_at is not None and self.expires_at <= timezone.now():
+            return False
+        return True
+
+    def verify(self, secret):
+        """Constant-time check of a presented secret against the stored hash."""
+        if not secret:
+            return False
+        return check_password(secret, self.key_hash)
+
+    def revoke(self):
+        """Permanently disable the key. Kept for audit/reference, not deleted."""
+        self.active = False
+        self.revoked_at = timezone.now()
+        self.save(update_fields=["active", "revoked_at"])
+
+    def touch(self):
+        """Record successful use without bumping ``updated_at``-style fields."""
+        self.last_used = timezone.now()
+        self.save(update_fields=["last_used"])
