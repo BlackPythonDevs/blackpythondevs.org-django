@@ -3,10 +3,13 @@
 These regression-test the template lookups that used to 500 there.
 """
 
+import hashlib
 import re
 
 import pytest
+from allauth.core.internal.ratelimit import Rate, get_cache_key
 from django.core import mail
+from django.core.cache import cache
 
 # allauth renders codes in groups, e.g. "RHBJ-PCTB".
 CODE_RE = re.compile(r"\b([A-Z0-9]{4}-[A-Z0-9]{4})\b")
@@ -120,3 +123,33 @@ def test_full_signup_then_signin_by_code(client, site):
 
     client.post("/accounts/login/code/confirm/", {"code": login_code})
     assert client.session.get("_auth_user_id"), "Member should be signed in after code confirmation"
+
+
+def test_rate_limit_lockout_runbook_clears_only_that_members_key(rf):
+    """The README's "too many attempts" runbook must actually unblock one member.
+
+    It clears allauth's per-key ``request_login_code`` counter with a pattern of
+    ``allauth:rl:*<sha256(email)>*``. This pins that pattern to allauth's real key
+    format and proves it is scoped to the single member: if either drifts, the
+    documented command quietly stops working.
+    """
+    # Build the cache key allauth uses for the per-email request-login-code throttle.
+    request = rf.post("/accounts/login/code/")
+    request.META["REMOTE_ADDR"] = "203.0.113.9"
+    rate = Rate(1, 60, "key")
+
+    def key_for(email):
+        return get_cache_key(request, action="request_login_code", rate=rate, key=email)
+
+    locked = key_for("locked@example.com")
+    other = key_for("other@example.com")
+    cache.set(locked, [1.0], 60)
+    cache.set(other, [1.0], 60)
+
+    digest = hashlib.sha256(b"locked@example.com").hexdigest()
+    removed = cache.delete_pattern(f"allauth:rl:*{digest}*")
+
+    assert removed == 1
+    assert cache.get(locked) is None
+    # Scoped to one digest: an unrelated member keeps their counter.
+    assert cache.get(other) is not None
