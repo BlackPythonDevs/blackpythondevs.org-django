@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "service_award",
     "meetings",
     "coc_reports",
+    "jobs",
     "notifications",
     "communities",
     "community_messages",
