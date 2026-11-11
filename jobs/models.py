@@ -1,8 +1,8 @@
 """Job postings from corporate sponsors.
 
-A `Job` belongs to exactly one `corporate_sponsorships.Sponsor`. This part
-(issue #223) is storage + admin only: no write/ingest endpoint and no public
-page yet — those come later as part of #222.
+A `Job` belongs to exactly one `corporate_sponsorships.Sponsor`. Storage, the
+public read-only pages, and the sponsor-champion console live here; the
+key-authenticated feed API is a later part of #222.
 
 Ingested fields (title, description, apply_url, ...) will eventually arrive
 from third-party job feeds, so they are treated as untrusted:
@@ -20,9 +20,53 @@ from third-party job feeds, so they are treated as untrusted:
 from django.core.validators import URLValidator
 from django.db import models
 
+from core.models import CORPORATE_SPONSOR_GROUP_NAME
+
 # Only http(s). Django's URLValidator also allows ftp/ftps by default, which
 # is never a legitimate scheme for a job application link.
 _APPLY_URL_VALIDATOR = URLValidator(schemes=["http", "https"])
+
+# The full permission set a sponsor champion must hold to reach the jobs
+# console. Mirrors jobs.views.JobChampionView.permission_required.
+JOB_CHAMPION_PERMS = (
+    "jobs.view_job",
+    "jobs.add_job",
+    "jobs.change_job",
+    "jobs.delete_job",
+)
+
+
+def can_champion_jobs(user):
+    """Whether `user` may manage their sponsor's jobs (issue #224).
+
+    Needs all three: the "Corporate Sponsor" group, a corporation_affiliate,
+    and every Job permission the console demands. Deliberately stricter than
+    group membership alone so a stray grant or a bare group membership is not
+    enough. Superusers get no pass here — the console writes only *their own*
+    sponsor's jobs, and a superuser with no affiliation owns none; site admins
+    manage every sponsor from the Django admin instead.
+    """
+    if not user.is_authenticated:
+        return False
+    if user.corporation_affiliate_id is None:
+        return False
+    group = getattr(user, "groups", None)
+    if group is None or not group.filter(name=CORPORATE_SPONSOR_GROUP_NAME).exists():
+        return False
+    return user.has_perms(JOB_CHAMPION_PERMS)
+
+
+class JobQuerySet(models.QuerySet):
+    """Queryset helpers for the public jobs pages."""
+
+    def public(self):
+        """Jobs that may render on the public site.
+
+        Both flags must agree: `is_published` is the explicit publish toggle
+        and `status` must be `published` (so drafts and expired postings never
+        leak, even if the toggle was left on).
+        """
+        return self.filter(is_published=True, status=Job.STATUS_PUBLISHED)
 
 
 class Job(models.Model):
@@ -102,6 +146,9 @@ class Job(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # `objects` gains the `.public()` helper used by the public pages.
+    objects = JobQuerySet.as_manager()
 
     class Meta:
         ordering = ["-created_at"]
