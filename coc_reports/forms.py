@@ -19,20 +19,29 @@ from .models import CocReport
 class CocReportForm(forms.ModelForm):
     class Meta:
         model = CocReport
-        fields = ["description", "is_anonymous"]
+        fields = ["description", "reported_name", "response_email", "is_anonymous"]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 8, "cols": None}),
         }
         labels = {
+            "reported_name": "Reported person's name",
+            "response_email": "Response email",
             "is_anonymous": "File this report anonymously",
         }
         help_texts = {
+            "reported_name": "The name of the person this report is about, if you know it.",
+            "response_email": "Where the Code of Conduct team can reach you about this report.",
             "is_anonymous": (
                 "We still record who filed the report — only so we can tell you the "
                 "outcome — but your name stays out of the report and away from the "
                 "person it is about."
             ),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Optional at the model level (additive migration); required on intake.
+        self.fields["response_email"].required = True
 
 
 class CocReportStatusForm(forms.ModelForm):

@@ -77,6 +77,22 @@ class CocReport(models.Model):
         help_text="Whether the reporter asked to stay anonymous to the person reported on.",
     )
 
+    # Collected on the public form and stored only. Like `reporter`, neither
+    # value is rendered on any surface (admin, lists, detail, console,
+    # __str__), logged, or audited. blank=True keeps the migration additive;
+    # the public form makes response_email required.
+    reported_name = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        help_text="Name of the person the report is about, as free text. Not matched to any user.",
+    )
+    response_email = models.EmailField(
+        blank=True,
+        default="",
+        help_text="Where the CoC team can respond to the reporter.",
+    )
+
     class Meta:
         verbose_name = "CoC report"
         verbose_name_plural = "CoC reports"

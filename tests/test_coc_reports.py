@@ -21,6 +21,7 @@ import datetime
 
 import pytest
 from auditlog.models import LogEntry
+from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
@@ -76,7 +77,11 @@ def executor(db):
 def file_report(client, user=None, **form_kwargs):
     if user:
         client.force_login(user)
-    data = {"description": "Something inappropriate happened at the meetup.", **form_kwargs}
+    data = {
+        "description": "Something inappropriate happened at the meetup.",
+        "response_email": "reply@example.com",
+        **form_kwargs,
+    }
     return client.post(reverse("coc-report"), data)
 
 
@@ -124,6 +129,101 @@ class TestIntake:
         file_report(client, reporter)
         content_type = ContentType.objects.get_for_model(CocReport)
         assert not LogEntry.objects.filter(content_type=content_type).exists()
+
+
+class TestReportedNameAndResponseEmail:
+    NAME = "Zaphod Beeblebrox"
+    EMAIL = "reply-secret@example.org"
+
+    def test_both_fields_are_saved(self, client, reporter):
+        response = file_report(client, reporter, reported_name=self.NAME, response_email=self.EMAIL)
+        assert response.status_code == 302
+        report = CocReport.objects.get()
+        assert report.reported_name == self.NAME
+        assert report.response_email == self.EMAIL
+
+    def test_reported_name_is_optional(self, client):
+        assert file_report(client).status_code == 302
+        assert CocReport.objects.get().reported_name == ""
+
+    def test_response_email_is_required(self, client):
+        response = client.post(reverse("coc-report"), {"description": "text"})
+        assert response.status_code == 200
+        assert "response_email" in response.context["form"].errors
+        assert not CocReport.objects.exists()
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            "not-an-email",
+            "a@b",
+            "victim@example.com\r\nBcc: attacker@example.com",
+            "victim@example.com\nBcc: attacker@example.com",
+            "victim@example.com%0aBcc:attacker@example.com",
+        ],
+    )
+    def test_invalid_or_header_injecting_addresses_are_rejected(self, client, bad):
+        response = file_report(client, response_email=bad)
+        assert response.status_code == 200
+        assert "response_email" in response.context["form"].errors
+        assert not CocReport.objects.exists()
+
+    def test_reported_name_is_length_capped(self, client):
+        response = file_report(client, reported_name="x" * 201)
+        assert response.status_code == 200
+        assert "reported_name" in response.context["form"].errors
+        assert not CocReport.objects.exists()
+
+    def test_values_appear_on_no_viewer_surface(self, client, coc_viewer):
+        report = CocReport.objects.create(description="A report.", reported_name=self.NAME, response_email=self.EMAIL)
+        client.force_login(coc_viewer)
+        pages = [
+            reverse("coc-report-detail", args=[report.pk]),
+            reverse("checklists-detail", args=["coc_reports", "cocreport", report.pk]),
+            reverse("checklists-object-list", args=["coc_reports", "cocreport"]),
+            reverse("checklists-index"),
+        ]
+        for url in pages:
+            response = client.get(url)
+            assert response.status_code == 200, url
+            body = response.content.decode()
+            assert self.NAME not in body, url
+            assert self.EMAIL not in body, url
+        assert self.NAME not in str(report)
+        assert self.EMAIL not in str(report)
+
+    def test_values_appear_nowhere_in_the_admin(self, client):
+        superuser = get_user_model().objects.create_superuser("root", "root@example.com", "pw")
+        report = CocReport.objects.create(description="A report.", reported_name=self.NAME, response_email=self.EMAIL)
+        client.force_login(superuser)
+        for url in (
+            reverse("admin:coc_reports_cocreport_changelist"),
+            reverse("admin:coc_reports_cocreport_change", args=[report.pk]),
+        ):
+            response = client.get(url)
+            assert response.status_code == 200, url
+            body = response.content.decode()
+            assert self.NAME not in body
+            assert self.EMAIL not in body
+            assert "reported_name" not in body
+            assert "response_email" not in body
+
+    def test_model_stays_excluded_from_the_audit_log(self):
+        assert "coc_reports.CocReport" in settings.AUDITLOG_EXCLUDE_TRACKING_MODELS
+
+    def test_create_and_update_write_no_audit_entries(self, client, reporter):
+        LogEntry.objects.all().delete()
+        file_report(client, reporter, reported_name=self.NAME, response_email=self.EMAIL)
+        report = CocReport.objects.get()
+        report.reported_name = "Someone Else"
+        report.save()
+        content_type = ContentType.objects.get_for_model(CocReport)
+        assert not LogEntry.objects.filter(content_type=content_type).exists()
+        assert not LogEntry.objects.filter(changes__icontains=self.EMAIL).exists()
+
+    def test_filing_sends_no_email(self, client, mailoutbox):
+        file_report(client, reported_name=self.NAME, response_email=self.EMAIL)
+        assert not any(self.EMAIL in m.to or self.EMAIL in m.body for m in mailoutbox)
 
 
 class TestConfidentiality:
