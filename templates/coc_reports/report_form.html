@@ -47,6 +47,14 @@
       {{ form.description.label_tag }}
       {{ form.description }}
       {{ form.description.errors }}
+      {{ form.reported_name.label_tag }}
+      {{ form.reported_name }}
+      {{ form.reported_name.help_text }}
+      {{ form.reported_name.errors }}
+      {{ form.response_email.label_tag }}
+      {{ form.response_email }}
+      {{ form.response_email.help_text }}
+      {{ form.response_email.errors }}
       <p>{{ form.is_anonymous }} <label for="{{ form.is_anonymous.id_for_label }}">{{ form.is_anonymous.label }}</label></p>
       {{ form.is_anonymous.help_text }}
       {{ form.is_anonymous.errors }}
